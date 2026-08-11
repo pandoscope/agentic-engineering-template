@@ -386,7 +386,9 @@ def test_store_gate_workflows_are_identical_and_unticketed():
     assert "{%" not in root_copy and "reference_keywords" not in root_copy
 
 
-def test_the_gate_judges_the_live_body_not_the_event_payload(tmp_path, monkeypatch, capsys):
+def test_the_gate_judges_the_live_body_not_the_event_payload(
+    tmp_path, monkeypatch, capsys
+):
     """A re-run replays the payload the run was created with (#159).
 
     GitHub's re-run hands the job the ORIGINAL event, so a body fixed

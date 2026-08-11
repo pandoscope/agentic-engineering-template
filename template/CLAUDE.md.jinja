@@ -11,27 +11,22 @@ CLIs there — the environment actively sabotages them. The environment's
 tool declarations override any command examples elsewhere in this repo,
 including `AGENTS.md`.
 
-## Forge Budget Discipline
+## Forge Budget
 
-The forge API budget is per-account and shared by every session on
-that account. Spend it like it runs out mid-review, because it does:
+API budget per-account, shared by all sessions.
 
-1. **Push over poll.** Subscribe to PR activity for PRs under active
-   review instead of re-reading them for new comments or CI results;
-   unsubscribe at merge. The read that never happens cannot be
-   rate-limited.
-2. **Git over REST.** Anything a clone answers — file contents,
-   diffs, history, branch state — comes from git, which spends no API
-   budget. The API is only for what git cannot see: check runs,
-   comments, labels.
-3. **Frugal calls.** Request field subsets and minimal output, page
-   small, continue from cursors instead of restarting, fetch a log
-   once with an adequate tail. Treat already-fetched state as cached
-   until an event invalidates it.
-4. **Rate-limited anyway → degrade in order.** Decisions travel via
-   chat, persistence via git, forge writes queue behind a single
-   timer. Never spend the remaining budget probing whether the limit
-   lifted.
+- No PR subscriptions unless the principal asks.
+- Git before REST. Clone answers: file contents, diffs, history,
+  branch state. API only for: check runs, job logs, comments,
+  reviews, labels, PR/issue state.
+- Fetch only needed fields and items; need everything → few large
+  pages. Already-fetched state is cached until an event invalidates
+  it.
+
+## Learnings
+
+New non-obvious findings — tools, environment, failure modes — go in
+this file, tersely.
 
 ## Pull Requests
 

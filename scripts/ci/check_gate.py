@@ -214,9 +214,13 @@ def live_pr(payload, token):
     if not token:
         return payload
     try:
-        fresh = fetch(f"/repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{payload['number']}", token)
+        fresh = fetch(
+            f"/repos/{os.environ['GITHUB_REPOSITORY']}/pulls/{payload['number']}", token
+        )
     except OSError as err:
-        print(f"::notice::could not read the live pull request ({err}) — judging the event payload")
+        print(
+            f"::notice::could not read the live pull request ({err}) — judging the event payload"
+        )
         return payload
     return fresh
 

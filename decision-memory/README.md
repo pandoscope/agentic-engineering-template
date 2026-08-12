@@ -22,8 +22,10 @@ protecting the data's integrity.
 │   │                       # contract any writer must satisfy
 │   └── extraction-prompt.md  # copy-paste prompt: extract draft
 │                           # records from past conversations
-├── preferences.md          # active preference set — the ONLY file
-│                           # injected into agent context
+├── preferences.json        # active preference set — machine-owned
+│                           # source of truth
+├── preferences.txt         # its render — the ONLY file injected
+│                           # into agent context
 ├── store.config.json       # store-owned knobs: token budget, labels,
 │                           # replay window, small-n threshold
 ├── proposals/              # agent-proposed preference rules awaiting
@@ -51,25 +53,27 @@ protecting the data's integrity.
   append-only. Integrity is CI-enforced rather than permission-based:
   guards reject any PR that modifies, deletes, or renames existing
   records.
-- **Preferences:** `preferences.md` is the active preference set — the
-  only file injected into agent sessions, kept under a hard token
-  budget (`budget_tokens` in `store.config.json`).
-  Confirmation counters on each rule are the one sanctioned routine
-  edit; everything else goes through the lifecycle below.
+- **Preferences:** the active set is a pair — `preferences.json` is
+  the machine-owned source of truth, `preferences.txt` its render and
+  the only file injected into agent sessions, kept under a hard token
+  budget (`budget_tokens` in `store.config.json`). CI re-renders and
+  fails on any drift between the two. Confirmation counters are the
+  one sanctioned routine edit; everything else goes through the
+  lifecycle below.
 - **Proposals:** agents write candidate rules to `proposals/` (one
   rule per file); only a human `pref-promote` commit moves content
-  into `preferences.md`.
+  into the active set.
 - **Write flow:** one PR per session, one commit per record. Merging a
   PR accepts the records. Closing a PR without merging is itself
   signal: the next session records why (`closure_of`).
 - **Consumers** reference this repo only through the
   `DECISION_MEMORY_URL` environment variable (full git URL, never
-  committed anywhere public) and inject `preferences.md` only — never
+  committed anywhere public) and inject `preferences.txt` only — never
   `decisions/` wholesale.
 
 ## The preference-set lifecycle
 
-Every rule in `preferences.md` costs context on every grilled session,
+Every rule in the rendered set costs context on every grilled session,
 forever. Two manual skills manage that cost, in this order — there is
 nothing to compact until rules exist, and the compaction gate cannot
 measure a rule set no record was ever scored against.
@@ -77,7 +81,7 @@ measure a rule set no record was ever scored against.
 | | What it does | Driven by |
 | --- | --- | --- |
 | **Extract** (`/extract-preferences`) | Runs on the PR ingesting a session: per pattern, bumps a counter, flags drift, or proposes a rule. Acts on the records since the last `pref-extract:` commit, reasons from the whole corpus. Never writes to `decisions/`. | `.github/store/extraction.py` |
-| **Budget** (automatic) | Token-counts `preferences.md` on every push to `main` and keeps one pinned "compression due" issue in sync. Reports, never blocks. | `.github/store/budget.py` |
+| **Budget** (automatic) | Token-counts `preferences.txt` on every push to `main` and keeps one pinned "compression due" issue in sync. Reports, never blocks. | `.github/store/budget.py` |
 | **Compact** (`/compact-preferences`) | Merges overlapping rules, drops dead ones, tightens wording — then replays the last decisions under the old and new sets and gates on the preference-driven hit rate. | `.github/store/replay.py` |
 
 Before any of that, drafts pass the ingestion gate
@@ -97,7 +101,7 @@ extraction watermark — there is no watermark file — so a session that
 merged without a pass is picked up by the next pass rather than lost. A
 pass that found nothing commits anyway, empty.
 
-A PR rewriting existing lines in `preferences.md` needs the carve-out
+A PR rewriting existing rules in `preferences.json` needs the carve-out
 label and a passing replay report in its description; the PR gate
 (`.github/store/preferences_guard.py`) checks the report was produced
 against the exact file in the PR head. Below `min_gated_cases`

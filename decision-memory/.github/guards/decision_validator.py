@@ -25,6 +25,7 @@ stays here is the decision contract itself.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import sys
@@ -84,102 +85,151 @@ MAX_SLUG_LENGTH = validator_core.MAX_SLUG_LENGTH
 ID_RE = validator_core.ID_RE
 DATE_RE = validator_core.DATE_RE
 
-# Single source for the preferences metadata-suffix grammar (see
-# decision-memory/docs/conventions.md): one trailing bracket holding
-# comma-separated `key: value` pairs. The guard's counter-math check
-# and the writer's pref-confirm bumps both consume these.
-#
-# Parsed rather than pattern-matched so the key set is one tuple a
-# reader can check against the doc, not a shape encoded in a regex.
-METADATA_RE = re.compile(r"\[([^\]\[]*)\]\s*$")
+# Single source for the preference-set format (see
+# decision-memory/docs/conventions.md): `preferences.json` is the
+# machine-owned source of truth, `preferences.txt` its render and the
+# ONLY file injected into sessions. The two are a declared mirror —
+# the guard re-renders and fails on any drift, and the writer's
+# pref-confirm bumps edit the JSON then re-render. Both sides consume
+# exactly these definitions, so they cannot disagree about the format.
+
+PREFERENCES_SOURCE = "preferences.json"
+PREFERENCES_RENDERED = "preferences.txt"
+
+RENDERED_HEADER = "confirmed\tindependent\trule"
 
 COUNTER_KEY = "confirmed"
 INDEPENDENT_KEY = "independent"
 DATE_KEY = "last"
 
-# Exactly these, on every rule, in this order. A closed set is what
-# keeps the suffix from gaining keys nothing reads: adding one is a
-# deliberate change here, with its consumer, rather than something a
-# writer can introduce in passing.
-SUFFIX_KEYS = (COUNTER_KEY, INDEPENDENT_KEY, DATE_KEY)
+# Exactly these, on every rule. A closed set is what keeps a rule from
+# gaining keys nothing reads: adding one is a deliberate change here,
+# with its consumer, rather than something a writer can introduce in
+# passing.
+RULE_KEYS = ("section", "rule", COUNTER_KEY, INDEPENDENT_KEY, DATE_KEY)
+
+SECTION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 
 
-def parse_metadata(line: str) -> dict[str, str] | None:
-    """Parse a rule line's trailing metadata bracket.
+def parse_preferences(text: str) -> tuple[dict | None, list[str]]:
+    """Parse and validate preferences.json content.
 
-    Returns the key/value pairs, or None when the line carries no
-    bracket or the bracket is not this grammar (a bare `[note]`, a
-    markdown link). Values are returned as written; callers coerce.
+    Returns ``(data, errors)``. ``data`` is None only when the text is
+    not JSON at all; schema errors come back alongside the parsed data
+    so callers can decide how far to trust it.
     """
-    match = METADATA_RE.search(line)
-    if not match:
-        return None
-    pairs: dict[str, str] = {}
-    for chunk in match.group(1).split(","):
-        key, sep, value = chunk.partition(":")
-        if not sep:
-            return None
-        pairs[key.strip()] = value.strip()
-    return pairs or None
-
-
-def format_metadata(pairs: dict[str, str]) -> str:
-    """Render pairs back into a suffix, in SUFFIX_KEYS order."""
-    body = ", ".join(f"{k}: {pairs[k]}" for k in SUFFIX_KEYS if k in pairs)
-    return f"[{body}]"
-
-
-def strip_metadata(line: str) -> str:
-    """The rule text alone — what two rules are compared on."""
-    return METADATA_RE.sub("", line).rstrip()
-
-
-def counter_of(line: str) -> int | None:
-    """The `confirmed` value of a rule line, if it has a valid one."""
-    pairs = parse_metadata(line)
-    if not pairs or COUNTER_KEY not in pairs:
-        return None
     try:
-        return int(pairs[COUNTER_KEY])
-    except ValueError:
-        return None
+        data = json.loads(text)
+    except json.JSONDecodeError as exc:
+        return None, [f"not valid JSON: {exc}"]
+    return data, validate_preferences(data)
 
 
-def check_metadata_suffix(line: str) -> str | None:
-    """Return an error for a rule bullet whose suffix is malformed.
-
-    Applied to every `- ` bullet in preferences.md, so a rule that
-    silently lost its counters fails the guard instead of merging and
-    reading as a rule nobody has ever confirmed.
-    """
-    pairs = parse_metadata(line)
-    if pairs is None:
-        return f"rule has no metadata suffix: {line.strip()!r}"
-    if set(pairs) != set(SUFFIX_KEYS):
-        missing = [key for key in SUFFIX_KEYS if key not in pairs]
-        unknown = [key for key in pairs if key not in SUFFIX_KEYS]
-        return (
-            f"rule suffix must carry exactly {list(SUFFIX_KEYS)} "
-            f"(missing {missing}, unknown {unknown}): {line.strip()!r}"
+def _validate_rule(index: int, rule: object) -> list[str]:
+    """Schema errors for one entry of the ``rules`` list."""
+    where = f"rules[{index}]"
+    if not isinstance(rule, dict):
+        return [f"{where}: must be an object"]
+    if tuple(rule) != RULE_KEYS:
+        return [f"{where}: keys must be exactly {list(RULE_KEYS)}, got {list(rule)}"]
+    errors: list[str] = []
+    if not isinstance(rule["section"], str) or not SECTION_RE.match(rule["section"]):
+        errors.append(
+            f"{where}: section {rule['section']!r} is not lowercase kebab-case"
+        )
+    text = rule["rule"]
+    # One physical line in the render, single-spaced. A rule may hold a
+    # joined qualifier sentence under the one counter — "one line, one
+    # preference" counts preferences, not sentences — but never
+    # structure the render would have to escape.
+    if not isinstance(text, str) or not text or text != " ".join(text.split()):
+        errors.append(
+            f"{where}: rule text must be one non-empty single-spaced line: {text!r}"
         )
     for key in (COUNTER_KEY, INDEPENDENT_KEY):
-        if not pairs[key].isdigit():
-            return f"rule suffix {key}={pairs[key]!r} is not a count: {line.strip()!r}"
-    if not DATE_RE.fullmatch(pairs[DATE_KEY]):
-        return (
-            f"rule suffix {DATE_KEY}={pairs[DATE_KEY]!r} is not YYYY-MM-DD: "
-            f"{line.strip()!r}"
+        value = rule[key]
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            errors.append(f"{where}: {key}={value!r} is not a non-negative integer")
+    if not errors and rule[INDEPENDENT_KEY] > rule[COUNTER_KEY]:
+        errors.append(
+            f"{where}: {INDEPENDENT_KEY} > {COUNTER_KEY} "
+            f"({rule[INDEPENDENT_KEY]} > {rule[COUNTER_KEY]}): independent "
+            "confirmations are a subset of all of them"
         )
-    if int(pairs[INDEPENDENT_KEY]) > int(pairs[COUNTER_KEY]):
-        return (
-            f"rule suffix has {INDEPENDENT_KEY} > {COUNTER_KEY} "
-            f"({pairs[INDEPENDENT_KEY]} > {pairs[COUNTER_KEY]}): independent "
-            f"confirmations are a subset of all of them: {line.strip()!r}"
-        )
-    return None
+    if not isinstance(rule[DATE_KEY], str) or not DATE_RE.fullmatch(rule[DATE_KEY]):
+        errors.append(f"{where}: {DATE_KEY}={rule[DATE_KEY]!r} is not YYYY-MM-DD")
+    return errors
 
 
-# ~1-2k-token hard budget on preferences.md (ticket §5); estimated at
+def validate_preferences(data: object) -> list[str]:
+    """Schema errors for a parsed preferences.json, empty when valid."""
+    if not isinstance(data, dict):
+        return ["top level must be a JSON object"]
+    errors: list[str] = []
+    unknown = [key for key in data if key not in ("rules", "_comment")]
+    if unknown:
+        errors.append(
+            f"unknown top-level key(s) {unknown} — only 'rules' (and a '_comment' banner) are read"
+        )
+    rules = data.get("rules")
+    if not isinstance(rules, list):
+        return errors + ["'rules' must be a list"]
+    for index, rule in enumerate(rules):
+        errors.extend(_validate_rule(index, rule))
+    if errors:
+        return errors
+    seen_text: dict[str, int] = {}
+    for index, rule in enumerate(rules):
+        normalized = rule["rule"].lower()
+        if normalized in seen_text:
+            errors.append(
+                f"rules[{index}]: duplicates the text of "
+                f"rules[{seen_text[normalized]}] — counter bumps match by rule "
+                "text, so it must be unique"
+            )
+        seen_text[normalized] = index
+    seen_sections: dict[str, int] = {}
+    previous = None
+    for index, rule in enumerate(rules):
+        section = rule["section"]
+        if section != previous and section in seen_sections:
+            errors.append(
+                f"rules[{index}]: section {section!r} reappears after "
+                f"rules[{seen_sections[section]}] — rules of one section stay "
+                "contiguous"
+            )
+        seen_sections[section] = index
+        previous = section
+    return errors
+
+
+def render_preferences(data: dict) -> str:
+    """Render the injected surface from the source of truth.
+
+    TSV with one header line; a ``# <section>`` marker precedes each
+    group. Deterministic — equal data renders byte-equal, which is what
+    lets the guard check the mirror by re-rendering.
+    """
+    lines = [RENDERED_HEADER]
+    current = None
+    for rule in data.get("rules", []):
+        if rule["section"] != current:
+            current = rule["section"]
+            lines.append(f"# {current}")
+        lines.append(f"{rule[COUNTER_KEY]}\t{rule[INDEPENDENT_KEY]}\t{rule['rule']}")
+    return "\n".join(lines) + "\n"
+
+
+def serialize_preferences(data: dict) -> str:
+    """Canonical serialization of preferences.json.
+
+    One shape, so mechanical edits (counter bumps) produce one-field
+    diffs instead of reformatting the file.
+    """
+    return json.dumps(data, indent=2, ensure_ascii=False) + "\n"
+
+
+# ~1-2k-token hard budget on the rendered set (ticket §5); estimated at
 # the common ~4 chars/token heuristic — deliberately coarse, the budget
 # is a forcing function, not an accounting system.
 PREFERENCES_TOKEN_BUDGET = 2000
@@ -468,12 +518,12 @@ def validate_corpus(records: dict) -> list[str]:
 def check_preferences_budget(
     text: str, budget_tokens: int = PREFERENCES_TOKEN_BUDGET
 ) -> list[str]:
-    """Enforce the hard token budget on preferences.md."""
+    """Enforce the hard token budget on the rendered preference set."""
     tokens = estimate_tokens(text)
     if tokens > budget_tokens:
         return [
-            f"preferences.md: ~{tokens} tokens exceeds the {budget_tokens} "
-            "budget — promote requires demote (merge or demote another "
-            "rule to make room)"
+            f"{PREFERENCES_RENDERED}: ~{tokens} tokens exceeds the "
+            f"{budget_tokens} budget — promote requires demote (merge or "
+            "demote another rule to make room)"
         ]
     return []

@@ -23,8 +23,8 @@ Verbs:
            writes to predictions/ instead: an autonomous run's own
            choices under the active preference set, with no decider
            present — replay material, never preference input
-  check    validate both record corpora + dangling refs +
-           preferences.md token budget
+  check    validate both record corpora + dangling refs + the
+           preference-set pair (schema, mirror, token budget)
   submit   compute two-stream hit rates (refined and near-tie
            bucketed separately), auto-bump pref-confirm counters for
            clean preference-driven hits, push, open the PR (or emit
@@ -449,7 +449,7 @@ def cmd_open(args: argparse.Namespace) -> int:
             print("Unmerged-PR sweep: all closures covered.")
     print()
     print(
-        "Reminder: inject preferences.md (and ONLY preferences.md) into "
+        "Reminder: inject preferences.txt (and ONLY preferences.txt) into "
         "the session context now, if not already injected."
     )
     return 0
@@ -584,11 +584,31 @@ def cmd_check(args: argparse.Namespace) -> int:
                 records[record["id"]] = record
     errors.extend(validator.validate_corpus(records))
 
-    preferences = repo_dir / "preferences.md"
-    if preferences.exists():
-        errors.extend(
-            validator.check_preferences_budget(preferences.read_text(encoding="utf-8"))
+    source = repo_dir / validator.PREFERENCES_SOURCE
+    if (repo_dir / "preferences.md").exists() and not source.exists():
+        errors.append(
+            "preferences.md: pre-migration preference set — run "
+            "`python .github/store/render_preferences.py migrate`"
         )
+    if source.exists():
+        data, source_errors = validator.parse_preferences(
+            source.read_text(encoding="utf-8")
+        )
+        errors.extend(f"{validator.PREFERENCES_SOURCE}: {e}" for e in source_errors)
+        if not source_errors:
+            rendered_path = repo_dir / validator.PREFERENCES_RENDERED
+            rendered = (
+                rendered_path.read_text(encoding="utf-8")
+                if rendered_path.exists()
+                else ""
+            )
+            if validator.render_preferences(data) != rendered:
+                errors.append(
+                    f"{validator.PREFERENCES_RENDERED}: not the render of "
+                    f"{validator.PREFERENCES_SOURCE} — run "
+                    "`python .github/store/render_preferences.py render`"
+                )
+            errors.extend(validator.check_preferences_budget(rendered))
 
     for error in errors:
         print(f"CHECK FAIL: {error}", file=sys.stderr)
@@ -602,17 +622,18 @@ def _normalize(text: str) -> str:
 
 
 def bump_preference_counter(
-    preferences_text: str,
+    data: dict,
     rule: str,
     today: str,
     validator,
     *,
     independent: bool = False,
-) -> tuple[str, int] | None:
-    """Bump the confirmation counter of the bullet matching ``rule``.
+) -> int | None:
+    """Bump the confirmation counter of the rule matching ``rule``,
+    in the parsed `preferences.json` data, in place.
 
     ``validator`` is the data repo's vendored decision_validator — the
-    single source of the metadata-suffix grammar, shared with the CI
+    single source of the preference-set schema, shared with the CI
     guard, so writer and guard cannot disagree about the format.
 
     ``independent`` also raises the `independent` count. It is true only
@@ -622,43 +643,18 @@ def bump_preference_counter(
     apart because `confirmed` alone also rises when a rule predicts the
     slot it authored, which reads as evidence without being any.
 
-    Returns (new_text, new_count), or None when no bullet matches.
-    Handles wrapped bullets: an entry runs from its `- ` line to the
-    next bullet/heading/blank line; the counter sits on its last line.
+    Returns the new count, or None when no rule matches. Matching is by
+    normalized containment, so a cited fragment finds its rule.
     """
-    lines = preferences_text.splitlines(keepends=True)
-    entries: list[tuple[int, int]] = []
-    start = None
-    for i, line in enumerate(lines):
-        if line.startswith("- "):
-            if start is not None:
-                entries.append((start, i))
-            start = i
-        elif start is not None and (not line.strip() or line.startswith("#")):
-            entries.append((start, i))
-            start = None
-    if start is not None:
-        entries.append((start, len(lines)))
-
     wanted = _normalize(rule)
-    for begin, end in entries:
-        entry_text = _normalize("".join(lines[begin:end]))
-        if wanted not in entry_text:
+    for entry in data.get("rules", []):
+        if wanted not in _normalize(entry["rule"]):
             continue
-        for i in range(end - 1, begin - 1, -1):
-            pairs = validator.parse_metadata(lines[i])
-            if not pairs or validator.COUNTER_KEY not in pairs:
-                continue
-            count = int(pairs[validator.COUNTER_KEY]) + 1
-            pairs[validator.COUNTER_KEY] = str(count)
-            pairs[validator.DATE_KEY] = today
-            if independent:
-                prior = int(pairs.get(validator.INDEPENDENT_KEY, "0"))
-                pairs[validator.INDEPENDENT_KEY] = str(prior + 1)
-            suffix = validator.format_metadata(pairs)
-            trailing = "\n" if lines[i].endswith("\n") else ""
-            lines[i] = validator.strip_metadata(lines[i]) + " " + suffix + trailing
-            return "".join(lines), count
+        entry[validator.COUNTER_KEY] += 1
+        entry[validator.DATE_KEY] = today
+        if independent:
+            entry[validator.INDEPENDENT_KEY] += 1
+        return entry[validator.COUNTER_KEY]
     return None
 
 
@@ -784,7 +780,8 @@ def cmd_submit(args: argparse.Namespace) -> int:
 
     streams = session_hit_rates(records)
 
-    preferences_path = repo_dir / "preferences.md"
+    source_path = repo_dir / validator.PREFERENCES_SOURCE
+    rendered_path = repo_dir / validator.PREFERENCES_RENDERED
     for record in records:
         if record.get("prediction_stream") != "preference-driven":
             continue
@@ -798,25 +795,39 @@ def cmd_submit(args: argparse.Namespace) -> int:
         else:
             confirmations = [(rule, True) for rule in independent_rules(record)]
         for rule, independent in confirmations:
-            if not preferences_path.exists():
-                print(f"WARN: no preferences.md — cannot bump {rule!r}")
+            if not source_path.exists():
+                print(f"WARN: no {validator.PREFERENCES_SOURCE} — cannot bump {rule!r}")
                 continue
-            bumped = bump_preference_counter(
-                preferences_path.read_text(encoding="utf-8"),
-                rule,
-                today,
-                validator,
-                independent=independent,
+            data, source_errors = validator.parse_preferences(
+                source_path.read_text(encoding="utf-8")
             )
-            if bumped is None:
+            if source_errors:
+                raise fail(
+                    f"{validator.PREFERENCES_SOURCE} is invalid — fix it before "
+                    "submitting:\n" + "\n".join(source_errors)
+                )
+            count = bump_preference_counter(
+                data, rule, today, validator, independent=independent
+            )
+            if count is None:
                 print(
                     f"WARN: cited rule {rule!r} not found in "
-                    "preferences.md — no counter bumped (proposal?)"
+                    f"{validator.PREFERENCES_SOURCE} — no counter bumped "
+                    "(proposal?)"
                 )
                 continue
-            new_text, count = bumped
-            preferences_path.write_text(new_text, encoding="utf-8")
-            run_git(repo_dir, "add", "preferences.md")
+            source_path.write_text(
+                validator.serialize_preferences(data), encoding="utf-8"
+            )
+            rendered_path.write_text(
+                validator.render_preferences(data), encoding="utf-8"
+            )
+            run_git(
+                repo_dir,
+                "add",
+                validator.PREFERENCES_SOURCE,
+                validator.PREFERENCES_RENDERED,
+            )
             run_git(repo_dir, "commit", "-m", f"pref-confirm: {rule} (n={count})")
             print(f"pref-confirm: {rule} (n={count})")
 
@@ -887,7 +898,8 @@ def cmd_propose(args: argparse.Namespace) -> int:
         f"# Preference proposal: {slug}\n\n"
         f"- {rule} [confirmed: 0, last: {today}]\n\n"
         "Promotion is human-only: a `pref-promote` commit moves the rule "
-        "into preferences.md; merging this file is not promotion.\n",
+        "into the active set (preferences.json + its render); merging "
+        "this file is not promotion.\n",
         encoding="utf-8",
     )
     run_git(repo_dir, "add", str(path))

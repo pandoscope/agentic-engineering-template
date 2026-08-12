@@ -3,8 +3,8 @@
 Copier-vendored from the agentic-engineering-template decision-memory
 subtemplate — change it there, pull via `copier update`.
 
-Records are what happened; `preferences.md` is what the next session is
-told to expect. Extraction is the bridge, and without it the corpus
+Records are what happened; the active preference set is what the next
+session is told to expect. Extraction is the bridge, and without it the corpus
 grows while the rule set does not — every record lands
 `prediction_stream: cold` because no rule was there to drive it, and
 the replay gate has nothing to measure.

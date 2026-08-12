@@ -2,7 +2,7 @@ name: Guards
 
 # Copier-vendored from the agentic-engineering-template guard
 # subtemplate. Protects the decision-memory history: append-only
-# records, schema + consistency, preferences.md discipline. Stdlib
+# records, schema + consistency, preference-set discipline. Stdlib
 # Python only — no dependencies to install.
 
 on:

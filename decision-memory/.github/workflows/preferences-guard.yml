@@ -3,8 +3,8 @@ name: Preference guards
 # Copier-vendored from the agentic-engineering-template guard
 # subtemplate, like guards.yml next door.
 # Adds the compaction flow's PR rules on top of the record guard:
-# the carve-out label for rewriting existing preferences.md lines, the
-# replay-regression report a carve-out PR must carry, and the hard
+# the carve-out label for rewriting existing rules in preferences.json,
+# the replay-regression report a carve-out PR must carry, and the hard
 # budget stop. See .github/store/README.md.
 
 on:
@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           # Full history: the guard inspects every PR commit's
-          # preferences.md diff individually.
+          # preference-set change individually.
           fetch-depth: 0
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:

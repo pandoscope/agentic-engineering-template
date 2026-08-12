@@ -540,7 +540,7 @@ class CarveOutTests(unittest.TestCase):
         )
         self.assertTrue(required)
 
-    def test_an_unparseable_change_needs_the_label(self):
+    def test_an_invalid_change_needs_the_label(self):
         required, notes = guard.classify_pref_commits(
             [self.commit("chore: oops", old="{nope", new=source_text(make_rule()))]
         )

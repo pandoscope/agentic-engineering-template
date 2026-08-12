@@ -1,0 +1,4 @@
+{
+  "_comment": "Machine-owned source of truth for the active preference set — rendered to preferences.txt, the ONLY file injected into sessions. Tooling writes both files; never edit either by hand. Seeded once and owned by the store: rules enter via proposals/ and human pref-promote commits. See docs/conventions.md.",
+  "rules": []
+}

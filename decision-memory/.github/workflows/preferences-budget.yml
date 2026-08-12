@@ -1,8 +1,8 @@
 name: Preference budget
 
 # Copier-vendored from the agentic-engineering-template guard
-# subtemplate. Token-counts preferences.md on
-# every push to main and keeps a single pinned "compression due" issue
+# subtemplate. Token-counts the rendered preference set
+# (preferences.txt) on every push to main and keeps a single pinned "compression due" issue
 # in sync: opened/updated at or above the warn threshold, closed once
 # the file is back under it. The hard stop (>100% blocks PRs touching
 # the file) lives in preferences-guard.yml — this workflow only
@@ -12,7 +12,8 @@ on:
   push:
     branches: [main]
     paths:
-      - preferences.md
+      - preferences.json
+      - preferences.txt
       - store.config.json
       - .github/store/**
       - .github/workflows/preferences-budget.yml
@@ -45,7 +46,7 @@ jobs:
         run: |
           set -euo pipefail
           label="$(python -c "import json;print(json.load(open('store.config.json'))['budget_issue_label'])")"
-          title="preferences.md compression due"
+          title="preferences.txt compression due"
 
           gh label create "$label" \
             --description "Automated preference-set budget status" \
@@ -60,7 +61,7 @@ jobs:
                 "Back under the warn threshold (${PERCENT}% of budget) at ${SHA}. Closing."
               gh issue close "$number" --reason completed
             fi
-            echo "preferences.md at ${PERCENT}% of budget — nothing to do."
+            echo "preferences.txt at ${PERCENT}% of budget — nothing to do."
             exit 0
           fi
 

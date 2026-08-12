@@ -149,11 +149,12 @@ _answers_file: .copier-answers.agentic.yml
 # live there so AGENTS.md updates never conflict with hand-written content.
 _skip_if_exists:
   - "{% if agentic_subtemplate == 'template' %}docs/conventions.md{% endif %}"
-  # The store's preference set and its config knobs are seeded once and
-  # owned by the store; everything else in the decision-memory subtemplate is
-  # vendored (overwritten on copier update). Clobbering either would reset a
-  # budget a human tuned.
-  - "{% if agentic_subtemplate == 'decision-memory' %}preferences.md{% endif %}"
+  # The store's preference set (source + render) and its config knobs are
+  # seeded once and owned by the store; everything else in the decision-memory
+  # subtemplate is vendored (overwritten on copier update). Clobbering any of
+  # them would reset rules and budgets a human tuned.
+  - "{% if agentic_subtemplate == 'decision-memory' %}preferences.json{% endif %}"
+  - "{% if agentic_subtemplate == 'decision-memory' %}preferences.txt{% endif %}"
   - "{% if agentic_subtemplate == 'decision-memory' %}store.config.json{% endif %}"
   # The shortcode map is the store's data — the template seeds an empty
   # scaffold and never overwrites the org's own entries.

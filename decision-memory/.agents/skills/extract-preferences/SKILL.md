@@ -9,8 +9,9 @@ description: Turn decision records into preference rules — confirm, flag drift
 > subtemplate — do NOT edit it in the store repo;
 > change it in the template and pull via `copier update`.
 
-`decisions/` records what happened; `preferences.md` tells the next
-session what to expect. Extraction connects the two. Until it runs
+`decisions/` records what happened; the active preference set
+(`preferences.json`, rendered to the injected `preferences.txt`) tells
+the next session what to expect. Extraction connects the two. Until it runs
 every record lands `prediction_stream: cold`, because no rule was there
 to drive a prediction.
 
@@ -43,7 +44,7 @@ CI rejects the PR if any of these break.
   deletes or renames a record; there is no carve-out.
 - **Merging is not promotion.** Agents write candidates to
   `proposals/`; only a human `pref-promote` commit moves text into
-  `preferences.md`. This skill touches the active set only for
+  the active set. This skill touches the active set only for
   `pref-confirm` counter bumps.
 - **One outcome per pattern.** Confirm, flag drift, or propose — never
   two, never a silent overwrite of a rule the records contradict.
@@ -94,20 +95,23 @@ session agreeing is one data point — **cross-session repetition is the
 evidence**. A pattern appearing once here and twice in `history` is a
 three-record pattern.
 
-Compare each candidate against the current `preferences.md` and
+Compare each candidate against the current `preferences.json` and
 everything in `proposals/`: a rule proposed on an earlier branch and
 not yet promoted is not a new discovery.
 
 ### 3. Classify — exactly one outcome each
 
-**a) Matches an existing rule → confirm.** Bump counter and date, one
+**a) Matches an existing rule → confirm.** Bump counter and date in
+`preferences.json`, re-render (`python
+.github/store/render_preferences.py render`), commit both files — one
 commit per rule:
 
 ```text
 pref-confirm: rejects new infrastructure dependencies (n=5)
 ```
 
-CI validates the math: increment by exactly 1, rule text unchanged.
+CI validates the math: increment by exactly 1, rule text unchanged,
+render in sync.
 
 Do **not** bump on a record in `rule_driven_acceptances` — there the
 rule cited itself into the prediction slot and that slot was chosen, so

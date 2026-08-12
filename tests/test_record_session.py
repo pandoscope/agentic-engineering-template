@@ -53,7 +53,8 @@ def parked_store(tmp_path: Path) -> Path:
     git(store, "config", "user.email", "recorder@example.com")
     git(store, "config", "user.name", "Recorder Test")
 
-    (store / "preferences.md").write_text("# Active Preference Set\n")
+    (store / "preferences.json").write_text('{"rules": []}\n')
+    (store / "preferences.txt").write_text("confirmed\tindependent\trule\n")
     # The store's own .gitignore, so importing the recorder in-process
     # does not make the worktree look dirty.
     (store / ".gitignore").write_text(

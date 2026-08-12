@@ -194,37 +194,61 @@ everywhere — new optional fields need no migration.
   covered by a matching `closure_of` — the records themselves are the
   state.
 
-## Active preference set (`preferences.md`)
+## Active preference set (`preferences.json` + `preferences.txt`)
 
-- Hard token budget, CI-enforced. The number is `budget_tokens` in the
-  store-owned `store.config.json`; the vendored guard
-  reads that value, so the budget is checked in exactly one place
-  against exactly one authority. Promoting a rule at budget means
-  merging or demoting another ("promote requires demote").
-- Rules are conditional and falsifiable, one bullet each, carrying a
-  metadata suffix.
+Storage and priming are two concerns, so the set is a pair:
 
-### The metadata suffix
+- **`preferences.json` is the source of truth**, machine-owned. Every
+  write goes here, through tooling — `submit`'s counter bumps, a
+  human's promote/compact edits followed by a re-render. One object
+  per rule:
 
-One bracket at the end of a rule bullet, holding comma-separated
-`key: value` pairs:
+  ```json
+  {"rules": [
+    {"section": "process",
+     "rule": "Prefers machine checks over model checks wherever feasible.",
+     "confirmed": 3, "independent": 1, "last": "2026-08-11"}
+  ]}
+  ```
 
-```text
-- <rule text> [confirmed: <N>, independent: <N>, last: <YYYY-MM-DD>]
-```
+- **`preferences.txt` is its render and the ONLY file injected into
+  sessions.** TSV with one self-describing header line and `#` section
+  markers — counters stay in-session (grilling cites rules by
+  strength) at a few tokens per rule, `last` stays out entirely (it
+  matters at update time, never in-session). Columns are separated by
+  single tabs, shown as spaces here:
 
-Grammar, and it is deliberately this small:
+  ```text
+  confirmed  independent  rule
+  # process
+  3  1  Prefers machine checks over model checks wherever feasible.
+  ```
 
-- **Flat only.** No nesting, no lists, no objects. A value is a bare
-  scalar, so the whole suffix parses by splitting on `,` then `:`.
-- **Exactly these three keys**, written in this order. A rule carrying
-  fewer, or any key outside the set, fails the guard. A closed set is
-  what keeps the suffix from gaining keys nothing reads; adding one is
-  a deliberate change to the validator, alongside its consumer.
-- **The whole bracket is stripped** before a rule's text is compared to
-  anything, so bookkeeping never counts as rule vocabulary.
+- **The pair is a declared mirror with a machine check.** The guards
+  re-render the JSON and fail on any diff (per commit and at head), so
+  the copy cannot drift silently and no model maintains the sync by
+  hand. `python .github/store/render_preferences.py render` is the
+  update mechanism; `check` verifies; `migrate` converts a legacy
+  markdown set once.
+- Hard token budget on the RENDERED file, CI-enforced — the render is
+  the thing that actually costs. The number is `budget_tokens` in the
+  store-owned `store.config.json`; the vendored guard reads that
+  value, so the budget is checked in exactly one place against exactly
+  one authority. Promoting a rule at budget means merging or demoting
+  another ("promote requires demote").
+- Rules are conditional and falsifiable, one object each. The schema
+  is a closed set — `section`, `rule`, `confirmed`, `independent`,
+  `last`, nothing else — so a rule cannot gain keys nothing reads, and
+  a hand-added rule cannot enter without counters.
+- `rule` is one plain single-spaced line; the render never wraps. It
+  may hold a joined qualifier sentence under the one counter — "one
+  line, one preference" counts preferences, not sentences: a qualifier
+  the decider reads as part of the rule belongs to it, not to a second
+  entry.
+- Rule text is unique within the set (bumps match by text) and a
+  section's rules stay contiguous.
 
-Keys currently defined:
+Counter semantics:
 
 | Key | Meaning |
 | --- | --- |
@@ -232,31 +256,13 @@ Keys currently defined:
 | `independent` | Of those, how many were NOT the rule citing itself into the slot that was then chosen. Never greater than `confirmed` |
 | `last` | Date of the most recent confirmation |
 
-**Why not YAML or JSON.** Rule text is prose and contains colons
-(`Scopes work to the demonstrated problem: declines to build…`), dashes
-and parentheses, so a structured format would need every value quoted —
-one unquoted colon silently changes the parse. This file is also the
-only one injected into agent context, under a hard token budget, and
-structural characters spend budget that should hold rules. Markdown
-bullets are the cheapest encoding of "a list of conditional statements",
-which is what the file is.
-
-**Why not a sidecar.** A separate metadata file would have to key on
-rule *text*, and rule text changes whenever a rule is conditionalized —
-precisely when its counter matters most. It would also put one fact in
-two places.
-
-**When to revisit.** If the suffix ever needs nesting — a list, or a
-value with internal structure — markdown-with-suffix has stopped being
-the right shape and a structured format should be reconsidered. Flat
-pairs are the whole affordance.
-
 ### Counter updates
 
-- Counter-line updates are the ONE sanctioned edit in this repo,
-  executed mechanically: `submit` auto-generates `pref-confirm`
-  commits; CI validates the counter math (increment by exactly 1, rule
-  text unchanged, other keys untouched).
+- Counter-field updates are the ONE sanctioned edit in this repo,
+  executed mechanically: `submit` bumps the JSON, re-renders, and
+  auto-generates `pref-confirm` commits; CI validates the math
+  structurally (increment by exactly 1, rule text unchanged, other
+  fields untouched).
 - `submit` counts two kinds of confirmation, and keeps them apart. A
   `hit` credits the rules cited on the slot that won — the rule
   agreeing with the option it authored, which raises `confirmed`
@@ -267,13 +273,13 @@ pairs are the whole affordance.
 - `independent` may rise by at most 1 per bump and never falls. A
   mechanical bump that lowered it would be erasing evidence under a
   subject that reads as routine.
-- Editing a suffix for any reason OTHER than a mechanical bump —
-  correcting a count, backfilling a key — rewrites an existing line,
+- Editing counters for any reason OTHER than a mechanical bump —
+  correcting a count, backfilling a field — rewrites an existing rule,
   so it needs the carve-out label and a replay report like any other
   edit to the active set.
 - Promotion is separate and human-only: agents write candidate rules
   to `proposals/<YYYY-MM-DD>-<slug>.md` (one rule per file); only a
-  human `pref-promote` commit moves content into `preferences.md`.
+  human `pref-promote` commit moves content into the active set.
   Merging a proposal file is NOT promotion.
 
 ## Ingestion gate
@@ -338,8 +344,8 @@ against.
   decisions under the old and new sets and compares the
   preference-driven hit rate. A carve-out PR carries the gate report
   in its description and the carve-out label; CI verifies the report
-  is `pass` and was produced against the exact `preferences.md` in the
-  PR head.
+  is `pass` and was produced against the exact `preferences.txt` in
+  the PR head.
 - **Small-n honesty.** Below `min_gated_cases` preference-driven
   cases, the gate returns `insufficient-evidence` rather than `pass`,
   and CI accepts that only with the replay-waiver label. A store with
@@ -364,7 +370,7 @@ commit:
 - `pref-extract: <summary>` (an extraction pass — the watermark)
 - `chore: ...` (structure, CI, docs)
 
-Three of these may REMOVE lines from `preferences.md`:
+Three of these may REWRITE existing rules in the active set:
 `pref-confirm` (counter bumps, math CI-validated),
 `pref-promote` (a human adopting a rule, possibly demoting another to
 make room), and `pref-compact` (rewriting the set without adding
@@ -375,9 +381,9 @@ reader which one happened.
 The human gate on compaction is the merge plus the carve-out label,
 not the commit subject.
 
-`pref-drift` adds a file to `proposals/` and never touches
-`preferences.md`: a rule the records contradict is conditionalized or
-retired by a human, never silently overwritten.
+`pref-drift` adds a file to `proposals/` and never touches the active
+set: a rule the records contradict is conditionalized or retired by a
+human, never silently overwritten.
 
 `pref-extract` closes an extraction pass and is usually EMPTY
 (`--allow-empty`). Its position in history is the extraction
@@ -420,14 +426,16 @@ the writer tool imports the same validator from its session clone).
 Stdlib-only, no dependencies; fails soft on factory loss. Checks:
 
 - Append-only on `decisions/**` (no modify/delete/rename, no
-  exceptions); `preferences.md` line removals only from
+  exceptions); rewrites of existing `preferences.json` rules only from
   `pref-confirm`/`pref-promote`/`pref-compact` commits, counter math
-  validated.
+  validated structurally.
 - Schema + consistency on the ENTIRE corpus every run — guard updates
   can never retroactively invalidate or silently mis-accept records
   without it showing.
 - Dangling-reference check on `related`/`supersedes`/`drill_down_of`.
-- Token budget on `preferences.md`, against `budget_tokens`.
+- The preferences.json schema, the preferences.txt mirror (re-rendered
+  and compared), and the token budget on the render, against
+  `budget_tokens`.
 - Commit lint (the types above).
 - A PR adding records contains a `pref-extract:` commit, with no
   record added after it.
@@ -436,4 +444,4 @@ Stdlib-only, no dependencies; fails soft on factory loss. Checks:
 preference-set lifecycle on top: the carve-out label, the replay gate,
 the budget report, and the extraction batch. The two directories split
 by audience, not by trust: `guards/` is the record contract the writer
-tool shares, `store/` is everything about `preferences.md`.
+tool shares, `store/` is everything about the preference set.

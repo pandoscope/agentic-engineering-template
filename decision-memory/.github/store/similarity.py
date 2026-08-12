@@ -50,7 +50,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as store_config  # noqa: E402  (path bootstrap above)
 
 DECISIONS_DIR = "decisions"
-PREFERENCES_FILENAME = "preferences.md"
+PREFERENCES_FILENAME = "preferences.txt"
+# Pre-migration commits pin the markdown set; preferences_at still
+# serves those verbatim, and rule_lines reads both shapes.
+LEGACY_PREFERENCES_FILENAME = "preferences.md"
+RENDERED_HEADER = "confirmed\tindependent\trule"
 
 # Pair verdicts, worst first — the order the report ranks by.
 DUPLICATE = "duplicate"
@@ -431,16 +435,22 @@ def _git(*args: str) -> str:
 
 
 def preferences_at(commit: object, root: str = ".") -> str | None:
-    """`preferences.md` as of a pinned commit, or None if unavailable.
+    """The preference set as of a pinned commit, or None if unavailable.
 
-    A draft with no pinned commit, or a commit this checkout does not
-    have, yields None — the check is skipped and said to be skipped,
-    rather than silently compared against the wrong rule set.
+    Tries the rendered file first, then the legacy markdown set — a
+    record may pin a commit from before the format split, and the
+    pinned content is served in whichever shape it has. A draft with no
+    pinned commit, or a commit this checkout does not have, yields None
+    — the check is skipped and said to be skipped, rather than silently
+    compared against the wrong rule set.
     """
     if not isinstance(commit, str) or not commit:
         return None
-    text = _git("-C", root, "show", f"{commit}:{PREFERENCES_FILENAME}")
-    return text or None
+    for name in (PREFERENCES_FILENAME, LEGACY_PREFERENCES_FILENAME):
+        text = _git("-C", root, "show", f"{commit}:{name}")
+        if text:
+            return text
+    return None
 
 
 # The `[confirmed: N, last: DATE]` suffix every rule carries. It is
@@ -451,10 +461,21 @@ _RULE_METADATA_RE = re.compile(r"\[[^\]]*\]\s*$")
 
 
 def rule_lines(preferences_text: str) -> list[str]:
-    """The rule bullets of a preference set, without the prose around them."""
+    """The rule texts of a preference set, without the bookkeeping.
+
+    Reads both shapes: the rendered TSV, and the legacy markdown
+    bullets that pre-migration `preference_set.commit`s still pin.
+    """
+    lines = preferences_text.splitlines()
+    if lines and lines[0] == RENDERED_HEADER:
+        return [
+            line.split("\t", 2)[2].strip()
+            for line in lines[1:]
+            if line and not line.startswith("#") and line.count("\t") >= 2
+        ]
     return [
-        _RULE_METADATA_RE.sub("", line.strip()).strip()
-        for line in preferences_text.splitlines()
+        _RULE_METADATA_RE.sub("", line.strip()[2:]).strip()
+        for line in lines
         if line.strip().startswith("- ")
     ]
 

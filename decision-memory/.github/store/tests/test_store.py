@@ -26,9 +26,11 @@ sys.path.insert(0, GUARDS_DIR)
 
 import budget as store_budget  # noqa: E402
 import config as store_config  # noqa: E402
+import decision_validator  # noqa: E402
 import extraction  # noqa: E402
 import guards  # noqa: E402
 import preferences_guard as guard  # noqa: E402
+import render_preferences  # noqa: E402
 import replay  # noqa: E402
 import similarity  # noqa: E402
 
@@ -64,6 +66,30 @@ def make_record(record_id, chosen_slot, stream="cold", options=None):
 
 def make_prediction(record_id, slot, rules=()):
     return {"id": record_id, "predicted_slot": slot, "rules_cited": list(rules)}
+
+
+def make_rule(
+    text="a short rule.",
+    section="process",
+    confirmed=1,
+    independent=0,
+    last="2026-07-15",
+):
+    return {
+        "section": section,
+        "rule": text,
+        "confirmed": confirmed,
+        "independent": independent,
+        "last": last,
+    }
+
+
+def make_preferences(*rules):
+    return {"rules": list(rules)}
+
+
+def source_text(*rules):
+    return json.dumps(make_preferences(*rules))
 
 
 class ConfigTests(unittest.TestCase):
@@ -149,45 +175,386 @@ class BudgetTests(unittest.TestCase):
         self.assertIn("abc123", body)
 
 
+class PreferenceSetTests(unittest.TestCase):
+    """Schema and render of the preferences.json / preferences.txt pair."""
+
+    def test_a_valid_set_has_no_errors(self):
+        data = make_preferences(make_rule(), make_rule(text="another rule."))
+        self.assertEqual(decision_validator.validate_preferences(data), [])
+
+    def test_the_comment_key_is_tolerated(self):
+        data = make_preferences(make_rule())
+        data["_comment"] = "banner"
+        self.assertEqual(decision_validator.validate_preferences(data), [])
+
+    def test_top_level_shape_is_enforced(self):
+        self.assertTrue(decision_validator.validate_preferences([]))
+        self.assertTrue(decision_validator.validate_preferences({"rules": {}}))
+        self.assertTrue(
+            decision_validator.validate_preferences({"rules": [], "extra": 1})
+        )
+
+    def test_rule_keys_are_a_closed_set(self):
+        incomplete = make_rule()
+        incomplete.pop("last")
+        extra = make_rule()
+        extra["note"] = "x"
+        for rule in (incomplete, extra):
+            self.assertTrue(
+                decision_validator.validate_preferences(make_preferences(rule)), rule
+            )
+
+    def test_rule_text_is_one_plain_line(self):
+        for text in ("", "two\nlines", "tab\tseparated", " leading", "double  space"):
+            errors = decision_validator.validate_preferences(
+                make_preferences(make_rule(text=text))
+            )
+            self.assertTrue(errors, repr(text))
+
+    def test_a_joined_qualifier_sentence_is_legal(self):
+        """One rule may hold two sentences under one counter — "one line,
+        one preference" counts preferences, not sentences."""
+        text = (
+            "Splits a check until each part is machine-checkable. "
+            "Hands a model only what code cannot do, or cannot do efficiently."
+        )
+        self.assertEqual(
+            decision_validator.validate_preferences(
+                make_preferences(make_rule(text=text))
+            ),
+            [],
+        )
+
+    def test_counts_are_non_negative_integers(self):
+        for key, value in (
+            ("confirmed", -1),
+            ("confirmed", "3"),
+            ("confirmed", True),
+            ("independent", 1.0),
+        ):
+            rule = make_rule()
+            rule[key] = value
+            self.assertTrue(
+                decision_validator.validate_preferences(make_preferences(rule)),
+                f"{key}={value!r}",
+            )
+
+    def test_independent_never_exceeds_confirmed(self):
+        data = make_preferences(make_rule(confirmed=1, independent=2))
+        self.assertTrue(decision_validator.validate_preferences(data))
+
+    def test_last_is_a_date(self):
+        data = make_preferences(make_rule(last="yesterday"))
+        self.assertTrue(decision_validator.validate_preferences(data))
+
+    def test_duplicate_rule_text_is_rejected(self):
+        """Counter bumps match by rule text; two rules sharing it would
+        make every bump ambiguous."""
+        data = make_preferences(make_rule(), make_rule())
+        self.assertTrue(decision_validator.validate_preferences(data))
+
+    def test_sections_group_contiguously(self):
+        data = make_preferences(
+            make_rule(section="process"),
+            make_rule(text="b.", section="infrastructure"),
+            make_rule(text="c.", section="process"),
+        )
+        self.assertTrue(decision_validator.validate_preferences(data))
+
+    def test_a_malformed_section_is_rejected(self):
+        for section in ("Process", "two words", ""):
+            data = make_preferences(make_rule(section=section))
+            self.assertTrue(decision_validator.validate_preferences(data), section)
+
+    def test_render_is_the_acked_shape(self):
+        data = make_preferences(
+            make_rule(
+                text="Rejects a new dependency unless it removes a whole class of maintenance.",
+                section="infrastructure",
+                confirmed=6,
+                independent=1,
+            ),
+            make_rule(
+                text="Prefers machine checks over model checks wherever feasible.",
+                confirmed=3,
+                independent=1,
+            ),
+        )
+        expected = (
+            "confirmed\tindependent\trule\n"
+            "# infrastructure\n"
+            "6\t1\tRejects a new dependency unless it removes a whole class of maintenance.\n"
+            "# process\n"
+            "3\t1\tPrefers machine checks over model checks wherever feasible.\n"
+        )
+        self.assertEqual(decision_validator.render_preferences(data), expected)
+
+    def test_an_empty_set_renders_the_header_alone(self):
+        self.assertEqual(
+            decision_validator.render_preferences({"rules": []}),
+            "confirmed\tindependent\trule\n",
+        )
+
+    def test_the_date_stays_out_of_the_render(self):
+        """`last` matters at update time, never in-session — it stays in
+        the JSON and out of the injected surface."""
+        rendered = decision_validator.render_preferences(make_preferences(make_rule()))
+        self.assertNotIn("2026", rendered)
+
+    def test_parse_preferences_reports_bad_json(self):
+        data, errors = decision_validator.parse_preferences("{nope")
+        self.assertIsNone(data)
+        self.assertTrue(errors)
+
+    def test_serialize_round_trips(self):
+        data = make_preferences(make_rule())
+        text = decision_validator.serialize_preferences(data)
+        self.assertTrue(text.endswith("\n"))
+        parsed, errors = decision_validator.parse_preferences(text)
+        self.assertEqual(errors, [])
+        self.assertEqual(parsed, data)
+
+
+class PrefConfirmMathTests(unittest.TestCase):
+    """Structural counter-bump validation on before/after JSON."""
+
+    def test_a_clean_bump_passes(self):
+        old = make_preferences(make_rule(confirmed=3))
+        new = make_preferences(make_rule(confirmed=4, last="2026-07-20"))
+        self.assertEqual(guards.validate_pref_confirm_change(old, new), [])
+
+    def test_an_independent_bump_rides_along(self):
+        old = make_preferences(make_rule(confirmed=3, independent=1))
+        new = make_preferences(make_rule(confirmed=4, independent=2, last="2026-07-20"))
+        self.assertEqual(guards.validate_pref_confirm_change(old, new), [])
+
+    def test_rule_text_may_not_change(self):
+        old = make_preferences(make_rule(text="old rule.", confirmed=3))
+        new = make_preferences(make_rule(text="new rule.", confirmed=4))
+        errors = guards.validate_pref_confirm_change(old, new)
+        self.assertTrue(any("rule text changed" in e for e in errors))
+
+    def test_counter_jumps_are_rejected(self):
+        old = make_preferences(make_rule(confirmed=3))
+        new = make_preferences(make_rule(confirmed=5))
+        errors = guards.validate_pref_confirm_change(old, new)
+        self.assertTrue(any("exactly 1" in e for e in errors))
+
+    def test_independent_may_not_move_alone(self):
+        old = make_preferences(make_rule(confirmed=3, independent=1))
+        new = make_preferences(make_rule(confirmed=3, independent=2))
+        self.assertTrue(guards.validate_pref_confirm_change(old, new))
+
+    def test_independent_never_drops(self):
+        """Lowering it under a mechanical subject would erase evidence as
+        routine bookkeeping."""
+        old = make_preferences(make_rule(confirmed=3, independent=2))
+        new = make_preferences(make_rule(confirmed=4, independent=1))
+        self.assertTrue(guards.validate_pref_confirm_change(old, new))
+
+    def test_rule_count_may_not_change(self):
+        old = make_preferences(make_rule())
+        new = make_preferences(make_rule(), make_rule(text="smuggled in."))
+        errors = guards.validate_pref_confirm_change(old, new)
+        self.assertTrue(any("only update counters" in e for e in errors))
+
+    def test_a_bump_that_changes_nothing_is_rejected(self):
+        old = make_preferences(make_rule())
+        self.assertTrue(guards.validate_pref_confirm_change(old, old))
+
+
+class PreferencesChangeClassificationTests(unittest.TestCase):
+    """One classifier feeds both the commit guard and the carve-out."""
+
+    def test_pure_addition_including_insertion(self):
+        a, b, c = (
+            make_rule(text="a."),
+            make_rule(text="b."),
+            make_rule(text="c."),
+        )
+        kind, errors = guards.classify_preferences_change(
+            source_text(a, c), source_text(a, b, c), "pref-promote: b"
+        )
+        self.assertEqual((kind, errors), ("addition", []))
+
+    def test_file_creation_is_an_addition(self):
+        kind, errors = guards.classify_preferences_change(
+            None, source_text(make_rule()), "chore: migrate"
+        )
+        self.assertEqual((kind, errors), ("addition", []))
+
+    def test_reordering_is_a_rewrite(self):
+        a, b = make_rule(text="a."), make_rule(text="b.")
+        kind, _ = guards.classify_preferences_change(
+            source_text(a, b), source_text(b, a), "pref-compact: reorder"
+        )
+        self.assertEqual(kind, "rewrite")
+
+    def test_a_valid_bump_under_the_confirm_subject_is_exempt(self):
+        old = source_text(make_rule(confirmed=3))
+        new = source_text(make_rule(confirmed=4, last="2026-07-20"))
+        kind, errors = guards.classify_preferences_change(
+            old, new, "pref-confirm: a short rule. (n=4)"
+        )
+        self.assertEqual((kind, errors), ("bump-exempt", []))
+
+    def test_a_bad_bump_surfaces_the_math(self):
+        old = source_text(make_rule(confirmed=3))
+        new = source_text(make_rule(confirmed=9))
+        kind, errors = guards.classify_preferences_change(
+            old, new, "pref-confirm: a short rule. (n=9)"
+        )
+        self.assertEqual(kind, "rewrite")
+        self.assertTrue(errors)
+
+    def test_invalid_json_is_loud(self):
+        kind, errors = guards.classify_preferences_change(
+            "{nope", source_text(make_rule()), "chore: oops"
+        )
+        self.assertEqual(kind, "invalid")
+        self.assertTrue(errors)
+
+    def test_an_unchanged_set_is_none(self):
+        text = source_text(make_rule())
+        self.assertEqual(
+            guards.classify_preferences_change(text, text, "chore: unrelated"),
+            ("none", []),
+        )
+
+
+class MigrationTests(unittest.TestCase):
+    LEGACY = (
+        "# Active Preference Set\n"
+        "\n"
+        "Prose header the migration drops.\n"
+        "\n"
+        "## Infrastructure\n"
+        "\n"
+        "- Rejects a new dependency. [confirmed: 6, independent: 1, last: 2026-08-10]\n"
+        "\n"
+        "## Process\n"
+        "\n"
+        "- A rule that wraps\n"
+        "  across lines. [confirmed: 0, independent: 0, last: 2026-08-11]\n"
+    )
+
+    def test_legacy_bullets_become_rules(self):
+        rules, errors = render_preferences.parse_legacy(self.LEGACY)
+        self.assertEqual(errors, [])
+        self.assertEqual(rules[0]["section"], "infrastructure")
+        self.assertEqual(rules[0]["confirmed"], 6)
+        self.assertEqual(rules[0]["independent"], 1)
+        self.assertEqual(rules[1]["rule"], "A rule that wraps across lines.")
+        self.assertEqual(rules[1]["last"], "2026-08-11")
+
+    def test_a_missing_suffix_fails(self):
+        _, errors = render_preferences.parse_legacy("## S\n\n- bare rule\n")
+        self.assertTrue(errors)
+
+    def test_migrate_writes_the_pair_and_removes_the_legacy_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "preferences.md", self.LEGACY)
+            self.assertEqual(render_preferences.main(["migrate", "--root", tmp]), 0)
+            self.assertFalse(os.path.exists(os.path.join(tmp, "preferences.md")))
+            self.assertTrue(os.path.exists(os.path.join(tmp, "preferences.json")))
+            self.assertTrue(os.path.exists(os.path.join(tmp, "preferences.txt")))
+            self.assertEqual(guards.check_corpus(tmp), [])
+
+    def test_migrate_refuses_a_second_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "preferences.md", self.LEGACY)
+            self.assertEqual(render_preferences.main(["migrate", "--root", tmp]), 0)
+            self._write(tmp, "preferences.md", self.LEGACY)
+            self.assertNotEqual(render_preferences.main(["migrate", "--root", tmp]), 0)
+
+    def test_check_detects_drift_and_render_repairs_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "preferences.md", self.LEGACY)
+            render_preferences.main(["migrate", "--root", tmp])
+            self._write(tmp, "preferences.txt", "confirmed\tindependent\trule\n")
+            self.assertNotEqual(render_preferences.main(["check", "--root", tmp]), 0)
+            self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
+            self.assertEqual(render_preferences.main(["check", "--root", tmp]), 0)
+
+    @staticmethod
+    def _write(root, name, text):
+        with open(os.path.join(root, name), "w", encoding="utf-8") as handle:
+            handle.write(text)
+
+
+class RuleLinesTests(unittest.TestCase):
+    def test_the_rendered_format_parses(self):
+        text = (
+            "confirmed\tindependent\trule\n# process\n3\t1\tPrefers machine checks.\n"
+        )
+        self.assertEqual(similarity.rule_lines(text), ["Prefers machine checks."])
+
+    def test_legacy_bullets_still_parse(self):
+        """Records pin pre-migration commits; preferences_at serves those
+        files verbatim, so both formats must stay readable."""
+        text = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
+        self.assertEqual(similarity.rule_lines(text), ["old rule."])
+
+
 class CarveOutTests(unittest.TestCase):
     def setUp(self):
         self.config = dict(store_config.DEFAULTS)
 
     @staticmethod
-    def commit(subject, diff, sha="abcdef1234"):
-        return {"sha": sha, "subject": subject, "pref_diff": diff}
+    def commit(subject, old=None, new=None, sha="abcdef1234"):
+        return {"sha": sha, "subject": subject, "old_source": old, "new_source": new}
 
     def test_pure_addition_needs_no_label(self):
-        commits = [self.commit("pref-promote: new rule", "+- a new rule\n")]
+        commits = [
+            self.commit(
+                "pref-promote: a new rule",
+                old=source_text(make_rule()),
+                new=source_text(make_rule(), make_rule(text="a new rule.")),
+            )
+        ]
         required, _ = guard.classify_pref_commits(commits)
         self.assertFalse(required)
 
     def test_valid_counter_bump_is_exempt(self):
-        diff = (
-            "--- a/preferences.md\n"
-            "+++ b/preferences.md\n"
-            "-- rule text. [confirmed: 3, independent: 0, last: 2026-07-15]\n"
-            "+- rule text. [confirmed: 4, independent: 0, last: 2026-07-20]\n"
-        )
         required, notes = guard.classify_pref_commits(
-            [self.commit("pref-confirm: rule text (n=4)", diff)]
+            [
+                self.commit(
+                    "pref-confirm: a short rule. (n=4)",
+                    old=source_text(make_rule(confirmed=3)),
+                    new=source_text(make_rule(confirmed=4, last="2026-07-20")),
+                )
+            ]
         )
         self.assertFalse(required)
         self.assertTrue(any("exempt" in note for note in notes))
 
     def test_counter_bump_that_rewrites_the_rule_needs_the_label(self):
-        diff = (
-            "-- old rule text. [confirmed: 3, independent: 0, last: 2026-07-15]\n"
-            "+- new rule text. [confirmed: 4, independent: 0, last: 2026-07-20]\n"
-        )
         required, _ = guard.classify_pref_commits(
-            [self.commit("pref-confirm: rule text (n=4)", diff)]
+            [
+                self.commit(
+                    "pref-confirm: rule text (n=4)",
+                    old=source_text(make_rule(text="old rule text.", confirmed=3)),
+                    new=source_text(make_rule(text="new rule text.", confirmed=4)),
+                )
+            ]
         )
         self.assertTrue(required)
 
+    def test_an_unparseable_change_needs_the_label(self):
+        required, notes = guard.classify_pref_commits(
+            [self.commit("chore: oops", old="{nope", new=source_text(make_rule()))]
+        )
+        self.assertTrue(required)
+        self.assertTrue(notes)
+
     def test_rewrite_needs_the_label(self):
-        diff = "-- old rule\n+- merged rule\n"
-        commits = [self.commit("pref-promote: merged rule", diff)]
+        commits = [
+            self.commit(
+                "pref-promote: merged rule",
+                old=source_text(make_rule(text="old rule.")),
+                new=source_text(make_rule(text="merged rule.")),
+            )
+        ]
         errors, _ = guard.evaluate(
             commits=commits,
             labels=[],
@@ -199,9 +566,8 @@ class CarveOutTests(unittest.TestCase):
         self.assertTrue(any("without the" in e for e in errors))
 
     def test_labelled_rewrite_requires_a_replay_report(self):
-        diff = "-- old rule\n+- merged rule\n"
         errors, _ = guard.evaluate(
-            commits=[self.commit("pref-compact: merged rule", diff)],
+            commits=[self._rewrite_commit()],
             labels=[self.config["carve_out_label"]],
             body="no report here",
             head_preferences="short",
@@ -218,7 +584,7 @@ class CarveOutTests(unittest.TestCase):
         }
         body = f"{guard.REPLAY_MARKER}\n```json\n{json.dumps(report)}\n```\n"
         errors, _ = guard.evaluate(
-            commits=[self.commit("pref-promote: merged rule", "-- old\n+- new\n")],
+            commits=[self._rewrite_commit()],
             labels=[self.config["carve_out_label"]],
             body=body,
             head_preferences=head,
@@ -234,7 +600,7 @@ class CarveOutTests(unittest.TestCase):
         }
         body = f"{guard.REPLAY_MARKER}\n```json\n{json.dumps(report)}\n```\n"
         errors, _ = guard.check_replay_report(body, "current text")
-        self.assertTrue(any("different preferences.md" in e for e in errors))
+        self.assertTrue(any("different preferences.txt" in e for e in errors))
 
     def test_failing_gate_is_rejected(self):
         head = "compacted"
@@ -275,7 +641,7 @@ class CarveOutTests(unittest.TestCase):
         head = "compacted"
         config = dict(self.config)
         errors, _ = guard.evaluate(
-            commits=[self.commit("pref-compact: merged rule", "-- old\n+- new\n")],
+            commits=[self._rewrite_commit()],
             labels=[config["carve_out_label"], config["replay_waiver_label"]],
             body=self._body(replay.GATE_INSUFFICIENT, head, gated_cases=3),
             head_preferences=head,
@@ -283,6 +649,14 @@ class CarveOutTests(unittest.TestCase):
             config=config,
         )
         self.assertEqual(errors, [])
+
+    @classmethod
+    def _rewrite_commit(cls):
+        return cls.commit(
+            "pref-compact: merged rule",
+            old=source_text(make_rule(text="old rule.")),
+            new=source_text(make_rule(text="merged rule.")),
+        )
 
     @staticmethod
     def _body(gate, head, gated_cases=9):
@@ -1414,10 +1788,7 @@ class FixtureStoreTests(unittest.TestCase):
         ]
         for record in self.records:
             self._write_record(record)
-        self._write(
-            "preferences.md",
-            "- a short rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n",
-        )
+        self._write_preferences(make_preferences(make_rule()))
         self._write("store.config.json", json.dumps({"budget_tokens": 2000}))
 
     def _write_record(self, record):
@@ -1429,6 +1800,10 @@ class FixtureStoreTests(unittest.TestCase):
         with open(os.path.join(self.root, name), "w", encoding="utf-8") as handle:
             handle.write(text)
 
+    def _write_preferences(self, data):
+        self._write("preferences.json", decision_validator.serialize_preferences(data))
+        self._write("preferences.txt", decision_validator.render_preferences(data))
+
     def test_the_fixture_corpus_is_clean(self):
         self.assertEqual(guards.check_corpus(self.root), [])
 
@@ -1439,9 +1814,73 @@ class FixtureStoreTests(unittest.TestCase):
         self.assertTrue(any("exceeds the 1 budget" in e for e in errors))
 
     def test_a_budget_above_the_vendored_default_is_enforced_as_given(self):
-        self._write("preferences.md", "x" * 12000)
+        """The render lands over the vendored 2000-token default but under
+        the store's own 4000 — the store's number wins."""
+        rules = [
+            make_rule(text=f"rule number {index} " + "x" * 40 + ".")
+            for index in range(200)
+        ]
+        self._write_preferences(make_preferences(*rules))
         self._write("store.config.json", json.dumps({"budget_tokens": 4000}))
         self.assertEqual(guards.check_corpus(self.root), [])
+
+    def test_mirror_drift_fails_the_corpus_check(self):
+        self._write("preferences.txt", "confirmed\tindependent\trule\n")
+        errors = guards.check_corpus(self.root)
+        self.assertTrue(any("not the render" in e for e in errors))
+
+    def test_a_missing_render_fails_the_corpus_check(self):
+        os.remove(os.path.join(self.root, "preferences.txt"))
+        errors = guards.check_corpus(self.root)
+        self.assertTrue(any("preferences.txt: missing" in e for e in errors))
+
+    def test_a_pre_migration_store_fails_with_the_instruction(self):
+        os.remove(os.path.join(self.root, "preferences.json"))
+        os.remove(os.path.join(self.root, "preferences.txt"))
+        self._write("preferences.md", "- old rule. [confirmed: 1]\n")
+        errors = guards.check_corpus(self.root)
+        self.assertTrue(any("migrate" in e for e in errors))
+
+    def test_a_leftover_legacy_file_fails(self):
+        self._write("preferences.md", "- old rule. [confirmed: 1]\n")
+        errors = guards.check_corpus(self.root)
+        self.assertTrue(any("legacy" in e for e in errors))
+
+    def test_preferences_at_reads_the_pinned_format(self):
+        """A record's pinned commit may predate the format split; the
+        pinned file is served whichever shape it has."""
+        for args in (
+            ("init", "-q"),
+            ("config", "user.email", "t@e.st"),
+            ("config", "user.name", "test"),
+        ):
+            subprocess.run(["git", "-C", self.root, *args], check=True)
+        legacy = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
+        self._write("preferences.md", legacy)
+        os.remove(os.path.join(self.root, "preferences.json"))
+        os.remove(os.path.join(self.root, "preferences.txt"))
+        subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", self.root, "commit", "-qm", "chore: legacy"], check=True
+        )
+        old_sha = self._head_sha()
+        os.remove(os.path.join(self.root, "preferences.md"))
+        self._write_preferences(make_preferences(make_rule()))
+        subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
+        subprocess.run(
+            ["git", "-C", self.root, "commit", "-qm", "chore: migrated"], check=True
+        )
+        new_sha = self._head_sha()
+        self.assertEqual(similarity.preferences_at(old_sha, self.root), legacy)
+        self.assertIn("a short rule.", similarity.preferences_at(new_sha, self.root))
+
+    def _head_sha(self):
+        return subprocess.run(
+            ["git", "-C", self.root, "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
 
     def test_scope_comes_from_the_diff(self):
         """The batch boundary is git's answer, not a file's."""

@@ -587,8 +587,9 @@ def cmd_check(args: argparse.Namespace) -> int:
     source = repo_dir / validator.PREFERENCES_SOURCE
     if (repo_dir / "preferences.md").exists() and not source.exists():
         errors.append(
-            "preferences.md: pre-migration preference set — run "
-            "`python .github/store/render_preferences.py migrate`"
+            "preferences.md: the active set now lives in "
+            f"{validator.PREFERENCES_SOURCE} + {validator.PREFERENCES_RENDERED} "
+            "— convert the rules and remove this file"
         )
     if source.exists():
         data, source_errors = validator.parse_preferences(

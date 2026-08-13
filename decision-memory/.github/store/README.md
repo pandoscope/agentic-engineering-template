@@ -108,9 +108,8 @@ back to when a store ships no config file, not a ceiling over it. One
 number, one place to change it, checked once.
 
 `render_preferences.py` keeps the pair honest: `render` writes
-`preferences.txt` from `preferences.json`, `check` fails on drift, and
-`migrate` converts a pre-split markdown set once. The guards re-render
-on every PR, so the mirror cannot drift silently.
+`preferences.txt` from `preferences.json`, `check` fails on drift. The
+guards re-render on every PR, so the mirror cannot drift silently.
 
 Token counting is not reimplemented here either — `estimate_tokens`
 from the vendored validator is the single authority, so this layer and

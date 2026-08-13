@@ -228,8 +228,9 @@ Storage and priming are two concerns, so the set is a pair:
   re-render the JSON and fail on any diff (per commit and at head), so
   the copy cannot drift silently and no model maintains the sync by
   hand. `python .github/store/render_preferences.py render` is the
-  update mechanism; `check` verifies; `migrate` converts a legacy
-  markdown set once.
+  update mechanism; `check` verifies. A store arriving from the legacy
+  markdown format converts its rules by hand, once — the schema,
+  mirror, and budget guards verify the result.
 - Hard token budget on the RENDERED file, CI-enforced — the render is
   the thing that actually costs. The number is `budget_tokens` in the
   store-owned `store.config.json`; the vendored guard reads that

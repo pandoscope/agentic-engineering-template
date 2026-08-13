@@ -422,59 +422,38 @@ class PreferencesChangeClassificationTests(unittest.TestCase):
         )
 
 
-class MigrationTests(unittest.TestCase):
-    LEGACY = (
-        "# Active Preference Set\n"
-        "\n"
-        "Prose header the migration drops.\n"
-        "\n"
-        "## Infrastructure\n"
-        "\n"
-        "- Rejects a new dependency. [confirmed: 6, independent: 1, last: 2026-08-10]\n"
-        "\n"
-        "## Process\n"
-        "\n"
-        "- A rule that wraps\n"
-        "  across lines. [confirmed: 0, independent: 0, last: 2026-08-11]\n"
-    )
-
-    def test_legacy_bullets_become_rules(self):
-        rules, errors = render_preferences.parse_legacy(self.LEGACY)
-        self.assertEqual(errors, [])
-        self.assertEqual(rules[0]["section"], "infrastructure")
-        self.assertEqual(rules[0]["confirmed"], 6)
-        self.assertEqual(rules[0]["independent"], 1)
-        self.assertEqual(rules[1]["rule"], "A rule that wraps across lines.")
-        self.assertEqual(rules[1]["last"], "2026-08-11")
-
-    def test_a_missing_suffix_fails(self):
-        _, errors = render_preferences.parse_legacy("## S\n\n- bare rule\n")
-        self.assertTrue(errors)
-
-    def test_migrate_writes_the_pair_and_removes_the_legacy_file(self):
+class RenderCliTests(unittest.TestCase):
+    def test_render_writes_the_mirror(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self._write(tmp, "preferences.md", self.LEGACY)
-            self.assertEqual(render_preferences.main(["migrate", "--root", tmp]), 0)
-            self.assertFalse(os.path.exists(os.path.join(tmp, "preferences.md")))
-            self.assertTrue(os.path.exists(os.path.join(tmp, "preferences.json")))
-            self.assertTrue(os.path.exists(os.path.join(tmp, "preferences.txt")))
+            data = make_preferences(make_rule())
+            self._write(
+                tmp,
+                "preferences.json",
+                decision_validator.serialize_preferences(data),
+            )
+            self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
+            with open(os.path.join(tmp, "preferences.txt"), encoding="utf-8") as f:
+                self.assertEqual(f.read(), decision_validator.render_preferences(data))
             self.assertEqual(guards.check_corpus(tmp), [])
-
-    def test_migrate_refuses_a_second_run(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            self._write(tmp, "preferences.md", self.LEGACY)
-            self.assertEqual(render_preferences.main(["migrate", "--root", tmp]), 0)
-            self._write(tmp, "preferences.md", self.LEGACY)
-            self.assertNotEqual(render_preferences.main(["migrate", "--root", tmp]), 0)
 
     def test_check_detects_drift_and_render_repairs_it(self):
         with tempfile.TemporaryDirectory() as tmp:
-            self._write(tmp, "preferences.md", self.LEGACY)
-            render_preferences.main(["migrate", "--root", tmp])
+            data = make_preferences(make_rule())
+            self._write(
+                tmp,
+                "preferences.json",
+                decision_validator.serialize_preferences(data),
+            )
             self._write(tmp, "preferences.txt", "confirmed\tindependent\trule\n")
             self.assertNotEqual(render_preferences.main(["check", "--root", tmp]), 0)
             self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
             self.assertEqual(render_preferences.main(["check", "--root", tmp]), 0)
+
+    def test_an_invalid_source_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._write(tmp, "preferences.json", "{nope")
+            self.assertNotEqual(render_preferences.main(["render", "--root", tmp]), 0)
+            self.assertNotEqual(render_preferences.main(["check", "--root", tmp]), 0)
 
     @staticmethod
     def _write(root, name, text):
@@ -1834,12 +1813,12 @@ class FixtureStoreTests(unittest.TestCase):
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("preferences.txt: missing" in e for e in errors))
 
-    def test_a_pre_migration_store_fails_with_the_instruction(self):
+    def test_a_pre_split_store_fails_with_the_instruction(self):
         os.remove(os.path.join(self.root, "preferences.json"))
         os.remove(os.path.join(self.root, "preferences.txt"))
         self._write("preferences.md", "- old rule. [confirmed: 1]\n")
         errors = guards.check_corpus(self.root)
-        self.assertTrue(any("migrate" in e for e in errors))
+        self.assertTrue(any("convert the rules" in e for e in errors))
 
     def test_a_leftover_legacy_file_fails(self):
         self._write("preferences.md", "- old rule. [confirmed: 1]\n")

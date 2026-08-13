@@ -322,9 +322,10 @@ def check_corpus(root: str = ".") -> list[str]:
     if not os.path.isfile(source_path):
         if os.path.isfile(legacy_path):
             errors.append(
-                "preferences.md: pre-migration preference set — run "
-                "`python .github/store/render_preferences.py migrate` and "
-                "commit the result"
+                "preferences.md: the active set now lives in "
+                f"{PREFERENCES_SOURCE} + {PREFERENCES_RENDERED} — convert the "
+                "rules and remove this file (the schema, mirror, and budget "
+                "guards verify the result)"
             )
         return errors
     if os.path.isfile(legacy_path):

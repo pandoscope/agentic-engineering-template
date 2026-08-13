@@ -384,3 +384,56 @@ def test_store_gate_workflows_are_identical_and_unticketed():
     root_copy = (ROOT / ".github" / "workflows" / "ci-ok.yml").read_text()
     assert KEYWORDS["no_commit_marker"] in root_copy
     assert "{%" not in root_copy and "reference_keywords" not in root_copy
+
+
+def test_the_gate_judges_the_live_body_not_the_event_payload(
+    tmp_path, monkeypatch, capsys
+):
+    """A re-run replays the payload the run was created with (#159).
+
+    GitHub's re-run hands the job the ORIGINAL event, so a body fixed
+    after the first failure is invisible to it and the gate fails for
+    a reason that no longer exists — permanently, since every re-run
+    replays the same stale payload. The body therefore comes from the
+    live PR; only the number comes from the event.
+    """
+    event = tmp_path / "event.json"
+    event.write_text(
+        json.dumps(
+            {
+                "pull_request": {
+                    "number": 155,
+                    "body": "no reference here",
+                    "head": {"ref": "claude/159-thing"},
+                    "labels": [],
+                    "user": {"login": "pando-ramet"},
+                }
+            }
+        )
+    )
+    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event))
+    monkeypatch.setenv("GITHUB_REPOSITORY", "pandoscope/agentic-engineering-template")
+    monkeypatch.setenv("GH_TOKEN", "tok")
+    monkeypatch.setenv(
+        "REFERENCE_KEYWORDS",
+        str(
+            ROOT
+            / "template"
+            / "{% if agentic_forge == 'github' %}.github{% endif %}"
+            / "reference-keywords.json"
+        ),
+    )
+    monkeypatch.setattr(
+        gate,
+        "fetch",
+        lambda path, token: {
+            "number": 155,
+            "body": "CLOSES #159",
+            "head": {"ref": "claude/159-thing"},
+            "labels": [],
+            "user": {"login": "pando-ramet"},
+        },
+    )
+    monkeypatch.setattr(gate, "paginate", lambda path, token: [])
+    assert gate.run_ticket() == 0
+    assert "::error::" not in capsys.readouterr().out

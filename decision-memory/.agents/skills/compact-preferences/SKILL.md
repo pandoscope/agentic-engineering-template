@@ -9,7 +9,7 @@ description: Shrink the active preference set below its token budget, gated on a
 > subtemplate — do NOT edit it in the store repo;
 > change it in the template and pull via `copier update`.
 
-`preferences.tsv` — the render of `preferences.json` — is injected
+`preferences.txt` — the render of `preferences.json` — is injected
 into every grilled session, so every rule costs context forever. Compaction brings that cost down without losing
 what the rules encode.
 
@@ -31,7 +31,7 @@ CI rejects the PR if any of these break.
 - Every surviving rule keeps its conditional, falsifiable form: one
   entry, a condition, an outcome you could be wrong about, and its
   counters.
-- `preferences.tsv` is never edited directly — edit `preferences.json`
+- `preferences.txt` is never edited directly — edit `preferences.json`
   and re-render. CI fails on any drift between the pair.
 - The replay gate is a gate, not a report. A failing gate means the
   compaction is wrong; revise or abandon it.
@@ -63,7 +63,7 @@ written.
 ### 3. Build the replay cases and the baseline rule set
 
 ```bash
-git show origin/main:preferences.tsv > /tmp/baseline-preferences.tsv
+git show origin/main:preferences.txt > /tmp/baseline-preferences.txt
 python .github/store/replay.py cases --out /tmp/cases.json
 ```
 
@@ -102,7 +102,7 @@ Save it, then score:
 ```bash
 python .github/store/replay.py score \
   --predictions /tmp/baseline-predictions.json \
-  --preferences /tmp/baseline-preferences.tsv \
+  --preferences /tmp/baseline-preferences.txt \
   --out /tmp/baseline-report.json
 ```
 
@@ -136,7 +136,7 @@ What not to do:
 ### 6. Predict under the compacted set and gate
 
 Fresh subagent, same cases, same rules of engagement, the compacted
-`preferences.tsv` as the rule set:
+`preferences.txt` as the rule set:
 
 ```bash
 python .github/store/replay.py score \
@@ -215,7 +215,7 @@ Draft PR, carrying:
 ````
 
 CI checks that the report is gated `pass` AND that its
-`candidate_preferences_sha256` matches the `preferences.tsv` in the PR
+`candidate_preferences_sha256` matches the `preferences.txt` in the PR
 head, so a report from before the last edit fails. Re-run step 6 after
 any further change to the file, and update the report in the
 description.

@@ -174,7 +174,7 @@ class BudgetTests(unittest.TestCase):
 
 
 class PreferenceSetTests(unittest.TestCase):
-    """Schema and render of the preferences.json / preferences.tsv pair."""
+    """Schema and render of the preferences.json / preferences.txt pair."""
 
     def test_a_valid_set_has_no_errors(self):
         data = make_preferences(make_rule(), make_rule(text="another rule."))
@@ -252,7 +252,7 @@ class PreferenceSetTests(unittest.TestCase):
         self.assertTrue(decision_validator.validate_preferences(data))
 
     def test_render_is_the_acked_shape(self):
-        """Flat rows in source order — the order is the priority order."""
+        """A plain ordered list — the order is the priority order."""
         data = make_preferences(
             make_rule(
                 text="Rejects a new dependency unless it removes a whole class of maintenance.",
@@ -266,23 +266,22 @@ class PreferenceSetTests(unittest.TestCase):
             ),
         )
         expected = (
-            "confirmed\tindependent\trule\n"
-            "6\t1\tRejects a new dependency unless it removes a whole class of maintenance.\n"
-            "3\t1\tPrefers machine checks over model checks wherever feasible.\n"
+            "Rejects a new dependency unless it removes a whole class of maintenance.\n"
+            "Prefers machine checks over model checks wherever feasible.\n"
         )
         self.assertEqual(decision_validator.render_preferences(data), expected)
 
-    def test_an_empty_set_renders_the_header_alone(self):
-        self.assertEqual(
-            decision_validator.render_preferences({"rules": []}),
-            "confirmed\tindependent\trule\n",
-        )
+    def test_an_empty_set_renders_an_empty_file(self):
+        self.assertEqual(decision_validator.render_preferences({"rules": []}), "")
 
-    def test_the_date_stays_out_of_the_render(self):
-        """`last` matters at update time, never in-session — it stays in
-        the JSON and out of the injected surface."""
-        rendered = decision_validator.render_preferences(make_preferences(make_rule()))
-        self.assertNotIn("2026", rendered)
+    def test_the_bookkeeping_stays_out_of_the_render(self):
+        """Counters and dates matter at update time, never in-session —
+        numbers in the render would invite the reader to discount young
+        rules, and a promoted rule is equally binding at zero."""
+        rendered = decision_validator.render_preferences(
+            make_preferences(make_rule(confirmed=7, independent=2))
+        )
+        self.assertEqual(rendered, "a short rule.\n")
 
     def test_parse_preferences_reports_bad_json(self):
         data, errors = decision_validator.parse_preferences("{nope")
@@ -532,7 +531,7 @@ class RenderCliTests(unittest.TestCase):
                 decision_validator.serialize_preferences(data),
             )
             self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
-            with open(os.path.join(tmp, "preferences.tsv"), encoding="utf-8") as f:
+            with open(os.path.join(tmp, "preferences.txt"), encoding="utf-8") as f:
                 self.assertEqual(f.read(), decision_validator.render_preferences(data))
             self.assertEqual(guards.check_corpus(tmp), [])
 
@@ -544,7 +543,7 @@ class RenderCliTests(unittest.TestCase):
                 "preferences.json",
                 decision_validator.serialize_preferences(data),
             )
-            self._write(tmp, "preferences.tsv", "confirmed\tindependent\trule\n")
+            self._write(tmp, "preferences.txt", "a different rule.\n")
             self.assertNotEqual(render_preferences.main(["check", "--root", tmp]), 0)
             self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
             self.assertEqual(render_preferences.main(["check", "--root", tmp]), 0)
@@ -563,10 +562,11 @@ class RenderCliTests(unittest.TestCase):
 
 class RuleLinesTests(unittest.TestCase):
     def test_the_rendered_format_parses(self):
-        text = (
-            "confirmed\tindependent\trule\n# process\n3\t1\tPrefers machine checks.\n"
+        text = "Prefers machine checks.\nTakes the simplest shape.\n"
+        self.assertEqual(
+            similarity.rule_lines(text),
+            ["Prefers machine checks.", "Takes the simplest shape."],
         )
-        self.assertEqual(similarity.rule_lines(text), ["Prefers machine checks."])
 
     def test_legacy_bullets_still_parse(self):
         """Records pin pre-migration commits; preferences_at serves those
@@ -679,7 +679,7 @@ class CarveOutTests(unittest.TestCase):
         }
         body = f"{guard.REPLAY_MARKER}\n```json\n{json.dumps(report)}\n```\n"
         errors, _ = guard.check_replay_report(body, "current text")
-        self.assertTrue(any("different preferences.tsv" in e for e in errors))
+        self.assertTrue(any("different preferences.txt" in e for e in errors))
 
     def test_failing_gate_is_rejected(self):
         head = "compacted"
@@ -1881,7 +1881,7 @@ class FixtureStoreTests(unittest.TestCase):
 
     def _write_preferences(self, data):
         self._write("preferences.json", decision_validator.serialize_preferences(data))
-        self._write("preferences.tsv", decision_validator.render_preferences(data))
+        self._write("preferences.txt", decision_validator.render_preferences(data))
 
     def test_the_fixture_corpus_is_clean(self):
         self.assertEqual(guards.check_corpus(self.root), [])
@@ -1904,18 +1904,18 @@ class FixtureStoreTests(unittest.TestCase):
         self.assertEqual(guards.check_corpus(self.root), [])
 
     def test_mirror_drift_fails_the_corpus_check(self):
-        self._write("preferences.tsv", "confirmed\tindependent\trule\n")
+        self._write("preferences.txt", "a different rule.\n")
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("not the render" in e for e in errors))
 
     def test_a_missing_render_fails_the_corpus_check(self):
-        os.remove(os.path.join(self.root, "preferences.tsv"))
+        os.remove(os.path.join(self.root, "preferences.txt"))
         errors = guards.check_corpus(self.root)
-        self.assertTrue(any("preferences.tsv: missing" in e for e in errors))
+        self.assertTrue(any("preferences.txt: missing" in e for e in errors))
 
     def test_a_pre_split_store_fails_with_the_instruction(self):
         os.remove(os.path.join(self.root, "preferences.json"))
-        os.remove(os.path.join(self.root, "preferences.tsv"))
+        os.remove(os.path.join(self.root, "preferences.txt"))
         self._write("preferences.md", "- old rule. [confirmed: 1]\n")
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("convert the rules" in e for e in errors))
@@ -1937,7 +1937,7 @@ class FixtureStoreTests(unittest.TestCase):
         legacy = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
         self._write("preferences.md", legacy)
         os.remove(os.path.join(self.root, "preferences.json"))
-        os.remove(os.path.join(self.root, "preferences.tsv"))
+        os.remove(os.path.join(self.root, "preferences.txt"))
         subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
         subprocess.run(
             ["git", "-C", self.root, "commit", "-qm", "chore: legacy"], check=True

@@ -47,7 +47,7 @@ Stdlib only. Usage:
 
     python .github/store/replay.py cases --out /tmp/cases.json
     python .github/store/replay.py score --predictions /tmp/base-preds.json \\
-        --preferences /tmp/baseline-preferences.tsv --out /tmp/base.json
+        --preferences /tmp/baseline-preferences.txt --out /tmp/base.json
     python .github/store/replay.py gate --baseline /tmp/base.json \\
         --candidate /tmp/cand.json --out /tmp/report.json
 
@@ -468,7 +468,7 @@ def main(argv: list[str] | None = None) -> int:
     scoring.add_argument(
         "--preferences",
         default=None,
-        help="preference set the run used (default: ./preferences.tsv)",
+        help="preference set the run used (default: ./preferences.txt)",
     )
     scoring.add_argument("--window", type=int)
     scoring.add_argument("--out")

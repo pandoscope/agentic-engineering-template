@@ -26,7 +26,7 @@ the store, so a human adjusts the knobs below without fighting
 
 ## Why
 
-`preferences.tsv` — the render of `preferences.json` — is injected
+`preferences.txt` — the render of `preferences.json` — is injected
 into every grilled session. Everything in it costs context on every
 session, forever — so it is a hard budget,
 not a wishlist, and shrinking it needs to be safe rather than brave.
@@ -48,7 +48,7 @@ authority, so this table cannot drift out of step with the code.
 
 | key | meaning |
 | --- | --- |
-| `budget_tokens` | hard budget for the rendered `preferences.tsv` |
+| `budget_tokens` | hard budget for the rendered `preferences.txt` |
 | `warn_at_percent` | "compression due" threshold |
 | `carve_out_label` | label permitting edits to existing lines |
 | `budget_issue_label` | label on the automated budget issue |
@@ -108,7 +108,7 @@ back to when a store ships no config file, not a ceiling over it. One
 number, one place to change it, checked once.
 
 `render_preferences.py` keeps the pair honest: `render` writes
-`preferences.tsv` from `preferences.json`, `check` fails on drift. The
+`preferences.txt` from `preferences.json`, `check` fails on drift. The
 guards re-render on every PR, so the mirror cannot drift silently.
 
 Token counting is not reimplemented here either — `estimate_tokens`
@@ -133,7 +133,7 @@ it never blocks.
   already validates their counter math.
 - A carve-out PR must carry a replay report in its description, gated
   `pass`, whose `candidate_preferences_sha256` matches the
-  `preferences.tsv` in the PR head — a stale report from an earlier
+  `preferences.txt` in the PR head — a stale report from an earlier
   round fails.
 - A report gated `insufficient-evidence` merges only with
   `replay_waiver_label` on the PR. A report gated `fail` never merges;
@@ -158,7 +158,7 @@ agent sits in the middle, so this repo depends on no skill.
 ```bash
 python .github/store/replay.py cases   --out cases.json
 python .github/store/replay.py score   --predictions preds.json \
-    --preferences preferences.tsv --out report.json
+    --preferences preferences.txt --out report.json
 python .github/store/replay.py gate    --baseline base.json \
     --candidate cand.json --out replay-report.json
 ```

@@ -50,11 +50,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as store_config  # noqa: E402  (path bootstrap above)
 
 DECISIONS_DIR = "decisions"
-PREFERENCES_FILENAME = "preferences.tsv"
+PREFERENCES_FILENAME = "preferences.txt"
 # Pre-migration commits pin the markdown set; preferences_at still
 # serves those verbatim, and rule_lines reads both shapes.
 LEGACY_PREFERENCES_FILENAME = "preferences.md"
-RENDERED_HEADER = "confirmed\tindependent\trule"
 
 # Pair verdicts, worst first — the order the report ranks by.
 DUPLICATE = "duplicate"
@@ -466,18 +465,14 @@ def rule_lines(preferences_text: str) -> list[str]:
     Reads both shapes: the rendered TSV, and the legacy markdown
     bullets that pre-migration `preference_set.commit`s still pin.
     """
-    lines = preferences_text.splitlines()
-    if lines and lines[0] == RENDERED_HEADER:
+    lines = [line.strip() for line in preferences_text.splitlines() if line.strip()]
+    if any(line.startswith("- ") for line in lines):
         return [
-            line.split("\t", 2)[2].strip()
-            for line in lines[1:]
-            if line.count("\t") >= 2
+            _RULE_METADATA_RE.sub("", line[2:]).strip()
+            for line in lines
+            if line.startswith("- ")
         ]
-    return [
-        _RULE_METADATA_RE.sub("", line.strip()[2:]).strip()
-        for line in lines
-        if line.strip().startswith("- ")
-    ]
+    return lines
 
 
 # Share of a RULE's terms that appear in a record. Not jaccard: rules

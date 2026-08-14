@@ -5,7 +5,7 @@ subtemplate — change it there, pull via `copier update`.
 
 Sits on top of the record guard (`.github/guards/guards.py`), which
 keeps enforcing append-only `decisions/`, the schema, the
-preferences.json/preferences.tsv mirror, and the token budget. This
+preferences.json/preferences.txt mirror, and the token budget. This
 layer adds the PR-level rules the preference-set lifecycle needs.
 
 0. **Extraction pass.** A PR that ADDS decision records must contain a
@@ -26,7 +26,7 @@ Then the three rules the compaction flow needs:
    this guard never touches that rule.
 2. **Replay regression.** A carve-out PR must carry a replay report in
    its description, gated `pass`, and produced against the exact
-   `preferences.tsv` in the PR head — the report embeds the file's
+   `preferences.txt` in the PR head — the report embeds the file's
    sha256, so a stale report from an earlier round fails. A gate of
    `insufficient-evidence` (nothing degraded, too few gated cases to
    say so meaningfully) merges only with the waiver label, so a human
@@ -179,7 +179,7 @@ def check_replay_report(
     actual = preferences_sha256(head_preferences)
     if reported != actual:
         errors.append(
-            "replay report was produced against a different preferences.tsv "
+            "replay report was produced against a different preferences.txt "
             f"(report {str(reported)[:12]}… vs head {actual[:12]}…) — re-run "
             "the replay after the last edit"
         )

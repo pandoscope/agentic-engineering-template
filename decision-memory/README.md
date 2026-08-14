@@ -24,7 +24,7 @@ protecting the data's integrity.
 │                           # records from past conversations
 ├── preferences.json        # active preference set — machine-owned
 │                           # source of truth
-├── preferences.tsv         # its render — the ONLY file injected
+├── preferences.txt         # its render — the ONLY file injected
 │                           # into agent context
 ├── store.config.json       # store-owned knobs: token budget, labels,
 │                           # replay window, small-n threshold
@@ -54,7 +54,7 @@ protecting the data's integrity.
   guards reject any PR that modifies, deletes, or renames existing
   records.
 - **Preferences:** the active set is a pair — `preferences.json` is
-  the machine-owned source of truth, `preferences.tsv` its render and
+  the machine-owned source of truth, `preferences.txt` its render and
   the only file injected into agent sessions, kept under a hard token
   budget (`budget_tokens` in `store.config.json`). CI re-renders and
   fails on any drift between the two. Confirmation counters are the
@@ -68,7 +68,7 @@ protecting the data's integrity.
   signal: the next session records why (`closure_of`).
 - **Consumers** reference this repo only through the
   `DECISION_MEMORY_URL` environment variable (full git URL, never
-  committed anywhere public) and inject `preferences.tsv` only — never
+  committed anywhere public) and inject `preferences.txt` only — never
   `decisions/` wholesale.
 
 ## The preference-set lifecycle
@@ -81,7 +81,7 @@ measure a rule set no record was ever scored against.
 | | What it does | Driven by |
 | --- | --- | --- |
 | **Extract** (`/extract-preferences`) | Runs on the PR ingesting a session: per pattern, bumps a counter, flags drift, or proposes a rule. Acts on the records since the last `pref-extract:` commit, reasons from the whole corpus. Never writes to `decisions/`. | `.github/store/extraction.py` |
-| **Budget** (automatic) | Token-counts `preferences.tsv` on every push to `main` and keeps one pinned "compression due" issue in sync. Reports, never blocks. | `.github/store/budget.py` |
+| **Budget** (automatic) | Token-counts `preferences.txt` on every push to `main` and keeps one pinned "compression due" issue in sync. Reports, never blocks. | `.github/store/budget.py` |
 | **Compact** (`/compact-preferences`) | Merges overlapping rules, drops dead ones, tightens wording — then replays the last decisions under the old and new sets and gates on the preference-driven hit rate. | `.github/store/replay.py` |
 
 Before any of that, drafts pass the ingestion gate

@@ -10,7 +10,7 @@ description: Turn decision records into preference rules — confirm, flag drift
 > change it in the template and pull via `copier update`.
 
 `decisions/` records what happened; the active preference set
-(`preferences.json`, rendered to the injected `preferences.tsv`) tells
+(`preferences.json`, rendered to the injected `preferences.txt`) tells
 the next session what to expect. Extraction connects the two. Until it runs
 every record lands `prediction_stream: cold`, because no rule was there
 to drive a prediction.

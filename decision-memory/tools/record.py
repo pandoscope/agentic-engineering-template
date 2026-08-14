@@ -449,7 +449,7 @@ def cmd_open(args: argparse.Namespace) -> int:
             print("Unmerged-PR sweep: all closures covered.")
     print()
     print(
-        "Reminder: inject preferences.tsv (and ONLY preferences.tsv) into "
+        "Reminder: inject preferences.txt (and ONLY preferences.txt) into "
         "the session context now, if not already injected."
     )
     return 0

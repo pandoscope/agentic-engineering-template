@@ -86,16 +86,14 @@ DATE_RE = validator_core.DATE_RE
 
 # Single source for the preference-set format (see
 # decision-memory/docs/conventions.md): `preferences.json` is the
-# machine-owned source of truth, `preferences.tsv` its render and the
+# machine-owned source of truth, `preferences.txt` its render and the
 # ONLY file injected into sessions. The two are a declared mirror —
 # the guard re-renders and fails on any drift, and the writer's
 # pref-confirm bumps edit the JSON then re-render. Both sides consume
 # exactly these definitions, so they cannot disagree about the format.
 
 PREFERENCES_SOURCE = "preferences.json"
-PREFERENCES_RENDERED = "preferences.tsv"
-
-RENDERED_HEADER = "confirmed\tindependent\trule"
+PREFERENCES_RENDERED = "preferences.txt"
 
 COUNTER_KEY = "confirmed"
 INDEPENDENT_KEY = "independent"
@@ -193,15 +191,16 @@ def validate_preferences(data: object) -> list[str]:
 def render_preferences(data: dict) -> str:
     """Render the injected surface from the source of truth.
 
-    TSV with one header line, one rule per row, in source order — the
-    order is the priority order. Deterministic — equal data renders
-    byte-equal, which is what lets the guard check the mirror by
-    re-rendering.
+    A plain ordered list — one rule per line, in source order (the
+    order is the priority order), nothing else. Counters and dates are
+    update-time bookkeeping and stay in the JSON: numbers in-session
+    would invite the reader to discount young rules, and a promoted
+    rule is equally binding at zero confirmations. Deterministic —
+    equal data renders byte-equal, which is what lets the guard check
+    the mirror by re-rendering.
     """
-    lines = [RENDERED_HEADER]
-    for rule in data.get("rules", []):
-        lines.append(f"{rule[COUNTER_KEY]}\t{rule[INDEPENDENT_KEY]}\t{rule['rule']}")
-    return "\n".join(lines) + "\n"
+    lines = [rule["rule"] for rule in data.get("rules", [])]
+    return "\n".join(lines) + "\n" if lines else ""
 
 
 def serialize_preferences(data: dict) -> str:

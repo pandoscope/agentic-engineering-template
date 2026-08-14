@@ -3,7 +3,7 @@
 Copier-vendored from the agentic-engineering-template guard
 subtemplate — change it there, pull via `copier update`.
 
-`preferences.tsv` — the render of `preferences.json` — is injected
+`preferences.txt` — the render of `preferences.json` — is injected
 into every grilled session, so its size is a permanent per-session
 context tax. This module is the reporting
 layer on top of the vendored budget check: it reports a level
@@ -38,7 +38,7 @@ sys.path.insert(
 import config as store_config  # noqa: E402  (path bootstrap above)
 import decision_validator  # noqa: E402  (path bootstrap above)
 
-PREFERENCES_FILENAME = "preferences.tsv"
+PREFERENCES_FILENAME = "preferences.txt"
 
 LEVEL_OK = "ok"
 LEVEL_WARN = "warn"
@@ -94,9 +94,9 @@ def issue_body(status: dict, sha: str | None = None) -> str:
     than a stale snapshot.
     """
     headline = (
-        "`preferences.tsv` is **over budget** — PRs touching the set now fail CI."
+        "`preferences.txt` is **over budget** — PRs touching the set now fail CI."
         if status["level"] == LEVEL_OVER
-        else "`preferences.tsv` is approaching its budget."
+        else "`preferences.txt` is approaching its budget."
     )
     lines = [
         "<!-- managed by .github/workflows/preferences-budget.yml -->",

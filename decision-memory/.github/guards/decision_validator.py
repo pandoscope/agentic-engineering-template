@@ -86,14 +86,14 @@ DATE_RE = validator_core.DATE_RE
 
 # Single source for the preference-set format (see
 # decision-memory/docs/conventions.md): `preferences.json` is the
-# machine-owned source of truth, `preferences.txt` its render and the
+# machine-owned source of truth, `preferences.tsv` its render and the
 # ONLY file injected into sessions. The two are a declared mirror —
 # the guard re-renders and fails on any drift, and the writer's
 # pref-confirm bumps edit the JSON then re-render. Both sides consume
 # exactly these definitions, so they cannot disagree about the format.
 
 PREFERENCES_SOURCE = "preferences.json"
-PREFERENCES_RENDERED = "preferences.txt"
+PREFERENCES_RENDERED = "preferences.tsv"
 
 RENDERED_HEADER = "confirmed\tindependent\trule"
 

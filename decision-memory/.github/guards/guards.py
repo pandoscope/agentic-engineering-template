@@ -16,7 +16,7 @@ Checks, per PR (run with --base <base-sha> from a full checkout):
    updates re-validate the entire corpus.
 3. Dangling-reference check across the corpus.
 4. The preference-set pair: preferences.json validates against its
-   schema, preferences.txt equals its render (per commit and at head),
+   schema, preferences.tsv equals its render (per commit and at head),
    and the render fits the repo-local token budget.
 5. Commit lint: every PR commit subject uses one of the repo's own
    types (decision/prediction/pref-proposal/pref-promote/

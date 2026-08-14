@@ -194,7 +194,7 @@ everywhere — new optional fields need no migration.
   covered by a matching `closure_of` — the records themselves are the
   state.
 
-## Active preference set (`preferences.json` + `preferences.txt`)
+## Active preference set (`preferences.json` + `preferences.tsv`)
 
 Storage and priming are two concerns, so the set is a pair:
 
@@ -210,7 +210,7 @@ Storage and priming are two concerns, so the set is a pair:
   ]}
   ```
 
-- **`preferences.txt` is its render and the ONLY file injected into
+- **`preferences.tsv` is its render and the ONLY file injected into
   sessions.** TSV with one self-describing header line, one rule per
   row — counters stay in-session (grilling cites rules by strength) at
   a few tokens per rule, `last` stays out entirely (it matters at
@@ -350,7 +350,7 @@ against.
   decisions under the old and new sets and compares the
   preference-driven hit rate. A carve-out PR carries the gate report
   in its description and the carve-out label; CI verifies the report
-  is `pass` and was produced against the exact `preferences.txt` in
+  is `pass` and was produced against the exact `preferences.tsv` in
   the PR head.
 - **Small-n honesty.** Below `min_gated_cases` preference-driven
   cases, the gate returns `insufficient-evidence` rather than `pass`,
@@ -439,7 +439,7 @@ Stdlib-only, no dependencies; fails soft on factory loss. Checks:
   can never retroactively invalidate or silently mis-accept records
   without it showing.
 - Dangling-reference check on `related`/`supersedes`/`drill_down_of`.
-- The preferences.json schema, the preferences.txt mirror (re-rendered
+- The preferences.json schema, the preferences.tsv mirror (re-rendered
   and compared), and the token budget on the render, against
   `budget_tokens`.
 - Commit lint (the types above).

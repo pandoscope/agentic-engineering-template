@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as store_config  # noqa: E402  (path bootstrap above)
 
 DECISIONS_DIR = "decisions"
-PREFERENCES_FILENAME = "preferences.txt"
+PREFERENCES_FILENAME = "preferences.tsv"
 # Pre-migration commits pin the markdown set; preferences_at still
 # serves those verbatim, and rule_lines reads both shapes.
 LEGACY_PREFERENCES_FILENAME = "preferences.md"

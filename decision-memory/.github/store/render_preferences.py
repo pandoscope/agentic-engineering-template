@@ -5,13 +5,13 @@ Copier-vendored from the agentic-engineering-template guard
 subtemplate — change it there, pull via `copier update`.
 
 `preferences.json` is the machine-owned source of truth;
-`preferences.txt` is its render and the ONLY file injected into
+`preferences.tsv` is its render and the ONLY file injected into
 sessions. The pair is a declared mirror: this tool is the update
 mechanism, and the guards fail on any drift.
 
 Verbs:
-  render    write preferences.txt from preferences.json
-  check     exit 1 when preferences.txt is not the current render
+  render    write preferences.tsv from preferences.json
+  check     exit 1 when preferences.tsv is not the current render
 
 Stdlib only. Usage:
 

@@ -50,7 +50,7 @@ STORE_FILES = frozenset(
         "docs/conventions.md",
         "docs/extraction-prompt.md",
         "preferences.json",
-        "preferences.txt",
+        "preferences.tsv",
         "store.config.json",
         "tools/record.py",
         "tools/record_core.py",
@@ -116,7 +116,7 @@ def test_store_docs_are_vendored_and_preferences_seeded(
     assert (dst_path / "docs" / "conventions.md").read_text() == source.read_text()
 
     source = dst_path / "preferences.json"
-    rendered = dst_path / "preferences.txt"
+    rendered = dst_path / "preferences.tsv"
     assert "Seeded once" in source.read_text()
     assert rendered.read_text() == "confirmed\tindependent\trule\n"
     # Owned by the store: a local edit to either half of the pair must

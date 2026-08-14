@@ -20,7 +20,7 @@ authoritative contract.
 
 - `decisions/` is append-only: NEVER modify, delete, or rename an
   existing record. CI rejects it; do not try.
-- Inject `preferences.txt` ONLY into agent context — never
+- Inject `preferences.tsv` ONLY into agent context — never
   `preferences.json` (its source of truth) or `decisions/` wholesale.
 - Write records through the recorder (`tools/record.py`, here in this
   repo). It operates on the checkout it lives in, so run this copy —
@@ -30,7 +30,7 @@ authoritative contract.
 - The active set may only change via counter bumps (`pref-confirm`),
   human promotion (`pref-promote`), or a gated compaction
   (`pref-compact`, carve-out label + replay report) — always by
-  editing `preferences.json` and re-rendering `preferences.txt`
+  editing `preferences.json` and re-rendering `preferences.tsv`
   (`python .github/store/render_preferences.py render`). Promotion is
   human-only, always.
 - Growing and shrinking the preference set are two manual skills, run
@@ -89,7 +89,7 @@ See [docs/conventions.md](docs/conventions.md) § Ingestion gate.
 
 ## Preference-set lifecycle
 
-`preferences.txt` — the render of `preferences.json` — is injected
+`preferences.tsv` — the render of `preferences.json` — is injected
 into every grilled session, so every rule in it is a permanent
 per-session context tax. Two manual, human-merged
 skills manage it. **Run them in this order** — there is nothing to

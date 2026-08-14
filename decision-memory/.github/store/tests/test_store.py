@@ -174,7 +174,7 @@ class BudgetTests(unittest.TestCase):
 
 
 class PreferenceSetTests(unittest.TestCase):
-    """Schema and render of the preferences.json / preferences.txt pair."""
+    """Schema and render of the preferences.json / preferences.tsv pair."""
 
     def test_a_valid_set_has_no_errors(self):
         data = make_preferences(make_rule(), make_rule(text="another rule."))
@@ -532,7 +532,7 @@ class RenderCliTests(unittest.TestCase):
                 decision_validator.serialize_preferences(data),
             )
             self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
-            with open(os.path.join(tmp, "preferences.txt"), encoding="utf-8") as f:
+            with open(os.path.join(tmp, "preferences.tsv"), encoding="utf-8") as f:
                 self.assertEqual(f.read(), decision_validator.render_preferences(data))
             self.assertEqual(guards.check_corpus(tmp), [])
 
@@ -544,7 +544,7 @@ class RenderCliTests(unittest.TestCase):
                 "preferences.json",
                 decision_validator.serialize_preferences(data),
             )
-            self._write(tmp, "preferences.txt", "confirmed\tindependent\trule\n")
+            self._write(tmp, "preferences.tsv", "confirmed\tindependent\trule\n")
             self.assertNotEqual(render_preferences.main(["check", "--root", tmp]), 0)
             self.assertEqual(render_preferences.main(["render", "--root", tmp]), 0)
             self.assertEqual(render_preferences.main(["check", "--root", tmp]), 0)
@@ -679,7 +679,7 @@ class CarveOutTests(unittest.TestCase):
         }
         body = f"{guard.REPLAY_MARKER}\n```json\n{json.dumps(report)}\n```\n"
         errors, _ = guard.check_replay_report(body, "current text")
-        self.assertTrue(any("different preferences.txt" in e for e in errors))
+        self.assertTrue(any("different preferences.tsv" in e for e in errors))
 
     def test_failing_gate_is_rejected(self):
         head = "compacted"
@@ -1881,7 +1881,7 @@ class FixtureStoreTests(unittest.TestCase):
 
     def _write_preferences(self, data):
         self._write("preferences.json", decision_validator.serialize_preferences(data))
-        self._write("preferences.txt", decision_validator.render_preferences(data))
+        self._write("preferences.tsv", decision_validator.render_preferences(data))
 
     def test_the_fixture_corpus_is_clean(self):
         self.assertEqual(guards.check_corpus(self.root), [])
@@ -1904,18 +1904,18 @@ class FixtureStoreTests(unittest.TestCase):
         self.assertEqual(guards.check_corpus(self.root), [])
 
     def test_mirror_drift_fails_the_corpus_check(self):
-        self._write("preferences.txt", "confirmed\tindependent\trule\n")
+        self._write("preferences.tsv", "confirmed\tindependent\trule\n")
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("not the render" in e for e in errors))
 
     def test_a_missing_render_fails_the_corpus_check(self):
-        os.remove(os.path.join(self.root, "preferences.txt"))
+        os.remove(os.path.join(self.root, "preferences.tsv"))
         errors = guards.check_corpus(self.root)
-        self.assertTrue(any("preferences.txt: missing" in e for e in errors))
+        self.assertTrue(any("preferences.tsv: missing" in e for e in errors))
 
     def test_a_pre_split_store_fails_with_the_instruction(self):
         os.remove(os.path.join(self.root, "preferences.json"))
-        os.remove(os.path.join(self.root, "preferences.txt"))
+        os.remove(os.path.join(self.root, "preferences.tsv"))
         self._write("preferences.md", "- old rule. [confirmed: 1]\n")
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("convert the rules" in e for e in errors))
@@ -1937,7 +1937,7 @@ class FixtureStoreTests(unittest.TestCase):
         legacy = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
         self._write("preferences.md", legacy)
         os.remove(os.path.join(self.root, "preferences.json"))
-        os.remove(os.path.join(self.root, "preferences.txt"))
+        os.remove(os.path.join(self.root, "preferences.tsv"))
         subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
         subprocess.run(
             ["git", "-C", self.root, "commit", "-qm", "chore: legacy"], check=True

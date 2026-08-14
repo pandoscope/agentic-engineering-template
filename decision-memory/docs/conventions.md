@@ -205,22 +205,20 @@ Storage and priming are two concerns, so the set is a pair:
 
   ```json
   {"rules": [
-    {"section": "process",
-     "rule": "Prefers machine checks over model checks wherever feasible.",
+    {"rule": "Prefers machine checks over model checks wherever feasible.",
      "confirmed": 3, "independent": 1, "last": "2026-08-11"}
   ]}
   ```
 
 - **`preferences.txt` is its render and the ONLY file injected into
-  sessions.** TSV with one self-describing header line and `#` section
-  markers — counters stay in-session (grilling cites rules by
-  strength) at a few tokens per rule, `last` stays out entirely (it
-  matters at update time, never in-session). Columns are separated by
-  single tabs, shown as spaces here:
+  sessions.** TSV with one self-describing header line, one rule per
+  row — counters stay in-session (grilling cites rules by strength) at
+  a few tokens per rule, `last` stays out entirely (it matters at
+  update time, never in-session). Columns are separated by single
+  tabs, shown as spaces here:
 
   ```text
   confirmed  independent  rule
-  # process
   3  1  Prefers machine checks over model checks wherever feasible.
   ```
 
@@ -237,17 +235,24 @@ Storage and priming are two concerns, so the set is a pair:
   value, so the budget is checked in exactly one place against exactly
   one authority. Promoting a rule at budget means merging or demoting
   another ("promote requires demote").
+- **Rule order is priority, and it is a ruling.** When two rules match
+  contradicting solutions, the earlier rule wins. The order is
+  human-owned: a newly promoted rule appends at the END (lowest
+  priority) unless the promoting human places it; moving an existing
+  rule is a rewrite of the active set and takes the carve-out label
+  like any other. Nothing recomputes the order — observed conflicts
+  where a later rule beat an earlier one are extraction findings that
+  PROPOSE a reorder, never apply one.
 - Rules are conditional and falsifiable, one object each. The schema
-  is a closed set — `section`, `rule`, `confirmed`, `independent`,
-  `last`, nothing else — so a rule cannot gain keys nothing reads, and
-  a hand-added rule cannot enter without counters.
+  is a closed set — `rule`, `confirmed`, `independent`, `last`,
+  nothing else — so a rule cannot gain keys nothing reads, and a
+  hand-added rule cannot enter without counters.
 - `rule` is one plain single-spaced line; the render never wraps. It
   may hold a joined qualifier sentence under the one counter — "one
   line, one preference" counts preferences, not sentences: a qualifier
   the decider reads as part of the rule belongs to it, not to a second
   entry.
-- Rule text is unique within the set (bumps match by text) and a
-  section's rules stay contiguous.
+- Rule text is unique within the set (bumps match by text).
 
 Counter semantics:
 

@@ -122,7 +122,7 @@ def test_store_docs_are_vendored_and_preferences_seeded(
     # Owned by the store: a local edit to either half of the pair must
     # survive a re-render.
     source.write_text('{"rules": []}\n')
-    rendered.write_text("confirmed\tindependent\trule\n# process\n1\t0\tmy rule.\n")
+    rendered.write_text("confirmed\tindependent\trule\n1\t0\tmy rule.\n")
     copier.run_copy(
         src_path=str(PROJECT_ROOT),
         dst_path=dst_path,

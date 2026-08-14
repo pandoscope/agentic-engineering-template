@@ -471,7 +471,7 @@ def rule_lines(preferences_text: str) -> list[str]:
         return [
             line.split("\t", 2)[2].strip()
             for line in lines[1:]
-            if line and not line.startswith("#") and line.count("\t") >= 2
+            if line.count("\t") >= 2
         ]
     return [
         _RULE_METADATA_RE.sub("", line.strip()[2:]).strip()

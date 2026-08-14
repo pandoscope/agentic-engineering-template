@@ -37,7 +37,6 @@ def test_foreign_commit_subjects_fail() -> None:
 
 def _rule(text="Rejects new deps.", confirmed=3, independent=0, last="2026-07-15"):
     return {
-        "section": "process",
         "rule": text,
         "confirmed": confirmed,
         "independent": independent,

@@ -70,13 +70,11 @@ def make_prediction(record_id, slot, rules=()):
 
 def make_rule(
     text="a short rule.",
-    section="process",
     confirmed=1,
     independent=0,
     last="2026-07-15",
 ):
     return {
-        "section": section,
         "rule": text,
         "confirmed": confirmed,
         "independent": independent,
@@ -253,24 +251,11 @@ class PreferenceSetTests(unittest.TestCase):
         data = make_preferences(make_rule(), make_rule())
         self.assertTrue(decision_validator.validate_preferences(data))
 
-    def test_sections_group_contiguously(self):
-        data = make_preferences(
-            make_rule(section="process"),
-            make_rule(text="b.", section="infrastructure"),
-            make_rule(text="c.", section="process"),
-        )
-        self.assertTrue(decision_validator.validate_preferences(data))
-
-    def test_a_malformed_section_is_rejected(self):
-        for section in ("Process", "two words", ""):
-            data = make_preferences(make_rule(section=section))
-            self.assertTrue(decision_validator.validate_preferences(data), section)
-
     def test_render_is_the_acked_shape(self):
+        """Flat rows in source order — the order is the priority order."""
         data = make_preferences(
             make_rule(
                 text="Rejects a new dependency unless it removes a whole class of maintenance.",
-                section="infrastructure",
                 confirmed=6,
                 independent=1,
             ),
@@ -282,9 +267,7 @@ class PreferenceSetTests(unittest.TestCase):
         )
         expected = (
             "confirmed\tindependent\trule\n"
-            "# infrastructure\n"
             "6\t1\tRejects a new dependency unless it removes a whole class of maintenance.\n"
-            "# process\n"
             "3\t1\tPrefers machine checks over model checks wherever feasible.\n"
         )
         self.assertEqual(decision_validator.render_preferences(data), expected)

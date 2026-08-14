@@ -130,8 +130,8 @@ What not to do:
   through `proposals/` and a human `pref-promote`.
 - Do not touch a counter except as part of a documented merge. Counter
   bumps are `pref-confirm`'s job.
-- Do not reorder surviving rules without a reason — keep the diff
-  readable.
+- Do not reorder surviving rules: order is priority (earlier wins),
+  and the order is the human's ruling, not a compaction lever.
 
 ### 6. Predict under the compacted set and gate
 

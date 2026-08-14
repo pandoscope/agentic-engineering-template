@@ -108,7 +108,7 @@ def validate_pref_confirm_change(old_data: dict, new_data: dict) -> list[str]:
         if old == new:
             continue
         changed += 1
-        if old["rule"] != new["rule"] or old["section"] != new["section"]:
+        if old["rule"] != new["rule"]:
             errors.append(
                 f"pref-confirm: rule text changed: {old['rule']!r} -> {new['rule']!r}"
             )

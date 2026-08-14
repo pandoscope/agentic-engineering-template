@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -106,9 +105,13 @@ DATE_KEY = "last"
 # gaining keys nothing reads: adding one is a deliberate change here,
 # with its consumer, rather than something a writer can introduce in
 # passing.
-RULE_KEYS = ("section", "rule", COUNTER_KEY, INDEPENDENT_KEY, DATE_KEY)
-
-SECTION_RE = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+#
+# List ORDER is the set's priority order, human-owned: when two rules
+# match contradicting solutions, the earlier rule wins. New rules
+# append at the end; moving one is a rewrite of the active set and
+# gated like any other. Nothing here enforces a particular order — the
+# order IS the ruling.
+RULE_KEYS = ("rule", COUNTER_KEY, INDEPENDENT_KEY, DATE_KEY)
 
 
 def parse_preferences(text: str) -> tuple[dict | None, list[str]]:
@@ -133,10 +136,6 @@ def _validate_rule(index: int, rule: object) -> list[str]:
     if tuple(rule) != RULE_KEYS:
         return [f"{where}: keys must be exactly {list(RULE_KEYS)}, got {list(rule)}"]
     errors: list[str] = []
-    if not isinstance(rule["section"], str) or not SECTION_RE.match(rule["section"]):
-        errors.append(
-            f"{where}: section {rule['section']!r} is not lowercase kebab-case"
-        )
     text = rule["rule"]
     # One physical line in the render, single-spaced. A rule may hold a
     # joined qualifier sentence under the one counter — "one line, one
@@ -188,34 +187,19 @@ def validate_preferences(data: object) -> list[str]:
                 "text, so it must be unique"
             )
         seen_text[normalized] = index
-    seen_sections: dict[str, int] = {}
-    previous = None
-    for index, rule in enumerate(rules):
-        section = rule["section"]
-        if section != previous and section in seen_sections:
-            errors.append(
-                f"rules[{index}]: section {section!r} reappears after "
-                f"rules[{seen_sections[section]}] — rules of one section stay "
-                "contiguous"
-            )
-        seen_sections[section] = index
-        previous = section
     return errors
 
 
 def render_preferences(data: dict) -> str:
     """Render the injected surface from the source of truth.
 
-    TSV with one header line; a ``# <section>`` marker precedes each
-    group. Deterministic — equal data renders byte-equal, which is what
-    lets the guard check the mirror by re-rendering.
+    TSV with one header line, one rule per row, in source order — the
+    order is the priority order. Deterministic — equal data renders
+    byte-equal, which is what lets the guard check the mirror by
+    re-rendering.
     """
     lines = [RENDERED_HEADER]
-    current = None
     for rule in data.get("rules", []):
-        if rule["section"] != current:
-            current = rule["section"]
-            lines.append(f"# {current}")
         lines.append(f"{rule[COUNTER_KEY]}\t{rule[INDEPENDENT_KEY]}\t{rule['rule']}")
     return "\n".join(lines) + "\n"
 

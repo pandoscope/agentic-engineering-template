@@ -70,6 +70,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 DECISIONS_DIR = "decisions"
 
+# Read for the conflict tally only; schema and mirror are the guards'
+# business. Filename authority: decision_validator.PREFERENCES_SOURCE —
+# not imported here so this module keeps its single-directory bootstrap.
+PREFERENCES_SOURCE = "preferences.json"
+
 # Queues, most informative first. A record lands in exactly one.
 QUEUE_CORRECTIONS = "corrections"
 QUEUE_MISSES = "misses"
@@ -121,6 +126,105 @@ def is_rule_driven_acceptance(record: dict) -> bool:
     if option is None or not option.get("rules_cited"):
         return False
     return option.get("slot") == record.get("chosen_slot")
+
+
+def _normalize(text: str) -> str:
+    return " ".join(text.lower().split())
+
+
+def record_contests(record: dict) -> list[tuple[str, str]]:
+    """(winning_citation, losing_citation) pairs one record decided.
+
+    A record where the chosen option cites rule A and a declined option
+    cites rule B is a decided contest: A beat B, with the decider as
+    judge. A rule citing both sides of one pair is no contest.
+    """
+    slot = record.get("chosen_slot")
+    if slot is None:
+        return []
+    winners: list[str] = []
+    losers: list[str] = []
+    for option in record.get("options") or []:
+        if not isinstance(option, dict):
+            continue
+        rules = [r for r in (option.get("rules_cited") or []) if isinstance(r, str)]
+        if option.get("slot") == slot:
+            winners.extend(rules)
+        else:
+            losers.extend(rules)
+    return [
+        (winner, loser)
+        for winner in winners
+        for loser in losers
+        if _normalize(winner) != _normalize(loser)
+    ]
+
+
+def resolve_citation(cited: str, rules: list[dict]) -> int | None:
+    """Index of the current rule a citation names, or None.
+
+    Same normalized-containment contract as the counter bumps, so the
+    tally and the bumps can never disagree about which rule a citation
+    names. A citation that resolves to no current rule is skipped — the
+    tally ranks the rules that exist, not the ones that did.
+    """
+    wanted = _normalize(cited)
+    for index, rule in enumerate(rules):
+        if wanted in _normalize(rule["rule"]):
+            return index
+    return None
+
+
+def conflict_tally(records: list[dict], rules: list[dict]) -> list[dict]:
+    """Win/loss counts per pair of CURRENT rules, whole corpus.
+
+    Position in ``rules`` is priority (earlier wins), so an entry where
+    the later rule out-won the earlier one is an ``order_violation`` —
+    evidence for a human reorder, never an automatic one. Recomputed
+    from scratch on every run: the corpus is append-only, so a derived
+    tally is exactly reproducible where a stored rating (Elo-style)
+    would be path-dependent state nothing could verify.
+    """
+    counts: dict[tuple[int, int], int] = {}
+    for record in records:
+        for winner, loser in record_contests(record):
+            winner_index = resolve_citation(winner, rules)
+            loser_index = resolve_citation(loser, rules)
+            if winner_index is None or loser_index is None:
+                continue
+            if winner_index == loser_index:
+                continue
+            key = (winner_index, loser_index)
+            counts[key] = counts.get(key, 0) + 1
+    entries = []
+    pairs = sorted({(min(pair), max(pair)) for pair in counts})
+    for earlier, later in pairs:
+        earlier_wins = counts.get((earlier, later), 0)
+        later_wins = counts.get((later, earlier), 0)
+        entries.append(
+            {
+                "earlier": rules[earlier]["rule"],
+                "later": rules[later]["rule"],
+                "earlier_wins": earlier_wins,
+                "later_wins": later_wins,
+                "order_violation": later_wins > earlier_wins,
+            }
+        )
+    return entries
+
+
+def load_active_rules(root: str = ".") -> list[dict] | None:
+    """The current rule list, or None when the store has no split set."""
+    path = os.path.join(root, PREFERENCES_SOURCE)
+    if not os.path.isfile(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    rules = data.get("rules") if isinstance(data, dict) else None
+    return rules if isinstance(rules, list) else None
 
 
 def queue_for(record: dict) -> str:
@@ -180,13 +284,17 @@ def summarise(record: dict) -> dict:
     }
 
 
-def build_batch(records: list[dict], scope: set[str]) -> dict:
+def build_batch(
+    records: list[dict], scope: set[str], active_rules: list[dict] | None = None
+) -> dict:
     """The records since the watermark, queued, with history as evidence.
 
     ``records`` is the WHOLE corpus; ``scope`` names the records since
     the watermark. Everything outside the scope ships as `history` — a
     pass that cannot see it would call a pattern new the third time it
-    appeared.
+    appeared. ``active_rules`` (the current preferences.json rule list)
+    feeds the conflict tally; without it the tally is empty and only
+    the raw in-scope contests are reported.
     """
     in_scope = [r for r in records if str(r.get("id") or "") in scope]
     history = [r for r in records if str(r.get("id") or "") not in scope]
@@ -219,11 +327,24 @@ def build_batch(records: list[dict], scope: set[str]) -> dict:
             "silence. Rules listed under rule_driven_acceptances have "
             "confirmed only their own recommendation and carry no "
             "independent evidence — never strengthen them on those "
-            "records."
+            "records. conflict_tally counts decided contests between "
+            "current rules (the chosen option's citations beat the "
+            "declined options' citations); an entry with "
+            "order_violation true says a later rule keeps beating an "
+            "earlier one — write a reorder proposal for a human to "
+            "rule on, never reorder here."
         ),
         "queues": {name: queues[name] for name in QUEUES},
         "queue_counts": {name: len(queues[name]) for name in QUEUES},
         "rule_driven_acceptances": flagged,
+        "conflicts": [
+            {"record": record.get("id"), "winner": winner, "loser": loser}
+            for record in in_scope
+            for winner, loser in record_contests(record)
+        ],
+        "conflict_tally": (
+            conflict_tally(records, active_rules) if active_rules else []
+        ),
         "preference_driven_count": sum(
             1
             for queue in queues.values()
@@ -415,15 +536,19 @@ def main(argv: list[str] | None = None) -> int:
 
     records = load_records(args.root)
     in_scope, watermark = scope_ids(args.root)
-    payload = build_batch(records, in_scope)
+    payload = build_batch(records, in_scope, load_active_rules(args.root))
     payload["watermark"] = watermark
 
     if args.command == "status":
         since = f"{watermark[:9]}" if watermark else "the beginning of the corpus"
+        violations = sum(
+            1 for entry in payload["conflict_tally"] if entry["order_violation"]
+        )
+        suffix = f", {violations} order violation(s)" if violations else ""
         print(
             f"extraction: {payload['count']} record(s) since {since}, "
             f"{payload['history_count']} already covered "
-            f"({payload['queue_counts']})"
+            f"({payload['queue_counts']}{suffix})"
         )
         return 0
 

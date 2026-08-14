@@ -142,6 +142,21 @@ pref-proposal: prefers the simplest solution that solves the actual problem
 If you cannot state what would falsify it, it is an observation, not a
 rule.
 
+**d) A later rule keeps beating an earlier one → propose a reorder.**
+Rule order is priority — earlier wins. The batch's `conflict_tally`
+counts decided contests between current rules (the chosen option's
+cited rules beat the cited rules of options the decider declined). An
+entry with `order_violation: true` says the evidence disagrees with
+the order. Write `proposals/<YYYY-MM-DD>-reorder-<slug>.md` naming the
+pair, the counts, and the records behind them:
+
+```text
+pref-proposal: move machine-checks above simplest-shape (3 contests, 3 wins)
+```
+
+A human reorders the set under the carve-out label; this pass never
+moves a rule.
+
 ### 4. Close the pass
 
 The last commit of the PR, after every proposal, drift flag and counter

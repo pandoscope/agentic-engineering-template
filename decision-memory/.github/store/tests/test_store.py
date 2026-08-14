@@ -405,6 +405,123 @@ class PreferencesChangeClassificationTests(unittest.TestCase):
         )
 
 
+def contest_record(record_id, chosen_slot, slot_rules):
+    """A record whose options cite rules — a decided contest fixture.
+
+    ``slot_rules`` maps slot -> list of cited rule texts.
+    """
+    options = [
+        {"slot": slot, "label": f"option {slot}", "rules_cited": list(rules)}
+        for slot, rules in sorted(slot_rules.items())
+    ]
+    options[0]["role"] = "prediction"
+    return dict(make_record(record_id, chosen_slot), options=options)
+
+
+class ConflictTallyTests(unittest.TestCase):
+    """Rule-vs-rule contests, counted from the corpus, never stored."""
+
+    RULES = [
+        make_rule(text="Earlier rule wins by default."),
+        make_rule(text="Later rule, lowest priority."),
+    ]
+
+    def test_a_decided_contest_is_counted(self):
+        record = contest_record(
+            "20260714T000000Z-a",
+            1,
+            {1: ["Earlier rule wins by default."], 2: ["Later rule, lowest priority."]},
+        )
+        self.assertEqual(
+            extraction.record_contests(record),
+            [("Earlier rule wins by default.", "Later rule, lowest priority.")],
+        )
+
+    def test_no_chosen_slot_means_no_contest(self):
+        record = contest_record("20260714T000000Z-a", 1, {1: ["A."], 2: ["B."]})
+        record["chosen_slot"] = None
+        self.assertEqual(extraction.record_contests(record), [])
+
+    def test_the_same_rule_on_both_sides_is_no_contest(self):
+        record = contest_record("20260714T000000Z-a", 1, {1: ["A."], 2: ["a."]})
+        self.assertEqual(extraction.record_contests(record), [])
+
+    def test_tally_flags_later_beats_earlier(self):
+        records = [
+            contest_record(
+                f"2026071{i}T00000{i}Z-x",
+                2,
+                {
+                    1: ["Earlier rule wins by default."],
+                    2: ["Later rule, lowest priority."],
+                },
+            )
+            for i in range(2)
+        ]
+        tally = extraction.conflict_tally(records, self.RULES)
+        self.assertEqual(len(tally), 1)
+        entry = tally[0]
+        self.assertEqual(entry["earlier"], "Earlier rule wins by default.")
+        self.assertEqual(entry["later_wins"], 2)
+        self.assertEqual(entry["earlier_wins"], 0)
+        self.assertTrue(entry["order_violation"])
+
+    def test_a_winning_earlier_rule_is_not_a_violation(self):
+        records = [
+            contest_record(
+                "20260714T000000Z-x",
+                1,
+                {
+                    1: ["Earlier rule wins by default."],
+                    2: ["Later rule, lowest priority."],
+                },
+            )
+        ]
+        tally = extraction.conflict_tally(records, self.RULES)
+        self.assertFalse(tally[0]["order_violation"])
+
+    def test_a_conflict_free_corpus_reports_nothing(self):
+        records = [contest_record("20260714T000000Z-x", 1, {1: ["A."], 2: []})]
+        self.assertEqual(extraction.conflict_tally(records, self.RULES), [])
+
+    def test_an_unresolved_citation_is_skipped(self):
+        records = [
+            contest_record(
+                "20260714T000000Z-x",
+                1,
+                {1: ["A rule nobody promoted."], 2: ["Later rule, lowest priority."]},
+            )
+        ]
+        self.assertEqual(extraction.conflict_tally(records, self.RULES), [])
+
+    def test_the_batch_carries_conflicts_and_tally(self):
+        record = contest_record(
+            "20260714T000000Z-x",
+            2,
+            {1: ["Earlier rule wins by default."], 2: ["Later rule, lowest priority."]},
+        )
+        batch = extraction.build_batch(
+            [record], {record["id"]}, active_rules=self.RULES
+        )
+        self.assertEqual(
+            batch["conflicts"],
+            [
+                {
+                    "record": record["id"],
+                    "winner": "Later rule, lowest priority.",
+                    "loser": "Earlier rule wins by default.",
+                }
+            ],
+        )
+        self.assertTrue(batch["conflict_tally"][0]["order_violation"])
+
+    def test_the_batch_without_a_rule_set_still_reports_raw_conflicts(self):
+        record = contest_record("20260714T000000Z-x", 1, {1: ["A."], 2: ["B."]})
+        batch = extraction.build_batch([record], {record["id"]})
+        self.assertEqual(len(batch["conflicts"]), 1)
+        self.assertEqual(batch["conflict_tally"], [])
+
+
 class RenderCliTests(unittest.TestCase):
     def test_render_writes_the_mirror(self):
         with tempfile.TemporaryDirectory() as tmp:

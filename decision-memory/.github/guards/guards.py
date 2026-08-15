@@ -318,32 +318,17 @@ def check_corpus(root: str = ".") -> list[str]:
     errors.extend(decision_validator.validate_corpus(records))
     source_path = os.path.join(root, PREFERENCES_SOURCE)
     rendered_path = os.path.join(root, PREFERENCES_RENDERED)
-    legacy_path = os.path.join(root, "preferences.md")
     if not os.path.isfile(source_path):
-        # Absence is a finding, never a skipped check: a store that lost
-        # its active set — to a bad merge, a stray delete, or a
-        # conversion that never happened — would otherwise pass every
-        # guard by having nothing left to verify, while sessions keep
-        # being primed from whatever file survives.
-        if os.path.isfile(legacy_path):
-            errors.append(
-                f"{PREFERENCES_SOURCE}: missing — the active set now lives in "
-                f"{PREFERENCES_SOURCE} + {PREFERENCES_RENDERED}; convert the "
-                "rules of preferences.md and remove it (the schema, mirror, "
-                "and budget guards verify the result)"
-            )
-        else:
-            errors.append(
-                f"{PREFERENCES_SOURCE}: missing — every store carries an "
-                "active set, empty or not; restore it from history rather "
-                f"than leaving {PREFERENCES_RENDERED} as the only surface"
-            )
-        return errors
-    if os.path.isfile(legacy_path):
+        # Absence is a finding, never a skipped check: a store without
+        # its active set would otherwise pass every guard by having
+        # nothing left to verify, while sessions keep being primed from
+        # whatever file survives.
         errors.append(
-            "preferences.md: legacy file left behind — the set lives in "
-            f"{PREFERENCES_SOURCE} + {PREFERENCES_RENDERED} now; remove it"
+            f"{PREFERENCES_SOURCE}: missing — every store carries an active "
+            f"set, empty or not, rendered to {PREFERENCES_RENDERED}. Write "
+            "it, or restore it from history."
         )
+        return errors
     with open(source_path, encoding="utf-8") as handle:
         data, source_errors = decision_validator.parse_preferences(handle.read())
     errors.extend(f"{PREFERENCES_SOURCE}: {e}" for e in source_errors)

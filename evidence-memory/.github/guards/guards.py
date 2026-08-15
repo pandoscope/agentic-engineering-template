@@ -9,7 +9,7 @@ install, so the guard keeps working even if the template repo
 disappears.
 
 Deliberately smaller than the decision store's guard. That one also
-polices preferences.md discipline and per-commit edit rules, because a
+polices its active preference set and per-commit edit rules, because a
 decision session is a human-reviewed batch. Evidence records
 auto-merge on green, so the guard IS the review: it checks what a
 machine can check and claims nothing more.

@@ -585,13 +585,15 @@ def cmd_check(args: argparse.Namespace) -> int:
     errors.extend(validator.validate_corpus(records))
 
     source = repo_dir / validator.PREFERENCES_SOURCE
-    if (repo_dir / "preferences.md").exists() and not source.exists():
+    if not source.exists():
+        # Same reason the CI guard fails here: a store without its
+        # active set must say so, not pass by having nothing to check.
         errors.append(
-            "preferences.md: the active set now lives in "
-            f"{validator.PREFERENCES_SOURCE} + {validator.PREFERENCES_RENDERED} "
-            "— convert the rules and remove this file"
+            f"{validator.PREFERENCES_SOURCE}: missing — every store carries "
+            f"an active set, empty or not, rendered to "
+            f"{validator.PREFERENCES_RENDERED}"
         )
-    if source.exists():
+    else:
         data, source_errors = validator.parse_preferences(
             source.read_text(encoding="utf-8")
         )

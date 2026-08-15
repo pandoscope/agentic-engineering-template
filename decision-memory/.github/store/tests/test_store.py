@@ -209,17 +209,6 @@ class PreferenceSetTests(unittest.TestCase):
             )
             self.assertTrue(errors, repr(text))
 
-    def test_markdown_opening_syntax_is_rejected(self):
-        """The render is a bare list; a rule opening with '#' or '-'
-        would make the file read as the legacy markdown set."""
-        for text in ("# not a heading.", "- not a bullet."):
-            self.assertTrue(
-                decision_validator.validate_preferences(
-                    make_preferences(make_rule(text=text))
-                ),
-                text,
-            )
-
     def test_a_joined_qualifier_sentence_is_legal(self):
         """One rule may hold two sentences under one counter — "one line,
         one preference" counts preferences, not sentences."""
@@ -372,7 +361,7 @@ class PreferencesChangeClassificationTests(unittest.TestCase):
 
     def test_file_creation_is_an_addition(self):
         kind, errors = guards.classify_preferences_change(
-            None, source_text(make_rule()), "chore: migrate"
+            None, source_text(make_rule()), "chore: seed"
         )
         self.assertEqual((kind, errors), ("addition", []))
 
@@ -579,30 +568,8 @@ class RuleLinesTests(unittest.TestCase):
             ["Prefers machine checks.", "Takes the simplest shape."],
         )
 
-    def test_legacy_bullets_still_parse(self):
-        """Records pin pre-migration commits; preferences_at serves those
-        files verbatim, so both formats must stay readable."""
-        text = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
-        self.assertEqual(similarity.rule_lines(text), ["old rule."])
-
-    def test_legacy_prose_is_not_read_as_rules(self):
-        """A markdown set's headings and prose are not rules. Counting
-        them would inflate every coverage score and manufacture false
-        false-cold flags on drafts pinned before the split."""
-        text = (
-            "# Active Preference Set\n"
-            "\n"
-            "The ONLY file injected into agent context.\n"
-            "\n"
-            "## Process\n"
-            "\n"
-            "- a real rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
-        )
-        self.assertEqual(similarity.rule_lines(text), ["a real rule."])
-
-    def test_a_legacy_set_with_no_rules_yields_none(self):
-        text = "# Active Preference Set\n\nProse only, no rules yet.\n"
-        self.assertEqual(similarity.rule_lines(text), [])
+    def test_an_empty_set_yields_no_rules(self):
+        self.assertEqual(similarity.rule_lines(""), [])
 
 
 class CarveOutTests(unittest.TestCase):
@@ -1525,8 +1492,8 @@ class SimilarityGateTests(unittest.TestCase):
     def test_false_cold_flags_a_matching_active_rule(self):
         preferences = (
             "# Active Preference Set\n\n"
-            "- Rejects new infrastructure dependencies unless they remove an "
-            "entire class of maintenance. [confirmed: 3, independent: 0, last: 2026-07-15]\n"
+            "Rejects new infrastructure dependencies unless they remove an "
+            "entire class of maintenance.\n"
         )
         record = self._draft(
             "20260715T143205Z-a",
@@ -1547,8 +1514,8 @@ class SimilarityGateTests(unittest.TestCase):
         on a rule quoted verbatim.
         """
         preferences = (
-            "- Rejects new infrastructure dependencies unless they remove an "
-            "entire class of maintenance. [confirmed: 3, independent: 0, last: 2026-07-15]\n"
+            "Rejects new infrastructure dependencies unless they remove an "
+            "entire class of maintenance.\n"
         )
         record = self._draft(
             "20260715T143205Z-a",
@@ -1651,9 +1618,7 @@ class MeasureInvariantTests(unittest.TestCase):
         Asserting one example would not have caught it. Asserting the
         property across the real length range does.
         """
-        preferences = (
-            f"- {self.RULE}. [confirmed: 3, independent: 0, last: 2026-07-15]\n"
-        )
+        preferences = f"{self.RULE}.\n"
         for filler in (0, 10, 20, 30, 40):
             with self.subTest(filler=filler):
                 record = self._record_quoting_the_rule(filler)
@@ -1687,9 +1652,7 @@ class MeasureInvariantTests(unittest.TestCase):
         threshold: a threshold change must not be able to silently
         satisfy the test above while the measure regresses.
         """
-        preferences = (
-            f"- {self.RULE}. [confirmed: 3, independent: 0, last: 2026-07-15]\n"
-        )
+        preferences = f"{self.RULE}.\n"
         scores = set()
         for filler in (0, 20, 40):
             record = self._record_quoting_the_rule(filler)
@@ -1943,13 +1906,6 @@ class FixtureStoreTests(unittest.TestCase):
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("preferences.txt: missing" in e for e in errors))
 
-    def test_a_pre_split_store_fails_with_the_instruction(self):
-        os.remove(os.path.join(self.root, "preferences.json"))
-        os.remove(os.path.join(self.root, "preferences.txt"))
-        self._write("preferences.md", "- old rule. [confirmed: 1]\n")
-        errors = guards.check_corpus(self.root)
-        self.assertTrue(any("convert the rules" in e for e in errors))
-
     def test_a_missing_preference_set_fails(self):
         """Absence is observable: a store whose active set vanished says
         so, rather than passing because there was nothing to check."""
@@ -1966,38 +1922,31 @@ class FixtureStoreTests(unittest.TestCase):
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("preferences.json: missing" in e for e in errors), errors)
 
-    def test_a_leftover_legacy_file_fails(self):
-        self._write("preferences.md", "- old rule. [confirmed: 1]\n")
-        errors = guards.check_corpus(self.root)
-        self.assertTrue(any("legacy" in e for e in errors))
-
-    def test_preferences_at_reads_the_pinned_format(self):
-        """A record's pinned commit may predate the format split; the
-        pinned file is served whichever shape it has."""
+    def test_preferences_at_serves_the_pinned_set(self):
+        """A record pins the set it was primed from; a commit that has
+        no set yields None, so the caller falls back to the current one
+        and says that it did."""
         for args in (
             ("init", "-q"),
             ("config", "user.email", "t@e.st"),
             ("config", "user.name", "test"),
         ):
             subprocess.run(["git", "-C", self.root, *args], check=True)
-        legacy = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
-        self._write("preferences.md", legacy)
         os.remove(os.path.join(self.root, "preferences.json"))
         os.remove(os.path.join(self.root, "preferences.txt"))
         subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
         subprocess.run(
-            ["git", "-C", self.root, "commit", "-qm", "chore: legacy"], check=True
+            ["git", "-C", self.root, "commit", "-qm", "chore: no set yet"], check=True
         )
-        old_sha = self._head_sha()
-        os.remove(os.path.join(self.root, "preferences.md"))
+        unset_sha = self._head_sha()
         self._write_preferences(make_preferences(make_rule()))
         subprocess.run(["git", "-C", self.root, "add", "-A"], check=True)
         subprocess.run(
-            ["git", "-C", self.root, "commit", "-qm", "chore: migrated"], check=True
+            ["git", "-C", self.root, "commit", "-qm", "chore: set"], check=True
         )
-        new_sha = self._head_sha()
-        self.assertEqual(similarity.preferences_at(old_sha, self.root), legacy)
-        self.assertIn("a short rule.", similarity.preferences_at(new_sha, self.root))
+        set_sha = self._head_sha()
+        self.assertIsNone(similarity.preferences_at(unset_sha, self.root))
+        self.assertIn("a short rule.", similarity.preferences_at(set_sha, self.root))
 
     def _head_sha(self):
         return subprocess.run(

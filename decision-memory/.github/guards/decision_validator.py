@@ -143,15 +143,6 @@ def _validate_rule(index: int, rule: object) -> list[str]:
         errors.append(
             f"{where}: rule text must be one non-empty single-spaced line: {text!r}"
         )
-    # The render is a bare list, so a rule opening with markdown syntax
-    # would make the whole file read as the legacy markdown set to
-    # anything parsing both shapes. Cheap to forbid, and no rule needs
-    # to start this way.
-    elif text.startswith("#") or text.startswith("-"):
-        errors.append(
-            f"{where}: rule text must not start with '#' or '-' — the render "
-            f"is a plain list and would read as markdown: {text!r}"
-        )
     for key in (COUNTER_KEY, INDEPENDENT_KEY):
         value = rule[key]
         if isinstance(value, bool) or not isinstance(value, int) or value < 0:

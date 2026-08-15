@@ -206,7 +206,8 @@ Storage and priming are two concerns, so the set is a pair:
   ```json
   {"rules": [
     {"rule": "Prefers machine checks over model checks wherever feasible.",
-     "confirmed": 3, "independent": 1, "last": "2026-08-11"}
+     "confirmed": 3, "independent": 1, "last": "2026-08-11",
+     "doc": "https://github.com/<owner>/<store>/blob/main/proposals/2026-08-06-machine-checks.md"}
   ]}
   ```
 
@@ -241,9 +242,17 @@ Storage and priming are two concerns, so the set is a pair:
   where a later rule beat an earlier one are extraction findings that
   PROPOSE a reorder, never apply one.
 - Rules are conditional and falsifiable, one object each. The schema
-  is a closed set — `rule`, `confirmed`, `independent`, `last`,
+  is a closed set — `rule`, `confirmed`, `independent`, `last`, `doc`,
   nothing else — so a rule cannot gain keys nothing reads, and a
   hand-added rule cannot enter without counters.
+- **`doc` is the rule's promotion provenance, required-but-nullable**:
+  the http(s) URL of the doc that promoted the rule (typically its
+  `proposals/` file), written by the promoting human in the promoting
+  commit. `doc: null` is the explicit "no promotion doc exists"
+  declaration, so a missing key is always a defect the guard rejects —
+  absence stays observable, never ambiguous. The render never emits
+  it; consumers that display a rule (e.g. the grilling skill's lineage
+  panel) link the doc from here instead of guessing.
 - `rule` is one plain single-spaced line; the render never wraps. It
   may hold a joined qualifier sentence under the one counter — "one
   line, one preference" counts preferences, not sentences: a qualifier

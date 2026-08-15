@@ -35,12 +35,15 @@ def test_foreign_commit_subjects_fail() -> None:
         assert guards.check_commit_subject(subject) is not None, subject
 
 
-def _rule(text="Rejects new deps.", confirmed=3, independent=0, last="2026-07-15"):
+def _rule(
+    text="Rejects new deps.", confirmed=3, independent=0, last="2026-07-15", doc=None
+):
     return {
         "rule": text,
         "confirmed": confirmed,
         "independent": independent,
         "last": last,
+        "doc": doc,
     }
 
 

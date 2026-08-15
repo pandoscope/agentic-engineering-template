@@ -98,6 +98,10 @@ PREFERENCES_RENDERED = "preferences.txt"
 COUNTER_KEY = "confirmed"
 INDEPENDENT_KEY = "independent"
 DATE_KEY = "last"
+# Promotion-doc provenance, required-but-nullable: null is the explicit
+# "no promotion doc exists" declaration, so a missing key is always a
+# defect rather than an ambiguity. The render never emits it.
+DOC_KEY = "doc"
 
 # Exactly these, on every rule. A closed set is what keeps a rule from
 # gaining keys nothing reads: adding one is a deliberate change here,
@@ -109,7 +113,7 @@ DATE_KEY = "last"
 # append at the end; moving one is a rewrite of the active set and
 # gated like any other. Nothing here enforces a particular order — the
 # order IS the ruling.
-RULE_KEYS = ("rule", COUNTER_KEY, INDEPENDENT_KEY, DATE_KEY)
+RULE_KEYS = ("rule", COUNTER_KEY, INDEPENDENT_KEY, DATE_KEY, DOC_KEY)
 
 
 def parse_preferences(text: str) -> tuple[dict | None, list[str]]:
@@ -155,6 +159,14 @@ def _validate_rule(index: int, rule: object) -> list[str]:
         )
     if not isinstance(rule[DATE_KEY], str) or not DATE_RE.fullmatch(rule[DATE_KEY]):
         errors.append(f"{where}: {DATE_KEY}={rule[DATE_KEY]!r} is not YYYY-MM-DD")
+    doc = rule[DOC_KEY]
+    if doc is not None and (
+        not isinstance(doc, str) or not doc.startswith(("http://", "https://"))
+    ):
+        errors.append(
+            f"{where}: {DOC_KEY}={doc!r} must be null (no promotion doc "
+            "exists) or the http(s) URL of the doc that promoted the rule"
+        )
     return errors
 
 

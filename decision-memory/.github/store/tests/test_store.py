@@ -73,12 +73,14 @@ def make_rule(
     confirmed=1,
     independent=0,
     last="2026-07-15",
+    doc=None,
 ):
     return {
         "rule": text,
         "confirmed": confirmed,
         "independent": independent,
         "last": last,
+        "doc": doc,
     }
 
 
@@ -88,6 +90,44 @@ def make_preferences(*rules):
 
 def source_text(*rules):
     return json.dumps(make_preferences(*rules))
+
+
+class PreferenceDocTests(unittest.TestCase):
+    """The doc field: required-but-nullable promotion-doc provenance.
+
+    Every rule entry carries `doc` — a null is the explicit "no
+    promotion doc exists" declaration, a missing key is a defect, and
+    absence therefore stays observable. The render never emits it: the
+    injected surface stays a plain rule list.
+    """
+
+    def test_doc_null_is_a_valid_declared_absence(self):
+        data = make_preferences(make_rule(doc=None))
+        self.assertEqual(guards.decision_validator.validate_preferences(data), [])
+
+    def test_doc_url_is_valid(self):
+        data = make_preferences(make_rule(doc="https://example.com/proposals/x.md"))
+        self.assertEqual(guards.decision_validator.validate_preferences(data), [])
+
+    def test_a_rule_without_doc_is_rejected(self):
+        rule = make_rule()
+        del rule["doc"]
+        errors = guards.decision_validator.validate_preferences(make_preferences(rule))
+        self.assertTrue(errors and any("keys must be exactly" in e for e in errors))
+
+    def test_doc_must_be_null_or_http_url(self):
+        for bad in ("proposals/x.md", "", True, 7):
+            with self.subTest(doc=bad):
+                errors = guards.decision_validator.validate_preferences(
+                    make_preferences(make_rule(doc=bad))
+                )
+                self.assertTrue(any("doc" in e for e in errors))
+
+    def test_render_never_emits_the_doc(self):
+        data = make_preferences(make_rule(doc="https://example.com/proposals/x.md"))
+        rendered = guards.decision_validator.render_preferences(data)
+        self.assertNotIn("example.com", rendered)
+        self.assertIn(make_rule()["rule"], rendered)
 
 
 class ConfigTests(unittest.TestCase):

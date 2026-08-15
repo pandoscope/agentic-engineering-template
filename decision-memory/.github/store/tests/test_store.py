@@ -574,6 +574,25 @@ class RuleLinesTests(unittest.TestCase):
         text = "- old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
         self.assertEqual(similarity.rule_lines(text), ["old rule."])
 
+    def test_legacy_prose_is_not_read_as_rules(self):
+        """A markdown set's headings and prose are not rules. Counting
+        them would inflate every coverage score and manufacture false
+        false-cold flags on drafts pinned before the split."""
+        text = (
+            "# Active Preference Set\n"
+            "\n"
+            "The ONLY file injected into agent context.\n"
+            "\n"
+            "## Process\n"
+            "\n"
+            "- a real rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
+        )
+        self.assertEqual(similarity.rule_lines(text), ["a real rule."])
+
+    def test_a_legacy_set_with_no_rules_yields_none(self):
+        text = "# Active Preference Set\n\nProse only, no rules yet.\n"
+        self.assertEqual(similarity.rule_lines(text), [])
+
 
 class CarveOutTests(unittest.TestCase):
     def setUp(self):
@@ -1919,6 +1938,22 @@ class FixtureStoreTests(unittest.TestCase):
         self._write("preferences.md", "- old rule. [confirmed: 1]\n")
         errors = guards.check_corpus(self.root)
         self.assertTrue(any("convert the rules" in e for e in errors))
+
+    def test_a_missing_preference_set_fails(self):
+        """Absence is observable: a store whose active set vanished says
+        so, rather than passing because there was nothing to check."""
+        os.remove(os.path.join(self.root, "preferences.json"))
+        os.remove(os.path.join(self.root, "preferences.txt"))
+        errors = guards.check_corpus(self.root)
+        self.assertTrue(any("preferences.json: missing" in e for e in errors), errors)
+
+    def test_a_stale_render_without_its_source_fails(self):
+        """The render is not the authority — one left behind after the
+        source is gone would prime sessions from a file nothing checks."""
+        os.remove(os.path.join(self.root, "preferences.json"))
+        self._write("preferences.txt", "A rule nothing can verify any more.\n")
+        errors = guards.check_corpus(self.root)
+        self.assertTrue(any("preferences.json: missing" in e for e in errors), errors)
 
     def test_a_leftover_legacy_file_fails(self):
         self._write("preferences.md", "- old rule. [confirmed: 1]\n")

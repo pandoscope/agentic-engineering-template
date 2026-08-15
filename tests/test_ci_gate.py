@@ -254,6 +254,60 @@ def test_a_reply_from_someone_else_does_not_answer():
     )
 
 
+def test_resolved_thread_is_off_the_worklist():
+    """The reviewer's resolution exempts a thread, answered or not."""
+    threads = [thread("pando-genet")]
+    assert (
+        gate.review_violations(
+            threads,
+            "pando-ramet",
+            SHAS,
+            "https://github.com",
+            "No commit:",
+            resolved={1},
+        )
+        == []
+    )
+    # And an unrelated resolved id exempts nothing.
+    assert gate.review_violations(
+        threads,
+        "pando-ramet",
+        SHAS,
+        "https://github.com",
+        "No commit:",
+        resolved={999},
+    )
+
+
+def test_violation_names_the_exact_thread():
+    """The reader is the agent deciding what to do next, so the message
+    carries the quote and the URL that identify the thread."""
+    comments = [
+        {
+            "id": 1,
+            "user": {"login": "pando-genet"},
+            "body": "Should we add a requirement here?",
+            "path": "derived/writing-skills/SKILL.md",
+            "html_url": "https://github.com/o/r/pull/30#discussion_r1",
+        }
+    ]
+    [problem] = gate.review_violations(
+        [comments], "pando-ramet", SHAS, "https://github.com", "No commit:"
+    )
+    assert '"Should we add a requirement here?"' in problem
+    assert "https://github.com/o/r/pull/30#discussion_r1" in problem
+    assert "resolves the thread" in problem
+
+
+def test_resolved_roots_reads_graphql_nodes():
+    nodes = [
+        {"isResolved": True, "comments": {"nodes": [{"databaseId": 11}]}},
+        {"isResolved": False, "comments": {"nodes": [{"databaseId": 22}]}},
+        {"isResolved": True, "comments": {"nodes": []}},
+    ]
+    assert gate.resolved_roots(nodes) == {11}
+
+
 def test_threads_group_by_root():
     comments = [
         {"id": 1, "user": {"login": "a"}, "body": "x", "path": "f"},

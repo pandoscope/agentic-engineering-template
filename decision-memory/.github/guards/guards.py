@@ -8,15 +8,16 @@ the guard must keep working even if the template repo disappears.
 Checks, per PR (run with --base <base-sha> from a full checkout):
 
 1. Append-only: no modify/delete/rename under decisions/** or
-   predictions/**; line
-   removals in preferences.md only from pref-confirm/pref-promote/
-   pref-compact commits, with pref-confirm counter math validated
-   mechanically.
+   predictions/**; rewrites of existing preferences.json rules only
+   from pref-confirm/pref-promote/pref-compact commits, with
+   pref-confirm counter math validated structurally.
 2. Full-corpus schema check: EVERY decisions/*.json and
    predictions/*.json validates (not just added files), so guard
    updates re-validate the entire corpus.
 3. Dangling-reference check across the corpus.
-4. Token budget on preferences.md, against the repo-local budget.
+4. The preference-set pair: preferences.json validates against its
+   schema, preferences.txt equals its render (per commit and at head),
+   and the render fits the repo-local token budget.
 5. Commit lint: every PR commit subject uses one of the repo's own
    types (decision/prediction/pref-proposal/pref-promote/
    pref-confirm/pref-compact/pref-drift/pref-extract/chore).
@@ -55,18 +56,18 @@ COMMIT_SUBJECT_RES = (
     re.compile(r"^chore(\([\w-]+\))?: .+$"),
 )
 
-parse_metadata = decision_validator.parse_metadata
-strip_metadata = decision_validator.strip_metadata
-counter_of = decision_validator.counter_of
 COUNTER_KEY = decision_validator.COUNTER_KEY
 INDEPENDENT_KEY = decision_validator.INDEPENDENT_KEY
+PREFERENCES_SOURCE = decision_validator.PREFERENCES_SOURCE
+PREFERENCES_RENDERED = decision_validator.PREFERENCES_RENDERED
 
-# The types permitted to REMOVE lines from preferences.md. Promotion and
-# compaction are different acts on the same file: promotion adds a rule a
-# human decided to adopt (and may demote another to make room); compaction
-# rewrites the set without adding anything that was not already promoted.
-# Typing them apart is what lets a reader tell one from the other in the
-# log — the human gate on both is the merge, not the commit subject.
+# The types permitted to REWRITE existing rules in the active set.
+# Promotion and compaction are different acts on the same file:
+# promotion adds a rule a human decided to adopt (and may demote another
+# to make room); compaction rewrites the set without adding anything
+# that was not already promoted. Typing them apart is what lets a reader
+# tell one from the other in the log — the human gate on both is the
+# merge, not the commit subject.
 PREF_EDIT_TYPES = ("pref-confirm:", "pref-promote:", "pref-compact:")
 
 
@@ -84,104 +85,100 @@ def check_commit_subject(subject: str) -> str | None:
     )
 
 
-def parse_unified_diff(diff_text: str) -> tuple[list[str], list[str]]:
-    """Split a unified diff into (removed_lines, added_lines), without
-    the +/- prefixes and without file headers."""
-    removed: list[str] = []
-    added: list[str] = []
-    for line in diff_text.splitlines():
-        if line.startswith("---") or line.startswith("+++"):
-            continue
-        if line.startswith("-"):
-            removed.append(line[1:])
-        elif line.startswith("+"):
-            added.append(line[1:])
-    return removed, added
+def validate_pref_confirm_change(old_data: dict, new_data: dict) -> list[str]:
+    """Validate the counter math of a pref-confirm commit, structurally:
+    same rules in the same order, and every changed rule is exactly a
+    bump — counter +1, `independent` held or +1, text untouched.
 
-
-def validate_pref_confirm_change(removed: list[str], added: list[str]) -> list[str]:
-    """Validate the counter math of a pref-confirm commit's
-    preferences.md diff: only paired counter-line updates, rule text
-    unchanged, counter incremented by exactly 1."""
+    `independent` is a second count, earned differently: it rises only
+    when a confirmation was NOT the rule crediting itself. It never
+    falls here, since lowering it under a mechanical subject would erase
+    evidence as routine bookkeeping.
+    """
+    old_rules = old_data.get("rules", [])
+    new_rules = new_data.get("rules", [])
+    if len(old_rules) != len(new_rules):
+        return [
+            "pref-confirm: must only update counters "
+            f"(rule count {len(old_rules)} -> {len(new_rules)})"
+        ]
     errors: list[str] = []
-    if len(removed) != len(added):
-        errors.append(
-            "pref-confirm: must only update counter lines "
-            f"({len(removed)} removed vs {len(added)} added)"
-        )
-        return errors
-    for old, new in zip(removed, added):
-        old_count = counter_of(old)
-        new_count = counter_of(new)
-        if old_count is None or new_count is None:
+    changed = 0
+    for old, new in zip(old_rules, new_rules):
+        if old == new:
+            continue
+        changed += 1
+        if old["rule"] != new["rule"]:
             errors.append(
-                "pref-confirm: changed a line without a "
-                f"[{COUNTER_KEY}: N, ...] suffix: {old!r} -> {new!r}"
+                f"pref-confirm: rule text changed: {old['rule']!r} -> {new['rule']!r}"
             )
             continue
-        if strip_metadata(old) != strip_metadata(new):
-            errors.append(f"pref-confirm: rule text changed: {old!r} -> {new!r}")
-        if new_count != old_count + 1:
+        if new[COUNTER_KEY] != old[COUNTER_KEY] + 1:
             errors.append(
                 "pref-confirm: counter must increment by exactly 1: "
-                f"{old_count} -> {new_count}"
+                f"{old[COUNTER_KEY]} -> {new[COUNTER_KEY]} ({old['rule']!r})"
             )
-        errors.extend(_check_suffix_rest(old, new))
+        if new[INDEPENDENT_KEY] not in (old[INDEPENDENT_KEY], old[INDEPENDENT_KEY] + 1):
+            errors.append(
+                f"pref-confirm: {INDEPENDENT_KEY} moved "
+                f"{old[INDEPENDENT_KEY]} -> {new[INDEPENDENT_KEY]}; a bump may "
+                "hold it or raise it by exactly 1"
+            )
+    if not changed:
+        errors.append("pref-confirm: changes no counter")
     return errors
 
 
-def _check_suffix_rest(old: str, new: str) -> list[str]:
-    """The part of the suffix that is not the counter or its date.
+def rules_purely_added(old_rules: list[dict], new_rules: list[dict]) -> bool:
+    """True when every old rule survives unchanged, in order — the
+    change only inserts or appends new rules."""
+    candidates = iter(new_rules)
+    return all(
+        any(candidate == wanted for candidate in candidates) for wanted in old_rules
+    )
 
-    `independent` is a second count, earned differently: it rises only
-    when a confirmation was NOT the rule crediting itself. A bump may
-    move it by at most one and never downwards, since lowering it under
-    a mechanical subject would erase evidence as routine bookkeeping.
-    """
-    old_ind = _int_or_none((parse_metadata(old) or {}).get(INDEPENDENT_KEY))
-    new_ind = _int_or_none((parse_metadata(new) or {}).get(INDEPENDENT_KEY))
-    if old_ind is None or new_ind is None:
-        return [
-            f"pref-confirm: every rule carries {INDEPENDENT_KEY}; "
-            f"{old!r} -> {new!r} is missing it"
+
+def _parse_side(text: str | None, side: str) -> tuple[dict, list[str]]:
+    """One side of a preferences.json change; an absent file is an
+    empty set, so file creation classifies as pure addition."""
+    if text is None:
+        return {"rules": []}, []
+    data, errors = decision_validator.parse_preferences(text)
+    if data is None or errors:
+        return {"rules": []}, [
+            f"{side} {PREFERENCES_SOURCE}: {error}" for error in errors
         ]
-    if new_ind not in (old_ind, old_ind + 1):
-        return [
-            f"pref-confirm: {INDEPENDENT_KEY} moved {old_ind} -> {new_ind}; a bump "
-            "may hold it or raise it by exactly 1"
-        ]
-    return []
+    return data, []
 
 
-def _rule_bullets(text: str) -> list[str]:
-    """Each `- ` rule in preferences.md, wrapped lines rejoined.
+def classify_preferences_change(
+    old_text: str | None, new_text: str | None, subject: str
+) -> tuple[str, list[str]]:
+    """Classify one commit's preferences.json change, structurally.
 
-    A rule may span several lines with its suffix on the last, so the
-    check has to see the whole entry rather than one line of it.
+    Returns ``(kind, errors)`` with kind one of ``none`` (rules
+    identical), ``addition`` (existing rules untouched), ``bump-exempt``
+    (a pref-confirm commit whose math validates), ``rewrite`` (anything
+    else touching an existing rule), or ``invalid`` (either side does
+    not parse). One classifier feeds both the commit guard and the
+    carve-out, so the two can never disagree about what a commit did.
     """
-    bullets: list[str] = []
-    current: list[str] | None = None
-    for line in text.splitlines():
-        if line.startswith("- "):
-            if current is not None:
-                bullets.append(" ".join(current))
-            current = [line.strip()]
-        elif current is not None:
-            if not line.strip() or line.startswith("#"):
-                bullets.append(" ".join(current))
-                current = None
-            else:
-                current.append(line.strip())
-    if current is not None:
-        bullets.append(" ".join(current))
-    return bullets
-
-
-def _int_or_none(value: str | None) -> int | None:
-    try:
-        return int(value) if value is not None else None
-    except ValueError:
-        return None
+    old_data, old_errors = _parse_side(old_text, "old")
+    new_data, new_errors = _parse_side(new_text, "new")
+    if old_errors or new_errors:
+        return "invalid", old_errors + new_errors
+    old_rules = old_data.get("rules", [])
+    new_rules = new_data.get("rules", [])
+    if old_rules == new_rules:
+        return "none", []
+    if rules_purely_added(old_rules, new_rules):
+        return "addition", []
+    if subject.startswith("pref-confirm:"):
+        errors = validate_pref_confirm_change(old_data, new_data)
+        if not errors:
+            return "bump-exempt", []
+        return "rewrite", errors
+    return "rewrite", []
 
 
 def _git(*args: str) -> str:
@@ -218,8 +215,16 @@ def check_append_only(base: str) -> list[str]:
     return errors
 
 
+def show_file(ref: str) -> str | None:
+    """`git show <ref>` content, or None when the path is absent there."""
+    result = subprocess.run(
+        ["git", "show", ref], capture_output=True, text=True, check=False
+    )
+    return result.stdout if result.returncode == 0 else None
+
+
 def check_commits(base: str) -> list[str]:
-    """Commit lint + preferences.md edit discipline, per commit."""
+    """Commit lint + preference-set edit discipline, per commit."""
     errors: list[str] = []
     shas = _git("rev-list", "--no-merges", "--reverse", f"{base}..HEAD").split()
     for sha in shas:
@@ -228,21 +233,33 @@ def check_commits(base: str) -> list[str]:
         if subject_error:
             errors.append(f"{sha[:9]}: {subject_error}")
 
-        pref_diff = _git(
-            "show", "--format=", "--unified=0", sha, "--", "preferences.md"
-        )
-        removed, added = parse_unified_diff(pref_diff)
-        if not removed:
+        old_source = show_file(f"{sha}^:{PREFERENCES_SOURCE}")
+        new_source = show_file(f"{sha}:{PREFERENCES_SOURCE}")
+        old_rendered = show_file(f"{sha}^:{PREFERENCES_RENDERED}")
+        new_rendered = show_file(f"{sha}:{PREFERENCES_RENDERED}")
+        if old_source == new_source and old_rendered == new_rendered:
             continue
-        if not subject.startswith(PREF_EDIT_TYPES):
+        kind, change_errors = classify_preferences_change(
+            old_source, new_source, subject
+        )
+        errors.extend(f"{sha[:9]}: {e}" for e in change_errors)
+        if kind == "rewrite" and not subject.startswith(PREF_EDIT_TYPES):
             errors.append(
-                f"{sha[:9]}: removes lines from preferences.md but is not "
-                "a pref-confirm/pref-promote/pref-compact commit"
+                f"{sha[:9]}: rewrites existing rules in {PREFERENCES_SOURCE} "
+                "but is not a pref-confirm/pref-promote/pref-compact commit"
             )
-        elif subject.startswith("pref-confirm:"):
-            errors.extend(
-                f"{sha[:9]}: {e}" for e in validate_pref_confirm_change(removed, added)
-            )
+        # Per-commit mirror: any commit touching either file leaves the
+        # pair in sync, so no commit in history shows a drifted render.
+        if kind != "invalid" and new_source is not None:
+            data, _ = decision_validator.parse_preferences(new_source)
+            if data is not None and decision_validator.render_preferences(data) != (
+                new_rendered or ""
+            ):
+                errors.append(
+                    f"{sha[:9]}: {PREFERENCES_RENDERED} is not the render of "
+                    f"{PREFERENCES_SOURCE} — run "
+                    "`python .github/store/render_preferences.py render`"
+                )
     return errors
 
 
@@ -299,26 +316,42 @@ def check_corpus(root: str = ".") -> list[str]:
     for directory in (decision_validator.STORE_DIR, decision_validator.PREDICTIONS_DIR):
         errors.extend(_check_records_in(root, directory, records))
     errors.extend(decision_validator.validate_corpus(records))
-    preferences_path = os.path.join(root, "preferences.md")
-    if os.path.isfile(preferences_path):
-        with open(preferences_path, encoding="utf-8") as handle:
-            preferences_text = handle.read()
-        errors.extend(
-            decision_validator.check_preferences_budget(
-                preferences_text, int(config["budget_tokens"])
-            )
+    source_path = os.path.join(root, PREFERENCES_SOURCE)
+    rendered_path = os.path.join(root, PREFERENCES_RENDERED)
+    if not os.path.isfile(source_path):
+        # Absence is a finding, never a skipped check: a store without
+        # its active set would otherwise pass every guard by having
+        # nothing left to verify, while sessions keep being primed from
+        # whatever file survives.
+        errors.append(
+            f"{PREFERENCES_SOURCE}: missing — every store carries an active "
+            f"set, empty or not, rendered to {PREFERENCES_RENDERED}. Write "
+            "it, or restore it from history."
         )
-        # Every rule carries its counters. A rule that lost them reads
-        # as one nobody has ever confirmed, which is the same shape the
-        # counters exist to distinguish.
-        errors.extend(
-            f"preferences.md: {error}"
-            for error in map(
-                decision_validator.check_metadata_suffix,
-                _rule_bullets(preferences_text),
-            )
-            if error
+        return errors
+    with open(source_path, encoding="utf-8") as handle:
+        data, source_errors = decision_validator.parse_preferences(handle.read())
+    errors.extend(f"{PREFERENCES_SOURCE}: {e}" for e in source_errors)
+    if source_errors:
+        return errors
+    if not os.path.isfile(rendered_path):
+        errors.append(
+            f"{PREFERENCES_RENDERED}: missing — run "
+            "`python .github/store/render_preferences.py render`"
         )
+        return errors
+    with open(rendered_path, encoding="utf-8") as handle:
+        rendered_given = handle.read()
+    if decision_validator.render_preferences(data) != rendered_given:
+        errors.append(
+            f"{PREFERENCES_RENDERED}: not the render of {PREFERENCES_SOURCE} "
+            "— run `python .github/store/render_preferences.py render`"
+        )
+    errors.extend(
+        decision_validator.check_preferences_budget(
+            rendered_given, int(config["budget_tokens"])
+        )
+    )
     return errors
 
 

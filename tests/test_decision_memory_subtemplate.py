@@ -31,6 +31,7 @@ STORE_FILES = frozenset(
         ".github/store/config.py",
         ".github/store/extraction.py",
         ".github/store/preferences_guard.py",
+        ".github/store/render_preferences.py",
         ".github/store/replay.py",
         ".github/store/similarity.py",
         ".github/store/tests/test_store.py",
@@ -48,7 +49,8 @@ STORE_FILES = frozenset(
         "README.md",
         "docs/conventions.md",
         "docs/extraction-prompt.md",
-        "preferences.md",
+        "preferences.json",
+        "preferences.txt",
         "store.config.json",
         "tools/record.py",
         "tools/record_core.py",
@@ -113,10 +115,14 @@ def test_store_docs_are_vendored_and_preferences_seeded(
     source = PROJECT_ROOT / "decision-memory" / "docs" / "conventions.md"
     assert (dst_path / "docs" / "conventions.md").read_text() == source.read_text()
 
-    preferences = dst_path / "preferences.md"
-    assert "Seeded once by the decision-memory subtemplate" in preferences.read_text()
-    # Owned by the store: a local edit must survive a re-render.
-    preferences.write_text("# Active Preference Set\n\n- my rule\n")
+    source = dst_path / "preferences.json"
+    rendered = dst_path / "preferences.txt"
+    assert "Seeded once" in source.read_text()
+    assert rendered.read_text() == ""
+    # Owned by the store: a local edit to either half of the pair must
+    # survive a re-render.
+    source.write_text('{"rules": []}\n')
+    rendered.write_text("my rule.\n")
     copier.run_copy(
         src_path=str(PROJECT_ROOT),
         dst_path=dst_path,
@@ -127,7 +133,8 @@ def test_store_docs_are_vendored_and_preferences_seeded(
         overwrite=True,
         vcs_ref="HEAD",
     )
-    assert preferences.read_text() == "# Active Preference Set\n\n- my rule\n"
+    assert source.read_text() == '{"rules": []}\n'
+    assert "my rule." in rendered.read_text()
 
 
 def test_store_render_bridges_claude_skills_to_the_canonical_dir(

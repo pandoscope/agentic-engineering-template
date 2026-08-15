@@ -1,6 +1,6 @@
 ---
 name: compact-preferences
-description: Shrink preferences.md below its token budget, gated on a replay of recent decisions. Use when the budget reports "compression due", when preferences.md is at or over budget, or on request to compact the preference set.
+description: Shrink the active preference set below its token budget, gated on a replay of recent decisions. Use when the budget reports "compression due", when the rendered set is at or over budget, or on request to compact the preference set.
 ---
 
 # Compacting the active preference set
@@ -9,8 +9,8 @@ description: Shrink preferences.md below its token budget, gated on a replay of 
 > subtemplate — do NOT edit it in the store repo;
 > change it in the template and pull via `copier update`.
 
-`preferences.md` is injected into every grilled session, so every rule
-costs context forever. Compaction brings that cost down without losing
+`preferences.txt` — the render of `preferences.json` — is injected
+into every grilled session, so every rule costs context forever. Compaction brings that cost down without losing
 what the rules encode.
 
 Manual trigger only — never on a schedule, never as a side effect. A
@@ -29,8 +29,10 @@ CI rejects the PR if any of these break.
   never history. Do not modify, delete, or rename a single record —
   there is no carve-out for `decisions/`, ever.
 - Every surviving rule keeps its conditional, falsifiable form: one
-  bullet, a condition, an outcome you could be wrong about, and its
-  `[confirmed: N, last: YYYY-MM-DD]` counter.
+  entry, a condition, an outcome you could be wrong about, and its
+  counters.
+- `preferences.txt` is never edited directly — edit `preferences.json`
+  and re-render. CI fails on any drift between the pair.
 - The replay gate is a gate, not a report. A failing gate means the
   compaction is wrong; revise or abandon it.
 - The compacted set is smaller than what it replaces. If it is not,
@@ -61,7 +63,7 @@ written.
 ### 3. Build the replay cases and the baseline rule set
 
 ```bash
-git show origin/main:preferences.md > /tmp/baseline-preferences.md
+git show origin/main:preferences.txt > /tmp/baseline-preferences.txt
 python .github/store/replay.py cases --out /tmp/cases.json
 ```
 
@@ -78,8 +80,8 @@ input side, predict which slot the decider chose.
 
 Delegate this to a **subagent**, one per run, and give it only
 `/tmp/cases.json` and the rule-set file. Tell it explicitly: do not
-open `decisions/`, do not open `preferences.md`, do not search the
-repo. The answers are sitting in this repository, and a scoring run
+open `decisions/`, do not open the store's own preference files, do
+not search the repo. The answers are sitting in this repository, and a scoring run
 that has read them measures nothing.
 
 The subagent returns, for every case:
@@ -100,13 +102,15 @@ Save it, then score:
 ```bash
 python .github/store/replay.py score \
   --predictions /tmp/baseline-predictions.json \
-  --preferences /tmp/baseline-preferences.md \
+  --preferences /tmp/baseline-preferences.txt \
   --out /tmp/baseline-report.json
 ```
 
 ### 5. Compact
 
-Now edit `preferences.md`. The moves, in order of preference:
+Now edit `preferences.json`, then re-render (`python
+.github/store/render_preferences.py render`). The moves, in order of
+preference:
 
 1. **Drop what is dead.** A rule superseded by a later rule, or whose
    condition can no longer occur, goes. Check the records for a
@@ -126,12 +130,13 @@ What not to do:
   through `proposals/` and a human `pref-promote`.
 - Do not touch a counter except as part of a documented merge. Counter
   bumps are `pref-confirm`'s job.
-- Do not reflow untouched lines — keep the diff readable.
+- Do not reorder surviving rules: order is priority (earlier wins),
+  and the order is the human's ruling, not a compaction lever.
 
 ### 6. Predict under the compacted set and gate
 
 Fresh subagent, same cases, same rules of engagement, the compacted
-`preferences.md` as the rule set:
+`preferences.txt` as the rule set:
 
 ```bash
 python .github/store/replay.py score \
@@ -188,8 +193,8 @@ pref-compact: compact active set — 7 rules -> 4 (~1.8k -> ~1.1k tokens)
 ```
 
 `pref-compact` exists so the log can tell compaction from promotion —
-both remove lines from `preferences.md`, but promotion adopts a rule a
-human decided on.
+both rewrite the active set, but promotion adopts a rule a human
+decided on.
 
 ### 8. Open the PR
 
@@ -210,7 +215,7 @@ Draft PR, carrying:
 ````
 
 CI checks that the report is gated `pass` AND that its
-`candidate_preferences_sha256` matches the `preferences.md` in the PR
+`candidate_preferences_sha256` matches the `preferences.txt` in the PR
 head, so a report from before the last edit fails. Re-run step 6 after
 any further change to the file, and update the report in the
 description.

@@ -1,12 +1,12 @@
-"""PR guard for `preferences.md`.
+"""PR guard for the active preference set.
 
 Copier-vendored from the agentic-engineering-template guard
 subtemplate — change it there, pull via `copier update`.
 
 Sits on top of the record guard (`.github/guards/guards.py`), which
-keeps enforcing append-only `decisions/`, the schema, and the token
-budget. This layer adds the PR-level rules the preference-set
-lifecycle needs.
+keeps enforcing append-only `decisions/`, the schema, the
+preferences.json/preferences.txt mirror, and the token budget. This
+layer adds the PR-level rules the preference-set lifecycle needs.
 
 0. **Extraction pass.** A PR that ADDS decision records must contain a
    `pref-extract:` commit, with no record added after it. The watermark
@@ -18,22 +18,22 @@ lifecycle needs.
 
 Then the three rules the compaction flow needs:
 
-1. **Carve-out label.** Editing an EXISTING line in `preferences.md`
-   requires the carve-out label on the PR. Pure additions never need
-   it; mechanical `pref-confirm` counter bumps are exempt (the vendored
-   guard already validates their counter math). `decisions/` gets NO
-   carve-out — append-only there is absolute, and this guard never
-   touches that rule.
+1. **Carve-out label.** Rewriting an EXISTING rule in
+   `preferences.json` requires the carve-out label on the PR. Pure
+   additions never need it; mechanical `pref-confirm` counter bumps are
+   exempt (the vendored guard already validates their counter math).
+   `decisions/` gets NO carve-out — append-only there is absolute, and
+   this guard never touches that rule.
 2. **Replay regression.** A carve-out PR must carry a replay report in
    its description, gated `pass`, and produced against the exact
-   `preferences.md` in the PR head — the report embeds the file's
+   `preferences.txt` in the PR head — the report embeds the file's
    sha256, so a stale report from an earlier round fails. A gate of
    `insufficient-evidence` (nothing degraded, too few gated cases to
    say so meaningfully) merges only with the waiver label, so a human
    owns it explicitly. A `fail` gate is never waivable.
-3. **Budget.** A PR that touches `preferences.md` fails when the file
-   is over 100% of the repo-local budget; at or above the warn
-   threshold it prints a warning but passes.
+3. **Budget.** A PR that touches the preference set fails when the
+   rendered file is over 100% of the repo-local budget; at or above the
+   warn threshold it prints a warning but passes.
 
 The git-facing parts are thin adapters; the decisions live in pure
 functions so they are testable without a fixture repo.
@@ -79,28 +79,36 @@ _REPLAY_FENCE_RE = re.compile(
 
 
 def classify_pref_commits(commits: list[dict]) -> tuple[bool, list[str]]:
-    """Decide whether a PR's commits edit EXISTING preference lines.
+    """Decide whether a PR's commits rewrite EXISTING preference rules.
 
-    ``commits`` is a list of ``{"sha", "subject", "pref_diff"}`` dicts,
-    oldest first. Returns ``(carve_out_required, notes)``.
+    ``commits`` is a list of ``{"sha", "subject", "old_source",
+    "new_source"}`` dicts, oldest first — the two sources being the
+    commit's before/after `preferences.json` content (None = absent).
+    Returns ``(carve_out_required, notes)``.
     """
     required = False
     notes: list[str] = []
     for commit in commits:
-        removed, added = guards.parse_unified_diff(commit["pref_diff"])
-        if not removed:
+        if commit["old_source"] == commit["new_source"]:
             continue
         short = commit["sha"][:9]
         subject = commit["subject"]
-        if subject.startswith("pref-confirm:"):
-            if not guards.validate_pref_confirm_change(removed, added):
-                notes.append(f"{short}: mechanical pref-confirm counter bump — exempt")
-                continue
-        required = True
-        notes.append(
-            f"{short}: rewrites {len(removed)} existing preferences.md "
-            f"line(s) ({subject!r})"
+        kind, _ = guards.classify_preferences_change(
+            commit["old_source"], commit["new_source"], subject
         )
+        if kind in ("none", "addition"):
+            continue
+        if kind == "bump-exempt":
+            notes.append(f"{short}: mechanical pref-confirm counter bump — exempt")
+            continue
+        required = True
+        if kind == "invalid":
+            notes.append(
+                f"{short}: invalid {guards.PREFERENCES_SOURCE} change "
+                f"({subject!r}) — treated as a rewrite"
+            )
+        else:
+            notes.append(f"{short}: rewrites existing preference rules ({subject!r})")
     return required, notes
 
 
@@ -171,7 +179,7 @@ def check_replay_report(
     actual = preferences_sha256(head_preferences)
     if reported != actual:
         errors.append(
-            "replay report was produced against a different preferences.md "
+            "replay report was produced against a different preferences.txt "
             f"(report {str(reported)[:12]}… vs head {actual[:12]}…) — re-run "
             "the replay after the last edit"
         )
@@ -206,9 +214,10 @@ def evaluate(
     if carve_out_required:
         if label not in labels:
             errors.append(
-                f"preferences.md: existing lines were edited without the "
-                f"{label!r} label — only a labelled compaction PR may rewrite "
-                "the active set (counter bumps via pref-confirm are exempt)"
+                f"{guards.PREFERENCES_SOURCE}: existing rules were rewritten "
+                f"without the {label!r} label — only a labelled compaction PR "
+                "may rewrite the active set (counter bumps via pref-confirm "
+                "are exempt)"
             )
         else:
             waiver_label = config["replay_waiver_label"]
@@ -230,14 +239,15 @@ def evaluate(
     if status["level"] == store_budget.LEVEL_OVER:
         if preferences_touched:
             errors.append(
-                f"preferences.md: {status['percent']}% of the "
+                f"{PREFERENCES_FILENAME}: {status['percent']}% of the "
                 f"{status['budget_tokens']}-token budget — PRs touching the "
-                "file are blocked until it is compacted back under budget"
+                "preference set are blocked until it is compacted back under "
+                "budget"
             )
         else:
             notes.append(
-                "preferences.md is over budget; this PR does not touch it, so "
-                "it is not blocked"
+                f"{PREFERENCES_FILENAME} is over budget; this PR does not "
+                "touch the preference set, so it is not blocked"
             )
     elif status["level"] == store_budget.LEVEL_WARN:
         notes.append(
@@ -252,16 +262,15 @@ def _git(*args: str) -> str:
 
 
 def collect_commits(base: str) -> list[dict]:
-    """Every non-merge PR commit with its `preferences.md` diff."""
+    """Every non-merge PR commit with its before/after `preferences.json`."""
     commits: list[dict] = []
     for sha in _git("rev-list", "--no-merges", "--reverse", f"{base}..HEAD").split():
         commits.append(
             {
                 "sha": sha,
                 "subject": _git("log", "-1", "--format=%s", sha).strip(),
-                "pref_diff": _git(
-                    "show", "--format=", "--unified=0", sha, "--", PREFERENCES_FILENAME
-                ),
+                "old_source": guards.show_file(f"{sha}^:{guards.PREFERENCES_SOURCE}"),
+                "new_source": guards.show_file(f"{sha}:{guards.PREFERENCES_SOURCE}"),
             }
         )
     return commits
@@ -282,8 +291,11 @@ def _extraction_note(base: str, root: str) -> str | None:
 
 
 def preferences_touched(base: str) -> bool:
-    changed = _git("diff", "--name-only", f"{base}...HEAD").split("\n")
-    return PREFERENCES_FILENAME in [name.strip() for name in changed]
+    changed = [
+        name.strip()
+        for name in _git("diff", "--name-only", f"{base}...HEAD").split("\n")
+    ]
+    return guards.PREFERENCES_SOURCE in changed or PREFERENCES_FILENAME in changed
 
 
 def main(argv: list[str] | None = None) -> int:

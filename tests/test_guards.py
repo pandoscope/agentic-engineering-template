@@ -35,130 +35,96 @@ def test_foreign_commit_subjects_fail() -> None:
         assert guards.check_commit_subject(subject) is not None, subject
 
 
+def _rule(text="Rejects new deps.", confirmed=3, independent=0, last="2026-07-15"):
+    return {
+        "rule": text,
+        "confirmed": confirmed,
+        "independent": independent,
+        "last": last,
+    }
+
+
+def _prefs(*rules):
+    return {"rules": list(rules)}
+
+
 def test_pref_confirm_counter_math_accepts_single_bump() -> None:
-    removed = ["- Rejects new deps. [confirmed: 3, independent: 0, last: 2026-07-15]"]
-    added = ["- Rejects new deps. [confirmed: 4, independent: 0, last: 2026-07-21]"]
-    assert guards.validate_pref_confirm_change(removed, added) == []
+    old = _prefs(_rule(confirmed=3))
+    new = _prefs(_rule(confirmed=4, last="2026-07-21"))
+    assert guards.validate_pref_confirm_change(old, new) == []
 
 
 def test_pref_confirm_counter_math_rejects_bad_increment() -> None:
-    removed = ["- Rejects new deps. [confirmed: 3, independent: 0, last: 2026-07-15]"]
-    added = ["- Rejects new deps. [confirmed: 5, independent: 0, last: 2026-07-21]"]
-    errors = guards.validate_pref_confirm_change(removed, added)
+    old = _prefs(_rule(confirmed=3))
+    new = _prefs(_rule(confirmed=5, last="2026-07-21"))
+    errors = guards.validate_pref_confirm_change(old, new)
     assert any("increment" in e for e in errors)
 
 
 def test_pref_confirm_counter_math_rejects_text_change() -> None:
-    removed = ["- Rejects new deps. [confirmed: 3, independent: 0, last: 2026-07-15]"]
-    added = ["- Accepts new deps. [confirmed: 4, independent: 0, last: 2026-07-21]"]
-    errors = guards.validate_pref_confirm_change(removed, added)
+    old = _prefs(_rule(text="Rejects new deps.", confirmed=3))
+    new = _prefs(_rule(text="Accepts new deps.", confirmed=4, last="2026-07-21"))
+    errors = guards.validate_pref_confirm_change(old, new)
     assert any("rule text" in e for e in errors)
 
 
-def test_pref_confirm_counter_math_rejects_line_removal() -> None:
-    removed = ["- Rejects new deps. [confirmed: 3, independent: 0, last: 2026-07-15]"]
-    errors = guards.validate_pref_confirm_change(removed, [])
+def test_pref_confirm_counter_math_rejects_rule_removal() -> None:
+    errors = guards.validate_pref_confirm_change(_prefs(_rule()), _prefs())
     assert errors
 
 
-def test_parse_unified_diff_pairs_changed_lines() -> None:
-    diff = (
-        "diff --git a/preferences.md b/preferences.md\n"
-        "--- a/preferences.md\n"
-        "+++ b/preferences.md\n"
-        "@@ -5 +5 @@\n"
-        "-- Old rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
-        "+- Old rule. [confirmed: 2, independent: 0, last: 2026-07-21]\n"
-    )
-    removed, added = guards.parse_unified_diff(diff)
-    assert removed == ["- Old rule. [confirmed: 1, independent: 0, last: 2026-07-15]"]
-    assert added == ["- Old rule. [confirmed: 2, independent: 0, last: 2026-07-21]"]
+# --- the preference-set schema ----------------------------------------
 
 
-# --- metadata suffix grammar -----------------------------------------
+def test_an_unknown_rule_key_is_rejected() -> None:
+    rule = _rule()
+    rule["src"] = "x"
+    errors = guards.decision_validator.validate_preferences(_prefs(rule))
+    assert errors and any("src" in e for e in errors)
 
 
-def test_suffix_keys_may_appear_in_any_order() -> None:
-    removed = ["- A rule. [last: 2026-07-15, independent: 0, confirmed: 3]"]
-    added = ["- A rule. [independent: 0, last: 2026-07-21, confirmed: 4]"]
-    assert guards.validate_pref_confirm_change(removed, added) == []
+def test_a_rule_missing_its_counters_is_rejected() -> None:
+    # The closed key set is what keeps a hand-added rule from entering
+    # without counters and reading as one nobody has ever confirmed.
+    rule = _rule()
+    del rule["confirmed"]
+    assert guards.decision_validator.validate_preferences(_prefs(rule))
 
 
-def test_an_unknown_suffix_key_is_rejected() -> None:
-    error = guards.decision_validator.check_metadata_suffix(
-        "- A rule. [confirmed: 3, independent: 0, last: 2026-07-15, src: x]"
-    )
-    assert error and "src" in error
+def test_the_render_never_wraps_a_rule() -> None:
+    # One rule, one physical line: text carrying a newline (or a tab,
+    # which the TSV render could not escape) fails the schema instead
+    # of corrupting the render.
+    for text in ("A rule that runs onto\na second line.", "a\tb"):
+        assert guards.decision_validator.validate_preferences(
+            _prefs(_rule(text=text))
+        ), repr(text)
 
 
 # --- the independent counter -----------------------------------------
 
 
 def test_a_bump_may_raise_independent_by_one() -> None:
-    removed = ["- A rule. [confirmed: 3, independent: 1, last: 2026-07-15]"]
-    added = ["- A rule. [confirmed: 4, independent: 2, last: 2026-07-21]"]
-    assert guards.validate_pref_confirm_change(removed, added) == []
+    old = _prefs(_rule(confirmed=3, independent=1))
+    new = _prefs(_rule(confirmed=4, independent=2, last="2026-07-21"))
+    assert guards.validate_pref_confirm_change(old, new) == []
 
 
 def test_a_bump_may_not_lower_independent() -> None:
-    removed = ["- A rule. [confirmed: 3, independent: 2, last: 2026-07-15]"]
-    added = ["- A rule. [confirmed: 4, independent: 1, last: 2026-07-21]"]
-    errors = guards.validate_pref_confirm_change(removed, added)
-    assert errors and "independent" in errors[0]
-
-
-def test_a_rule_without_independent_is_rejected() -> None:
-    removed = ["- A rule. [confirmed: 3, last: 2026-07-15]"]
-    added = ["- A rule. [confirmed: 4, last: 2026-07-21]"]
-    errors = guards.validate_pref_confirm_change(removed, added)
+    old = _prefs(_rule(confirmed=3, independent=2))
+    new = _prefs(_rule(confirmed=4, independent=1, last="2026-07-21"))
+    errors = guards.validate_pref_confirm_change(old, new)
     assert errors and "independent" in errors[0]
 
 
 def test_independent_may_not_exceed_confirmed() -> None:
-    # Independent confirmations are a subset of all of them, so a
-    # suffix claiming more of the subset than the whole is incoherent
+    # Independent confirmations are a subset of all of them, so a rule
+    # claiming more of the subset than the whole is incoherent
     # regardless of how it got there.
-    error = guards.decision_validator.check_metadata_suffix(
-        "- A rule. [confirmed: 2, independent: 3, last: 2026-07-15]"
+    errors = guards.decision_validator.validate_preferences(
+        _prefs(_rule(confirmed=2, independent=3))
     )
-    assert error and "independent" in error
-
-
-def test_a_rule_set_missing_counters_fails_the_corpus_check() -> None:
-    # Deliberately NOT run against this repo's own preferences.md: the
-    # template ships the seed, which has no rules, so the same assertion
-    # there would pass for as long as the file stays empty and prove
-    # nothing. The live store runs this guard over its real file.
-    text = (
-        "## Process\n\n"
-        "- A counted rule. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
-        "- A rule someone hand-added without counters.\n"
-    )
-    errors = [
-        error
-        for error in map(
-            guards.decision_validator.check_metadata_suffix, guards._rule_bullets(text)
-        )
-        if error
-    ]
-    assert len(errors) == 1
-    assert "hand-added" in errors[0]
-
-
-def test_a_wrapped_rule_is_checked_as_one_bullet() -> None:
-    # The suffix sits on the entry's last line, so a check that looked
-    # at lines rather than entries would report every continuation line
-    # as a rule missing its counters.
-    text = (
-        "## Heading\n\n"
-        "- A rule that runs onto\n"
-        "  a second line. [confirmed: 1, independent: 0, last: 2026-07-15]\n"
-    )
-    assert len(guards._rule_bullets(text)) == 1
-    assert (
-        guards.decision_validator.check_metadata_suffix(guards._rule_bullets(text)[0])
-        is None
-    )
+    assert errors and any("independent" in e for e in errors)
 
 
 # --- the predictions corpus ------------------------------------------

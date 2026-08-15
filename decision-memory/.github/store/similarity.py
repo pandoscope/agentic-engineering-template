@@ -50,7 +50,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config as store_config  # noqa: E402  (path bootstrap above)
 
 DECISIONS_DIR = "decisions"
-PREFERENCES_FILENAME = "preferences.md"
+PREFERENCES_FILENAME = "preferences.txt"
 
 # Pair verdicts, worst first — the order the report ranks by.
 DUPLICATE = "duplicate"
@@ -431,11 +431,12 @@ def _git(*args: str) -> str:
 
 
 def preferences_at(commit: object, root: str = ".") -> str | None:
-    """`preferences.md` as of a pinned commit, or None if unavailable.
+    """The preference set as of a pinned commit, or None if unavailable.
 
-    A draft with no pinned commit, or a commit this checkout does not
-    have, yields None — the check is skipped and said to be skipped,
-    rather than silently compared against the wrong rule set.
+    A draft with no pinned commit, a commit this checkout does not
+    have, or one predating the file yields None — the caller then
+    compares against the current set and RECORDS that it did
+    (`compared_against`), rather than silently using the wrong rules.
     """
     if not isinstance(commit, str) or not commit:
         return None
@@ -443,20 +444,13 @@ def preferences_at(commit: object, root: str = ".") -> str | None:
     return text or None
 
 
-# The `[confirmed: N, last: DATE]` suffix every rule carries. It is
-# bookkeeping, identical in shape across the whole set, and counting it
-# as rule vocabulary dilutes every coverage score by a fixed amount that
-# grows with how well-confirmed the rule is.
-_RULE_METADATA_RE = re.compile(r"\[[^\]]*\]\s*$")
-
-
 def rule_lines(preferences_text: str) -> list[str]:
-    """The rule bullets of a preference set, without the prose around them."""
-    return [
-        _RULE_METADATA_RE.sub("", line.strip()).strip()
-        for line in preferences_text.splitlines()
-        if line.strip().startswith("- ")
-    ]
+    """The rules of a rendered preference set — one per line.
+
+    The render carries rules and nothing else, so there is nothing to
+    strip: no counters, no headings, no prose to mistake for a rule.
+    """
+    return [line.strip() for line in preferences_text.splitlines() if line.strip()]
 
 
 # Share of a RULE's terms that appear in a record. Not jaccard: rules

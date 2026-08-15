@@ -20,17 +20,19 @@ authoritative contract.
 
 - `decisions/` is append-only: NEVER modify, delete, or rename an
   existing record. CI rejects it; do not try.
-- Inject `preferences.md` ONLY into agent context — never
-  `decisions/` wholesale.
+- Inject `preferences.txt` ONLY into agent context — never
+  `preferences.json` (its source of truth) or `decisions/` wholesale.
 - Write records through the recorder (`tools/record.py`, here in this
   repo). It operates on the checkout it lives in, so run this copy —
   clone the store fresh per session rather than reusing a checkout
   parked on someone else's branch. Hand-written records are allowed;
   they get no help and face the same guards.
-- `preferences.md` may only change via counter-line bumps
-  (`pref-confirm`), human promotion (`pref-promote`), or a gated
-  compaction (`pref-compact`, carve-out label + replay report).
-  Promotion is human-only, always.
+- The active set may only change via counter bumps (`pref-confirm`),
+  human promotion (`pref-promote`), or a gated compaction
+  (`pref-compact`, carve-out label + replay report) — always by
+  editing `preferences.json` and re-rendering `preferences.txt`
+  (`python .github/store/render_preferences.py render`). Promotion is
+  human-only, always.
 - Growing and shrinking the preference set are two manual skills, run
   in that order — see [Preference-set lifecycle](#preference-set-lifecycle)
   below. Neither runs on a schedule or as a side effect of another
@@ -87,8 +89,9 @@ See [docs/conventions.md](docs/conventions.md) § Ingestion gate.
 
 ## Preference-set lifecycle
 
-`preferences.md` is injected into every grilled session, so every rule
-in it is a permanent per-session context tax. Two manual, human-merged
+`preferences.txt` — the render of `preferences.json` — is injected
+into every grilled session, so every rule in it is a permanent
+per-session context tax. Two manual, human-merged
 skills manage it. **Run them in this order** — there is nothing to
 compact until rules have been extracted, and the compaction gate
 cannot measure a rule set no record was ever scored against.
@@ -127,5 +130,5 @@ documented in [.github/store/README.md](.github/store/README.md).
   any chat to extract draft records from a past conversation.
 - `.github/guards/`, the docs, and this file are vendored from the
   template repo's decision-memory subtemplate; update via `copier update`,
-  reviewed here as a normal PR diff. Only `preferences.md` (and the
-  records) are owned by this store.
+  reviewed here as a normal PR diff. Only the preference-set pair (and
+  the records) are owned by this store.

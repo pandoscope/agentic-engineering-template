@@ -1,10 +1,11 @@
-"""Token-budget status for `preferences.md`.
+"""Token-budget status for the rendered preference set.
 
 Copier-vendored from the agentic-engineering-template guard
 subtemplate — change it there, pull via `copier update`.
 
-`preferences.md` is injected into every grilled session, so its size is
-a permanent per-session context tax. This module is the reporting
+`preferences.txt` — the render of `preferences.json` — is injected
+into every grilled session, so its size is a permanent per-session
+context tax. This module is the reporting
 layer on top of the vendored budget check: it reports a level
 (`ok` / `warn` / `over`) against the repo-local budget so the push-to-
 main workflow can open or update the pinned "compression due" issue and
@@ -37,7 +38,7 @@ sys.path.insert(
 import config as store_config  # noqa: E402  (path bootstrap above)
 import decision_validator  # noqa: E402  (path bootstrap above)
 
-PREFERENCES_FILENAME = "preferences.md"
+PREFERENCES_FILENAME = "preferences.txt"
 
 LEVEL_OK = "ok"
 LEVEL_WARN = "warn"
@@ -45,7 +46,7 @@ LEVEL_OVER = "over"
 
 
 def budget_status(text: str, config: dict) -> dict:
-    """Return the budget status of `preferences.md` content.
+    """Return the budget status of the rendered preference set.
 
     `percent` is of the repo-local budget, so `over` means literally
     >100% — the threshold the issue's CI gate is written against.
@@ -79,7 +80,7 @@ def read_preferences(root: str = ".") -> str:
 def status_line(status: dict) -> str:
     """One-line human summary, used in guard output and issue bodies."""
     return (
-        f"preferences.md: ~{status['tokens']} tokens "
+        f"{PREFERENCES_FILENAME}: ~{status['tokens']} tokens "
         f"({status['percent']}% of the {status['budget_tokens']}-token budget, "
         f"warn at {status['warn_at_percent']}%)"
     )
@@ -93,9 +94,9 @@ def issue_body(status: dict, sha: str | None = None) -> str:
     than a stale snapshot.
     """
     headline = (
-        "`preferences.md` is **over budget** — PRs touching it now fail CI."
+        "`preferences.txt` is **over budget** — PRs touching the set now fail CI."
         if status["level"] == LEVEL_OVER
-        else "`preferences.md` is approaching its budget."
+        else "`preferences.txt` is approaching its budget."
     )
     lines = [
         "<!-- managed by .github/workflows/preferences-budget.yml -->",

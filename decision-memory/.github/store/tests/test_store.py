@@ -209,6 +209,17 @@ class PreferenceSetTests(unittest.TestCase):
             )
             self.assertTrue(errors, repr(text))
 
+    def test_markdown_opening_syntax_is_rejected(self):
+        """The render is a bare list; a rule opening with '#' or '-'
+        would make the file read as the legacy markdown set."""
+        for text in ("# not a heading.", "- not a bullet."):
+            self.assertTrue(
+                decision_validator.validate_preferences(
+                    make_preferences(make_rule(text=text))
+                ),
+                text,
+            )
+
     def test_a_joined_qualifier_sentence_is_legal(self):
         """One rule may hold two sentences under one counter — "one line,
         one preference" counts preferences, not sentences."""

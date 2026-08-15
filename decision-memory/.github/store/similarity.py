@@ -462,11 +462,18 @@ _RULE_METADATA_RE = re.compile(r"\[[^\]]*\]\s*$")
 def rule_lines(preferences_text: str) -> list[str]:
     """The rule texts of a preference set, without the bookkeeping.
 
-    Reads both shapes: the rendered TSV, and the legacy markdown
-    bullets that pre-migration `preference_set.commit`s still pin.
+    Reads both shapes: the plain rendered list, and the legacy markdown
+    that pre-split `preference_set.commit`s still pin.
+
+    A markdown set is recognised by its own syntax — a heading or a
+    bullet — and only its bullets are rules. Its prose must not count:
+    headings and explanatory lines share vocabulary with every record,
+    so reading them as rules inflates coverage scores and manufactures
+    false-cold flags.
     """
     lines = [line.strip() for line in preferences_text.splitlines() if line.strip()]
-    if any(line.startswith("- ") for line in lines):
+    is_markdown = any(line.startswith("- ") or line.startswith("#") for line in lines)
+    if is_markdown:
         return [
             _RULE_METADATA_RE.sub("", line[2:]).strip()
             for line in lines

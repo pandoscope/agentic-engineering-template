@@ -1,13 +1,10 @@
 name: Render ledger
 
+# On-demand only. Rendering on every ledger push billed a minimum
+# minute per append while the principal read the local heartbeat
+# render (LEDGER_RENDER_PATH) instead; LEDGER.md may therefore lag
+# the log until the next dispatch.
 on:
-  push:
-    branches: [main]
-    paths:
-      # Only the sources. LEDGER.md is the OUTPUT and is deliberately
-      # absent here, so the commit this job makes cannot retrigger it.
-      - "ledger/**"
-      - "repo-codes.json"
   workflow_dispatch:
 
 permissions:

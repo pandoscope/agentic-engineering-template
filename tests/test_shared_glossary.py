@@ -28,11 +28,19 @@ SHARED_TERMS = frozenset(
         "decision-memory",
         "decision-record",
         "grilling",
+        "org",
+        "pando",
         "preference-set",
+        "principal",
+        "pando-cell",
+        "evidence-memory",
+        "org-genome",
+        "memory-repo",
+        "session-memory",
         "record-contract",
-        "session",
-        "stamp",
-        "template",
+        "agent-session",
+        "template-stamp",
+        "pandoscope-template",
     }
 )
 
@@ -153,7 +161,7 @@ def test_a_stamped_repo_keeps_only_the_shared_terms_it_links(
 ) -> None:
     """The stamp converges the glossary instead of accumulating it.
 
-    A consumer receives all eight terms and keeps the ones it links, so
+    A consumer receives every shared term and keeps the ones it links, so
     `disambiguate --lint` passes on a repo that did nothing wrong. Here
     the README links none of them, so the whole consenting branch goes
     and the repo's own seed term — which never consented — stays.

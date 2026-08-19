@@ -151,6 +151,61 @@ def _parse_side(text: str | None, side: str) -> tuple[dict, list[str]]:
     return data, []
 
 
+# The keys a rule carried before `doc` became required, in order. A file
+# from a store that predates the field parses under no current schema, so
+# the classifier below recognizes exactly its backfill rather than reading
+# every unparsable old side as tampering.
+_PRE_DOC_RULE_KEYS = tuple(k for k in decision_validator.RULE_KEYS if k != "doc")
+
+
+def is_doc_backfill(old_text: str | None, new_text: str | None) -> bool:
+    """True when the change is exactly the one-time `doc`-field backfill.
+
+    A store crossing the release that made `doc` required converts its
+    legacy set by hand: every rule gains ``doc`` and nothing else moves.
+    The old side cannot parse under the current schema (that is the whole
+    reason it needs converting), so this reads raw JSON and accepts the
+    change only when it is precisely that migration — each pre-`doc` rule
+    reappears with ``doc`` appended as a null, its other keys, values and
+    order untouched, no rule added, removed or reordered, and the file's
+    non-rule content (the `_comment`) unchanged. Any rule already holding
+    ``doc`` must be identical on both sides. Anything else is not a
+    backfill, so a real rewrite hiding behind a schema bump stays caught.
+    """
+    try:
+        old = json.loads(old_text or "")
+        new = json.loads(new_text or "")
+    except (json.JSONDecodeError, TypeError):
+        return False
+    if not isinstance(old, dict) or not isinstance(new, dict):
+        return False
+    old_rules, new_rules = old.get("rules"), new.get("rules")
+    if not isinstance(old_rules, list) or not isinstance(new_rules, list):
+        return False
+    if len(old_rules) != len(new_rules) or old_rules == new_rules:
+        return False
+    if {k: v for k, v in old.items() if k != "rules"} != {
+        k: v for k, v in new.items() if k != "rules"
+    }:
+        return False
+    for old_rule, new_rule in zip(old_rules, new_rules):
+        if not isinstance(old_rule, dict) or not isinstance(new_rule, dict):
+            return False
+        if "doc" in old_rule:
+            if old_rule != new_rule:
+                return False
+            continue
+        if tuple(old_rule) != _PRE_DOC_RULE_KEYS:
+            return False
+        if tuple(new_rule) != decision_validator.RULE_KEYS:
+            return False
+        if new_rule["doc"] is not None:
+            return False
+        if {k: new_rule[k] for k in old_rule} != old_rule:
+            return False
+    return True
+
+
 def classify_preferences_change(
     old_text: str | None, new_text: str | None, subject: str
 ) -> tuple[str, list[str]]:
@@ -158,14 +213,21 @@ def classify_preferences_change(
 
     Returns ``(kind, errors)`` with kind one of ``none`` (rules
     identical), ``addition`` (existing rules untouched), ``bump-exempt``
-    (a pref-confirm commit whose math validates), ``rewrite`` (anything
-    else touching an existing rule), or ``invalid`` (either side does
-    not parse). One classifier feeds both the commit guard and the
-    carve-out, so the two can never disagree about what a commit did.
+    (a pref-confirm commit whose math validates), ``migration`` (the
+    one-time `doc`-field backfill — see ``is_doc_backfill``), ``rewrite``
+    (anything else touching an existing rule), or ``invalid`` (either
+    side does not parse). One classifier feeds both the commit guard and
+    the carve-out, so the two can never disagree about what a commit did.
     """
     old_data, old_errors = _parse_side(old_text, "old")
     new_data, new_errors = _parse_side(new_text, "new")
     if old_errors or new_errors:
+        # The old side of the `doc` backfill predates the required key,
+        # so it cannot parse under this schema. Accept it only when the
+        # new side is valid and the change is exactly that migration;
+        # every other unparsable side stays a hard failure.
+        if not new_errors and is_doc_backfill(old_text, new_text):
+            return "migration", []
         return "invalid", old_errors + new_errors
     old_rules = old_data.get("rules", [])
     new_rules = new_data.get("rules", [])

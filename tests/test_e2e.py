@@ -35,9 +35,9 @@ COMMON_FILES = frozenset(
         # Shared glossary terms, stamped into every generated repo (#52).
         "docs/glossary/decision-memory.md",
         "docs/glossary/decision-record.md",
-        "docs/glossary/cell.md",
+        "docs/glossary/pando-cell.md",
         "docs/glossary/evidence-memory.md",
-        "docs/glossary/genome.md",
+        "docs/glossary/org-genome.md",
         "docs/glossary/grilling.md",
         "docs/glossary/memory-repo.md",
         "docs/glossary/org.md",

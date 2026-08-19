@@ -7,7 +7,7 @@
      from a repo that never links it. -->
 
 A forge organization holding exactly one Pandoscope project. Every repo
-under it is [stamped](template-stamp.md) from the same [genome](genome.md) and feeds the
+under it is [stamped](template-stamp.md) from the same [genome](org-genome.md) and feeds the
 project's [memory](memory-repo.md); org-level state (variables, app
 installs, boards) belongs to the project by construction. One org, one
 project: a second project means a second org, and without an org there

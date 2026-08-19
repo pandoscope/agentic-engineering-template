@@ -443,6 +443,64 @@ class PreferencesChangeClassificationTests(unittest.TestCase):
             ("none", []),
         )
 
+    @staticmethod
+    def _pre_doc(**kwargs):
+        rule = make_rule(**kwargs)
+        del rule["doc"]
+        return rule
+
+    def test_doc_backfill_migration_is_accepted(self):
+        # A store crossing the release that made `doc` required: every
+        # rule gains doc: null by hand, nothing else moves. The old side
+        # cannot parse under this schema, yet the change is accepted.
+        old = json.dumps(
+            {"rules": [self._pre_doc(text="a."), self._pre_doc(text="b.")]}
+        )
+        new = source_text(
+            make_rule(text="a.", doc=None), make_rule(text="b.", doc=None)
+        )
+        kind, errors = guards.classify_preferences_change(
+            old, new, "chore: update agentic template"
+        )
+        self.assertEqual((kind, errors), ("migration", []))
+
+    def test_doc_backfill_of_a_partially_migrated_set(self):
+        # One rule already carries doc; the other is backfilled. Still a
+        # migration as long as the already-migrated rule is untouched.
+        old = json.dumps(
+            {"rules": [make_rule(text="a.", doc=None), self._pre_doc(text="b.")]}
+        )
+        new = source_text(
+            make_rule(text="a.", doc=None), make_rule(text="b.", doc=None)
+        )
+        kind, errors = guards.classify_preferences_change(old, new, "chore: finish it")
+        self.assertEqual((kind, errors), ("migration", []))
+
+    def test_doc_backfill_rejects_a_smuggled_counter_change(self):
+        # Adding doc AND bumping a counter is not a pure backfill, and the
+        # old side does not parse — so a rewrite hiding behind the schema
+        # bump stays a hard failure rather than sliding through.
+        old = json.dumps({"rules": [self._pre_doc(confirmed=3)]})
+        new = source_text(make_rule(confirmed=4, doc=None))
+        kind, _ = guards.classify_preferences_change(old, new, "chore: sneaky")
+        self.assertEqual(kind, "invalid")
+
+    def test_doc_backfill_rejects_inventing_provenance(self):
+        # A backfill declares absence (null); minting a doc URL for a
+        # legacy rule is a claim, not a migration.
+        old = json.dumps({"rules": [self._pre_doc()]})
+        new = source_text(make_rule(doc="https://example.com/x.md"))
+        kind, _ = guards.classify_preferences_change(old, new, "chore: invent")
+        self.assertEqual(kind, "invalid")
+
+    def test_doc_backfill_rejects_an_added_rule(self):
+        old = json.dumps({"rules": [self._pre_doc(text="a.")]})
+        new = source_text(
+            make_rule(text="a.", doc=None), make_rule(text="b.", doc=None)
+        )
+        kind, _ = guards.classify_preferences_change(old, new, "chore: plus one")
+        self.assertEqual(kind, "invalid")
+
 
 def contest_record(record_id, chosen_slot, slot_rules):
     """A record whose options cite rules — a decided contest fixture.

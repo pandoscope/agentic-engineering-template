@@ -1,4 +1,4 @@
-## Template
+## Principal
 
 <!-- d10e: auto-prune -->
 <!-- Copier-vendored from the agentic-engineering-template — do NOT edit
@@ -6,6 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The agentic-engineering-template repo — the integrator every project is
-generated from. It [stamps](stamp.md) the per-project integration layer and
-carries learned conventions into every stamped repo via `copier update`.
+A human operator that is an owner of an [org](org.md); every gate
+ends at a principal.
+
+_Avoid_: user, operator, Pando-Genet

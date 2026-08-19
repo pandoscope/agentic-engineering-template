@@ -702,6 +702,24 @@ class CarveOutTests(unittest.TestCase):
         self.assertFalse(required)
         self.assertTrue(any("exempt" in note for note in notes))
 
+    def test_doc_backfill_migration_needs_no_label(self):
+        # The one-time doc-field backfill is meaning-preserving: the
+        # commit guard accepts it as a migration, so the carve-out must
+        # not disagree by demanding a label or a replay report.
+        pre_doc = make_rule()
+        del pre_doc["doc"]
+        required, notes = guard.classify_pref_commits(
+            [
+                self.commit(
+                    "chore: update agentic template",
+                    old=json.dumps({"rules": [pre_doc]}),
+                    new=source_text(make_rule(doc=None)),
+                )
+            ]
+        )
+        self.assertFalse(required)
+        self.assertTrue(any("migration" in note for note in notes))
+
     def test_counter_bump_that_rewrites_the_rule_needs_the_label(self):
         required, _ = guard.classify_pref_commits(
             [

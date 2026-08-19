@@ -80,6 +80,15 @@ agentic_precommit:
   default: prek
   when: "{{ agentic_subtemplate == 'template' }}"
 
+agentic_actions_runner:
+  type: str
+  help: >-
+    runs-on label for every rendered GitHub Actions workflow. The default
+    stays ubuntu-latest because a third-party label (e.g.
+    blacksmith-2vcpu-ubuntu-2204) makes jobs queue forever on a repo
+    without that runner provider's app installed.
+  default: "ubuntu-latest"
+
 agentic_tracker_cli:
   type: str
   help: "Tracker CLI agents must use for repository interaction (issues/PRs/CI)."

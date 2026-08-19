@@ -37,9 +37,10 @@ rejects an entry that claims neither.
   no conversation to link to.
 - `transcripts/<session-id>/` — exported conversation text.
 - `LEDGER.md` — the folded state as markdown. Rendered, not written:
-  `.github/workflows/render-ledger.yml` regenerates it on every push
-  that touches the sources, so edits to it are overwritten on the next
-  push.
+  `.github/workflows/render-ledger.yml` regenerates it on manual
+  dispatch only, so it may lag the log; the fresh view is the local
+  heartbeat render (`LEDGER_RENDER_PATH`). Edits to it are overwritten
+  on the next dispatch.
 - `repo-codes.json` — short codes for ticket prefixes in the rendered
   view. Seeded once and store-owned, because the template ships no
   org's names; an unmapped repo renders under its own name, so a

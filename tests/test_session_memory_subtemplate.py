@@ -161,8 +161,8 @@ def test_default_render_carries_no_store_rules(tmp_path: Path) -> None:
 # the consumer copy of a shared workflow. Managed duplication, per
 # AGENTS.md: declared here, and pinned identical by the test below.
 SHARED_WITH_CONSUMERS = (
-    ".github/workflows/template-update.yml",
-    ".github/workflows/ticket-closed.yml",
+    ".github/workflows/template-update.yml.jinja",
+    ".github/workflows/ticket-closed.yml.jinja",
 )
 
 CONSUMER_GITHUB = (
@@ -189,5 +189,7 @@ def test_every_store_reports_its_ticket_closes() -> None:
     without the sender is a hole in the loop: its closes reach the
     ledger only when somebody runs the sweep by hand."""
     for subtemplate in ("session-memory", "decision-memory", "evidence-memory"):
-        sender = PROJECT_ROOT / subtemplate / ".github/workflows/ticket-closed.yml"
+        sender = (
+            PROJECT_ROOT / subtemplate / ".github/workflows/ticket-closed.yml.jinja"
+        )
         assert sender.is_file(), f"{subtemplate} ships no ticket-close sender"

@@ -41,20 +41,20 @@ concurrency:
 jobs:
   reconcile:
     name: "closed ticket -> completed thread"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Fetch the recorder
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
         run: |
           set -euo pipefail
           # The tool lives with the skill, not with the data — one
           # source, and this store never carries a second copy to
           # drift from it.
           git clone --depth 1 --filter=blob:none --sparse \
-            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository_owner }}/skills.git" \
+            "https://x-access-token:${GH_TOKEN}@github.com/{% raw %}${{ github.repository_owner }}{% endraw %}/skills.git" \
             /tmp/skills
           git -C /tmp/skills sparse-checkout set original/thread-ledger
 
@@ -71,16 +71,16 @@ jobs:
         continue-on-error: true
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
-          app-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
+          app-id: {% raw %}${{ vars.RELEASE_BOT_CLIENT_ID }}{% endraw %}
+          private-key: {% raw %}${{ secrets.RELEASE_BOT_PRIVATE_KEY }}{% endraw %}
+          owner: {% raw %}${{ github.repository_owner }}{% endraw %}
 
       - name: Ask each live thread's ticket whether it is closed
         env:
           # Tickets the token cannot read are reported below rather
           # than skipped: a reconciler that goes quiet about what it
           # did not check reads exactly like one that found nothing.
-          GH_TOKEN: ${{ steps.app-token.outputs.token || github.token }}
+          GH_TOKEN: {% raw %}${{ steps.app-token.outputs.token || github.token }}{% endraw %}
         run: |
           set -euo pipefail
           node /tmp/skills/original/thread-ledger/ledger.mjs --root . state > /tmp/state.json
@@ -128,7 +128,7 @@ jobs:
 
       - name: Append the terminal events and commit them
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
         run: |
           set -euo pipefail
           ledger() { node /tmp/skills/original/thread-ledger/ledger.mjs --root . "$@"; }

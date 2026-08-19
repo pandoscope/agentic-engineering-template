@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   budget:
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
@@ -38,11 +38,11 @@ jobs:
 
       - name: Sync the compression-due issue
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          LEVEL: ${{ steps.budget.outputs.level }}
-          PERCENT: ${{ steps.budget.outputs.percent }}
-          SHA: ${{ github.sha }}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          GH_REPO: {% raw %}${{ github.repository }}{% endraw %}
+          LEVEL: {% raw %}${{ steps.budget.outputs.level }}{% endraw %}
+          PERCENT: {% raw %}${{ steps.budget.outputs.percent }}{% endraw %}
+          SHA: {% raw %}${{ github.sha }}{% endraw %}
         run: |
           set -euo pipefail
           label="$(python -c "import json;print(json.load(open('store.config.json'))['budget_issue_label'])")"

@@ -33,7 +33,7 @@ jobs:
   # update job is about to fix.
   audit:
     name: "template drift audit"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     permissions:
       contents: read
       pull-requests: read
@@ -43,8 +43,8 @@ jobs:
       - name: Report — is this repo actually on the latest template?
         id: report
         env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          GH_REPO: {% raw %}${{ github.repository }}{% endraw %}
         run: |
           set -euo pipefail
           answers_file=".copier-answers.agentic.yml"
@@ -84,7 +84,7 @@ jobs:
 
   update:
     name: "copier update (agentic template)"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     steps:
       # Named refusal before the octokit stack trace (#134): on GitHub
       # Free, org variables and secrets do not reach private repos, and
@@ -92,8 +92,8 @@ jobs:
       # The audit job above still reports drift on the default token.
       - name: Refuse without release-bot credentials, naming the gap
         env:
-          HAS_ID: ${{ vars.RELEASE_BOT_CLIENT_ID != '' }}
-          HAS_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY != '' }}
+          HAS_ID: {% raw %}${{ vars.RELEASE_BOT_CLIENT_ID != '' }}{% endraw %}
+          HAS_KEY: {% raw %}${{ secrets.RELEASE_BOT_PRIVATE_KEY != '' }}{% endraw %}
         run: |
           set -euo pipefail
           if [ "$HAS_ID" != "true" ] || [ "$HAS_KEY" != "true" ]; then
@@ -107,13 +107,13 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
-          app-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          app-id: {% raw %}${{ vars.RELEASE_BOT_CLIENT_ID }}{% endraw %}
+          private-key: {% raw %}${{ secrets.RELEASE_BOT_PRIVATE_KEY }}{% endraw %}
 
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           # Push the update branch as the app so the resulting PR runs CI.
-          token: ${{ steps.app-token.outputs.token }}
+          token: {% raw %}${{ steps.app-token.outputs.token }}{% endraw %}
           fetch-depth: 0
 
       # An open update PR for the CURRENT release is genuine dedupe. A
@@ -125,8 +125,8 @@ jobs:
       - name: Skip on a current update PR, join a stale one
         id: dedupe
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: {% raw %}${{ steps.app-token.outputs.token }}{% endraw %}
+          GH_REPO: {% raw %}${{ github.repository }}{% endraw %}
         run: |
           set -euo pipefail
           answers_file=".copier-answers.agentic.yml"
@@ -189,11 +189,11 @@ jobs:
       - name: Open update PR, or land the commit on the joined one
         if: steps.dedupe.outputs.skip == 'false' && steps.update.outputs.changed == 'true'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          OLD_REF: ${{ steps.update.outputs.old_ref }}
-          NEW_REF: ${{ steps.update.outputs.new_ref }}
-          EXISTING_BRANCH: ${{ steps.dedupe.outputs.existing_branch }}
-          EXISTING_PR: ${{ steps.dedupe.outputs.existing_pr }}
+          GH_TOKEN: {% raw %}${{ steps.app-token.outputs.token }}{% endraw %}
+          OLD_REF: {% raw %}${{ steps.update.outputs.old_ref }}{% endraw %}
+          NEW_REF: {% raw %}${{ steps.update.outputs.new_ref }}{% endraw %}
+          EXISTING_BRANCH: {% raw %}${{ steps.dedupe.outputs.existing_branch }}{% endraw %}
+          EXISTING_PR: {% raw %}${{ steps.dedupe.outputs.existing_pr }}{% endraw %}
         run: |
           set -euo pipefail
           branch="${EXISTING_BRANCH:-chore/template-update-$NEW_REF}"

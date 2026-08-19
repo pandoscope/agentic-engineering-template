@@ -101,6 +101,12 @@ def classify_pref_commits(commits: list[dict]) -> tuple[bool, list[str]]:
         if kind == "bump-exempt":
             notes.append(f"{short}: mechanical pref-confirm counter bump — exempt")
             continue
+        if kind == "migration":
+            # The one-time doc-field backfill is meaning-preserving — the
+            # commit guard already accepts it, and the two must never
+            # disagree — so it needs no carve-out label or replay report.
+            notes.append(f"{short}: one-time doc-field backfill migration — exempt")
+            continue
         required = True
         if kind == "invalid":
             notes.append(

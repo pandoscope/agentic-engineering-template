@@ -13,23 +13,23 @@ on:
 permissions: {}
 
 concurrency:
-  group: add-to-project-${{ github.event.number || github.event.issue.number }}
+  group: add-to-project-{% raw %}${{ github.event.number || github.event.issue.number }}{% endraw %}
 
 jobs:
   add:
     name: "add to board"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     # GitHub's built-in auto-add workflow is plan-limited to a single
     # repository, so the board is populated from here instead. Repos that
     # set no board URL show this job as SKIPPED rather than green.
-    if: ${{ vars.PROJECT_BOARD_URL != '' }}
+    if: {% raw %}${{ vars.PROJECT_BOARD_URL != '' }}{% endraw %}
     steps:
       - uses: actions/add-to-project@244f685bbc3b7adfa8466e08b698b5577571133e # v1.0.2
         with:
-          project-url: ${{ vars.PROJECT_BOARD_URL }}
+          project-url: {% raw %}${{ vars.PROJECT_BOARD_URL }}{% endraw %}
           # An ORG-level project is outside the repo-scoped GITHUB_TOKEN's
           # reach, so this needs a PAT with organization Projects: write.
           # It expires; when it does, items stop reaching the board and the
           # only visible signal is this job going red. Do not soften that
           # into a warning.
-          github-token: ${{ secrets.PROJECT_BOARD_TOKEN }}
+          github-token: {% raw %}${{ secrets.PROJECT_BOARD_TOKEN }}{% endraw %}

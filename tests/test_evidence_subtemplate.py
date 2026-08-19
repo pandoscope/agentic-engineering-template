@@ -54,7 +54,7 @@ STORE_FILES = frozenset(
 SHARED_CORES = (
     "tools/record_core.py",
     ".github/guards/validator_core.py",
-    ".github/workflows/template-update.yml",
+    ".github/workflows/template-update.yml.jinja",
 )
 
 validator = load_module(
@@ -368,7 +368,9 @@ def test_the_store_updater_matches_the_one_consumers_get() -> None:
         / "template"
         / "{% if agentic_forge == 'github' %}.github{% endif %}"
         / "workflows"
-        / "template-update.yml"
+        / "template-update.yml.jinja"
     ).read_bytes()
-    store = (SUBTEMPLATE / ".github" / "workflows" / "template-update.yml").read_bytes()
+    store = (
+        SUBTEMPLATE / ".github" / "workflows" / "template-update.yml.jinja"
+    ).read_bytes()
     assert store == consumer

@@ -12,23 +12,23 @@ on:
 permissions: {}
 
 concurrency:
-  group: ticket-closed-${{ github.event.issue.number }}
+  group: ticket-closed-{% raw %}${{ github.event.issue.number }}{% endraw %}
 
 jobs:
   dispatch:
     name: "tell the store"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     # Repos in an org without a session-memory store show this SKIPPED
     # rather than green. The variable carries owner/repo, set once at
     # org level — deliberately not baked in at stamping time, so the
     # rendered file names no org's store and a store move is one
     # variable edit, not a re-stamp of every repo.
-    if: ${{ vars.SESSION_MEMORY_REPO != '' }}
+    if: {% raw %}${{ vars.SESSION_MEMORY_REPO != '' }}{% endraw %}
     steps:
       - name: Name the store's repository
         id: store
         env:
-          STORE: ${{ vars.SESSION_MEMORY_REPO }}
+          STORE: {% raw %}${{ vars.SESSION_MEMORY_REPO }}{% endraw %}
         run: |
           set -euo pipefail
           echo "name=${STORE##*/}" >> "$GITHUB_OUTPUT"
@@ -43,15 +43,15 @@ jobs:
         id: app-token
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         with:
-          app-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-          repositories: ${{ steps.store.outputs.name }}
+          app-id: {% raw %}${{ vars.RELEASE_BOT_CLIENT_ID }}{% endraw %}
+          private-key: {% raw %}${{ secrets.RELEASE_BOT_PRIVATE_KEY }}{% endraw %}
+          owner: {% raw %}${{ github.repository_owner }}{% endraw %}
+          repositories: {% raw %}${{ steps.store.outputs.name }}{% endraw %}
 
       - env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
-          STORE: ${{ vars.SESSION_MEMORY_REPO }}
-          TICKET: ${{ github.repository }}#${{ github.event.issue.number }}
+          GH_TOKEN: {% raw %}${{ steps.app-token.outputs.token }}{% endraw %}
+          STORE: {% raw %}${{ vars.SESSION_MEMORY_REPO }}{% endraw %}
+          TICKET: {% raw %}${{ github.repository }}{% endraw %}#{% raw %}${{ github.event.issue.number }}{% endraw %}
         run: |
           set -euo pipefail
           # The payload carries only the ticket's name. The store

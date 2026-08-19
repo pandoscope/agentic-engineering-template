@@ -17,21 +17,21 @@ concurrency:
 jobs:
   render:
     name: "LEDGER.md"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
       - name: Fetch the renderer
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
         run: |
           set -euo pipefail
           # The tool lives with the skill, not with the data — one
           # source, and this store never carries a second copy to
-          # drift from it. `<owner>/skills` is the convention for
+          # drift from it. `owner/skills` is the convention for
           # where the thread-ledger skill lives.
           git clone --depth 1 --filter=blob:none --sparse \
-            "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository_owner }}/skills.git" \
+            "https://x-access-token:${GH_TOKEN}@github.com/{% raw %}${{ github.repository_owner }}{% endraw %}/skills.git" \
             /tmp/skills
           git -C /tmp/skills sparse-checkout set original/thread-ledger
 
@@ -44,11 +44,11 @@ jobs:
           node /tmp/skills/original/thread-ledger/ledger.mjs \
             --root . \
             render --format md --out LEDGER.md \
-            --title "${{ github.repository_owner }} — thread ledger"
+            --title "{% raw %}${{ github.repository_owner }}{% endraw %} — thread ledger"
 
       - name: Commit when it changed
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
         run: |
           set -euo pipefail
           # The commit is created through the API, not the git CLI:
@@ -84,7 +84,7 @@ jobs:
             node /tmp/skills/original/thread-ledger/ledger.mjs \
               --root . \
               render --format md --out LEDGER.md \
-              --title "${{ github.repository_owner }} — thread ledger"
+              --title "{% raw %}${{ github.repository_owner }}{% endraw %} — thread ledger"
           done
           echo "::error::could not commit LEDGER.md after 3 attempts"
           exit 1

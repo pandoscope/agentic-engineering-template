@@ -1,10 +1,5 @@
 name: Sync labels
 
-# Copier-vendored from the agentic-engineering-template evidence
-# subtemplate. The tier-2 gate (agentic-engineering-template#103) selects
-# on these labels, so they have to exist before that gate is mechanical
-# rather than conventional.
-
 on:
   push:
     branches:
@@ -18,16 +13,16 @@ on:
 permissions: {}
 
 concurrency:
-  group: labels-${{ github.ref }}
+  group: labels-{% raw %}${{ github.ref }}{% endraw %}
 
 jobs:
   sync:
     name: "labels sync"
-    runs-on: ubuntu-latest
+    runs-on: {{ agentic_actions_runner }}
     # Opt-in per repo. A repo that never sets the variable shows this job
     # as SKIPPED, which is visibly different from a green run — an absent
     # sync must never be indistinguishable from a successful one.
-    if: ${{ vars.LABELS_SYNC_ENABLED == 'true' }}
+    if: {% raw %}${{ vars.LABELS_SYNC_ENABLED == 'true' }}{% endraw %}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
@@ -39,7 +34,7 @@ jobs:
         env:
           # Needs a PAT with `repo` scope: the default GITHUB_TOKEN cannot
           # manage labels across an org from a shared config.
-          LABELS_TOKEN: ${{ secrets.LABELS_TOKEN }}
+          LABELS_TOKEN: {% raw %}${{ secrets.LABELS_TOKEN }}{% endraw %}
         run: |
           set -euo pipefail
           if [ -z "${LABELS_TOKEN:-}" ]; then
@@ -47,7 +42,7 @@ jobs:
             exit 1
           fi
           pip install labels
-          labels -u "${{ github.repository_owner }}" -t "$LABELS_TOKEN" \
-            sync -o "${{ github.repository_owner }}" \
-                 -r "${{ github.event.repository.name }}" \
+          labels -u "{% raw %}${{ github.repository_owner }}{% endraw %}" -t "$LABELS_TOKEN" \
+            sync -o "{% raw %}${{ github.repository_owner }}{% endraw %}" \
+                 -r "{% raw %}${{ github.event.repository.name }}{% endraw %}" \
                  -f .github/labels.toml

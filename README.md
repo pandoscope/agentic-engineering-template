@@ -161,12 +161,20 @@ what makes them lintable here.
 - [agentic-engineering-template](docs/glossary/agentic-engineering-template.md)
 - [decision-memory](docs/glossary/decision-memory.md)
 - [decision record](docs/glossary/decision-record.md)
+- [evidence-memory](docs/glossary/evidence-memory.md)
+- [genome](docs/glossary/genome.md)
 - [grilling](docs/glossary/grilling.md)
+- [memory repo](docs/glossary/memory-repo.md)
+- [org](docs/glossary/org.md)
+- [pando](docs/glossary/pando.md)
+- [cell](docs/glossary/cell.md)
 - [preference set](docs/glossary/preference-set.md)
+- [principal](docs/glossary/principal.md)
 - [record contract](docs/glossary/record-contract.md)
-- [session](docs/glossary/session.md)
-- [stamp](docs/glossary/stamp.md)
-- [template](docs/glossary/template.md)
+- [agent session](docs/glossary/agent-session.md)
+- [session-memory](docs/glossary/session-memory.md)
+- [template stamp](docs/glossary/template-stamp.md)
+- [pandoscope template](docs/glossary/pandoscope-template.md)
 
 These links live in this repo's own README, which is NOT part of the render —
 so in a generated repo the same terms arrive unlinked, stay orphaned until

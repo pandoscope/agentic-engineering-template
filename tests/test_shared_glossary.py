@@ -26,6 +26,7 @@ SOURCE_DIR = PROJECT_ROOT / "template" / "docs" / "glossary"
 SHARED_TERMS = frozenset(
     {
         "decision-memory",
+        "reinset",
         "decision-record",
         "grilling",
         "org",

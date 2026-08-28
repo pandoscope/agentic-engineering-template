@@ -171,6 +171,7 @@ what makes them lintable here.
 - [preference set](docs/glossary/preference-set.md)
 - [principal](docs/glossary/principal.md)
 - [record contract](docs/glossary/record-contract.md)
+- [reinset](docs/glossary/reinset.md)
 - [agent session](docs/glossary/agent-session.md)
 - [session-memory](docs/glossary/session-memory.md)
 - [template stamp](docs/glossary/template-stamp.md)

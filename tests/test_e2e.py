@@ -34,6 +34,7 @@ COMMON_FILES = frozenset(
         "scripts/doctor.sh",
         # Shared glossary terms, stamped into every generated repo (#52).
         "docs/glossary/decision-memory.md",
+        "docs/glossary/reinset.md",
         "docs/glossary/decision-record.md",
         "docs/glossary/pando-cell.md",
         "docs/glossary/evidence-memory.md",

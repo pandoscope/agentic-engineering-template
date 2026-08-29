@@ -15,7 +15,7 @@ permissions: {}
 jobs:
   dispatch:
     name: "dispatch sessions-marker-changed to meta"
-    runs-on: blacksmith-2vcpu-ubuntu-2204
+    runs-on: ubuntu-latest
     steps:
       - name: Mint release-bot installation token
         id: app-token

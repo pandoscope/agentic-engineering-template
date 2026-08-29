@@ -72,6 +72,9 @@ GITHUB_ONLY_FILES = frozenset(
         # keyword file its checks read.
         ".github/workflows/ci-ok.yml",
         ".github/reference-keywords.json",
+        # The merge-approval gate (#187): the approver allowlist its
+        # check reads.
+        ".github/merge-approvers.json",
     }
 )
 

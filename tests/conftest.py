@@ -32,6 +32,7 @@ def base_answers() -> dict[str, str]:
         "agentic_precommit": "prek",
         "agentic_forge": "github",
         "agentic_repo_owner": "actions-user",
+        "agentic_merge_approvers": "actions-user",
     }
 
 

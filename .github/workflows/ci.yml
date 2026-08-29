@@ -123,6 +123,7 @@ jobs:
             --data agentic_project_name="Snake Farm"
             --data agentic_project_description="A sample."
             --data agentic_repo_owner=actions-user
+            --data agentic_merge_approvers=actions-user
           )
 
           uv run copier copy --trust --defaults --vcs-ref ci-conflict-check \

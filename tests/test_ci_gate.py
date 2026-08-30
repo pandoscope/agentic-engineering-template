@@ -572,8 +572,9 @@ def test_leaks_job_rides_the_gate_everywhere():
 
 
 BLOCKLIST_HOOK_ENTRY = (
-    'bash -c \'[ -z "${PUSH_BLOCKLIST:-}" ] || '
-    '! grep -IilE -- "$PUSH_BLOCKLIST" "$@"\' --'
+    'bash -c \'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\\r\\n" | '
+    'sed "s/||*/|/g;s/^|//;s/|$//"); '
+    '[ -z "$p" ] || ! grep -IilE -- "$p" "$@"\' --'
 )
 
 
@@ -617,6 +618,21 @@ def test_blocklist_hook_catches_a_planted_value_and_passes_clean(tmp_path):
     assert clean.returncode == 0
     unset = run_blocklist_hook(tmp_path, "alice everywhere", "")
     assert unset.returncode == 0
+
+
+def test_blocklist_hook_tolerates_editor_added_newlines_and_stray_pipes(tmp_path):
+    """The secret material comes from an editor-saved file, and editors
+    add a final newline for good reason. A raw newline (or a doubled or
+    dangling pipe) would put an EMPTY alternative into the grep pattern,
+    which matches every file — so the hook normalizes the pattern
+    instead of demanding a newline-free file."""
+    for messy in ("alice|bob\n", "alice||bob", "|alice|bob|", "alice|bob\r\n"):
+        clean = run_blocklist_hook(tmp_path, "nothing to see", messy)
+        assert clean.returncode == 0, f"blocklist {messy!r} false-positived"
+        hit = run_blocklist_hook(tmp_path, "contact alice today", messy)
+        assert hit.returncode == 1, f"blocklist {messy!r} missed a real hit"
+    only_noise = run_blocklist_hook(tmp_path, "anything", "|\n")
+    assert only_noise.returncode == 0
 
 
 # ------------------------------------------------- copies stay pinned

@@ -8,6 +8,8 @@ template-first, like every other multi-copy file here.
 
 import importlib.util
 import json
+import os
+import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -543,6 +545,78 @@ def test_leak_violations_report_every_hit_pair_once():
 
 def test_empty_blocklist_finds_nothing():
     assert gate.leak_violations([("PR body", "anything at all")], []) == []
+
+
+def test_leaks_job_rides_the_gate_everywhere():
+    """Layer 2 of #189: the leaks job rides ci-ok in the template AND
+    both store variants, so the one required context enforces it. The
+    gitleaks binary is pinned by version and checksum — a moving 'latest'
+    would let a compromised release into every repo's CI at once."""
+    paths = [
+        ROOT
+        / "template"
+        / "{% if agentic_forge == 'github' %}.github{% endif %}"
+        / "workflows"
+        / "ci-ok.yml.jinja",
+        ROOT / "decision-memory" / ".github" / "workflows" / "ci-ok.yml.jinja",
+        ROOT / "evidence-memory" / ".github" / "workflows" / "ci-ok.yml.jinja",
+    ]
+    for path in paths:
+        text = path.read_text()
+        assert "check_gate.py leaks" in text, path
+        assert "secrets.PUSH_BLOCKLIST" in text, path
+        assert "gitleaks_8.30.1_linux_x64.tar.gz" in text, path
+        assert (
+            "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb" in text
+        ), path
+
+
+BLOCKLIST_HOOK_ENTRY = (
+    'bash -c \'[ -z "${PUSH_BLOCKLIST:-}" ] || '
+    '! grep -IilE -- "$PUSH_BLOCKLIST" "$@"\' --'
+)
+
+
+def test_prek_carries_gitleaks_and_the_blocklist_hook():
+    """Layer 1 of #189: the local gate in every rendered repo, and in
+    this repo's own (deliberately divergent) config too."""
+    template = (
+        ROOT
+        / "template"
+        / "{% if agentic_precommit == 'prek' %}.pre-commit-config.yaml{% endif %}.jinja"
+    ).read_text()
+    own = (ROOT / ".pre-commit-config.yaml").read_text()
+    for config in (template, own):
+        assert "https://github.com/gitleaks/gitleaks" in config
+        assert "rev: v8.30.1" in config
+        assert BLOCKLIST_HOOK_ENTRY in config
+
+
+def run_blocklist_hook(tmp_path, content, blocklist):
+    """The push-blocklist hook's script, invoked as prek invokes it."""
+    script = BLOCKLIST_HOOK_ENTRY[len("bash -c '") : -len("' --")]
+    target = tmp_path / "staged.md"
+    target.write_text(content)
+    return subprocess.run(
+        ["bash", "-c", script, "--", str(target)],
+        env={"PATH": os.environ["PATH"], "PUSH_BLOCKLIST": blocklist},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_blocklist_hook_catches_a_planted_value_and_passes_clean(tmp_path):
+    """#104 acceptance: a planted fixture value is caught; the hook
+    prints only the offending FILENAME (grep -l), never the matched
+    line — the terminal transcript may itself be shared."""
+    hit = run_blocklist_hook(tmp_path, "contact ALICE@example.org", "alice|bob")
+    assert hit.returncode == 1
+    assert hit.stdout.strip() == str(tmp_path / "staged.md")
+    clean = run_blocklist_hook(tmp_path, "nothing to see", "alice|bob")
+    assert clean.returncode == 0
+    unset = run_blocklist_hook(tmp_path, "alice everywhere", "")
+    assert unset.returncode == 0
 
 
 # ------------------------------------------------- copies stay pinned

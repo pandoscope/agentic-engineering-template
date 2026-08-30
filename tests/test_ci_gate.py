@@ -386,6 +386,83 @@ def test_own_workflow_path_is_static_never_listed():
     assert gate.own_workflow_path(ref, "o/r") == ".github/workflows/ci-ok.yml"
 
 
+# ----------------------------------------------------------- approval
+
+
+def review(user, state, commit="headsha", when=1):
+    return {"user": {"login": user}, "state": state, "commit_id": commit, "when": when}
+
+
+def test_current_approval_from_an_approver_passes():
+    problems, escaped = gate.approval_violations(
+        [review("approver", "APPROVED")], ["approver"], "bot[bot]", [], "headsha"
+    )
+    assert problems == [] and not escaped
+
+
+def test_stale_approval_names_both_commits():
+    problems, _ = gate.approval_violations(
+        [review("approver", "APPROVED", commit="oldsha1")],
+        ["approver"],
+        "x",
+        [],
+        "headsha1",
+    )
+    assert len(problems) == 1
+    assert "stale" in problems[0]
+    assert "oldsha1" in problems[0] and "headsha" in problems[0]
+
+
+def test_latest_review_wins_and_comments_do_not_overwrite():
+    reviews = [
+        review("approver", "APPROVED", commit="oldsha"),
+        review("approver", "CHANGES_REQUESTED"),
+        review("approver", "COMMENTED"),
+    ]
+    problems, _ = gate.approval_violations(reviews, ["approver"], "x", [], "headsha")
+    assert any("requested changes" in p for p in problems)
+    reviews.append(review("approver", "APPROVED"))
+    problems, _ = gate.approval_violations(reviews, ["approver"], "x", [], "headsha")
+    assert problems == []
+
+
+def test_non_approver_reviews_do_not_count():
+    problems, _ = gate.approval_violations(
+        [review("stranger", "APPROVED")], ["approver"], "x", [], "headsha"
+    )
+    assert any("no approving review" in p for p in problems)
+
+
+def test_approver_author_passes_without_a_review():
+    problems, escaped = gate.approval_violations(
+        [], ["approver"], "approver", [], "headsha"
+    )
+    assert problems == [] and not escaped
+
+
+def test_automated_escape_is_bot_only_for_approval_too():
+    _, escaped = gate.approval_violations(
+        [], ["approver"], "updater[bot]", ["automated"], "headsha"
+    )
+    assert escaped
+    problems, escaped = gate.approval_violations(
+        [], ["approver"], "human", ["automated"], "headsha"
+    )
+    assert problems and not escaped
+
+
+def test_empty_approver_list_is_loud(tmp_path, monkeypatch):
+    config = tmp_path / "merge-approvers.json"
+    config.write_text('{"approvers": []}')
+    monkeypatch.setenv("MERGE_APPROVERS", str(config))
+    try:
+        gate.approvers_config()
+    except ValueError as err:
+        assert "no approvers" in str(err)
+    else:
+        raise AssertionError("an empty approver list must refuse, not pass")
+
+
 # ------------------------------------------------- copies stay pinned
 
 

@@ -65,6 +65,7 @@ def test_repo_root_matches_the_rendered_template(tmp_path: Path) -> None:
             ),
             "agentic_project_slug": "agentic-engineering-template",
             "agentic_repo_owner": "frankify-app",
+            "agentic_merge_approvers": "pando-genet",
         },
         defaults=True,
         unsafe=True,

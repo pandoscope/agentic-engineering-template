@@ -145,6 +145,7 @@ def test_default_render_carries_no_store_rules(tmp_path: Path) -> None:
             "agentic_project_description": "A consumer repo",
             "agentic_project_slug": "consumer",
             "agentic_repo_owner": "example",
+            "agentic_merge_approvers": "example",
         },
         defaults=True,
         unsafe=True,

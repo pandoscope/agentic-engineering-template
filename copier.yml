@@ -89,6 +89,27 @@ agentic_actions_runner:
     without that runner provider's app installed.
   default: "ubuntu-latest"
 
+agentic_merge_approval_gate:
+  type: bool
+  help: >-
+    Require a current human Approve review before merge, as a ci-ok gate
+    job (agentic-engineering-template#187). A PR authored by an
+    allowlisted approver passes without a review — the author cannot
+    approve their own PR, and authorship is approval by the same party.
+  default: true
+  when: "{{ agentic_subtemplate == 'template' }}"
+
+agentic_merge_approvers:
+  type: str
+  help: >-
+    Comma-separated GitHub logins whose Approve review satisfies the
+    merge-approval gate (humans, never bots). Rendered into
+    .github/merge-approvers.json. The repo owner may be an org, so this
+    cannot be defaulted from it.
+  default: ""
+  validator: "{% if agentic_subtemplate == 'template' and agentic_merge_approval_gate and not agentic_merge_approvers %}Required while agentic_merge_approval_gate is true — name at least one human login{% endif %}"
+  when: "{{ agentic_subtemplate == 'template' and agentic_merge_approval_gate }}"
+
 agentic_tracker_cli:
   type: str
   help: "Tracker CLI agents must use for repository interaction (issues/PRs/CI)."

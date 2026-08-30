@@ -505,6 +505,46 @@ def test_an_in_flight_gate_run_is_not_stale_and_reports_as_busy():
     assert not gate.gate_busy([gate_run(1)] + runs[2:], ".github/workflows/ci-ok.yml")
 
 
+# -------------------------------------------------------------- leaks
+
+
+def test_parse_blocklist_splits_on_pipes_and_drops_blanks():
+    assert gate.parse_blocklist("alice|Bob Example| |bob@example.org|") == [
+        "alice",
+        "Bob Example",
+        "bob@example.org",
+    ]
+    assert gate.parse_blocklist("") == []
+    assert gate.parse_blocklist(None) == []
+
+
+def test_leak_violations_name_surface_and_entry_never_the_value():
+    """The denylist values are themselves the identifying material, and
+    a CI log on a public repo is a public surface — so a violation names
+    WHERE and WHICH entry, never WHAT (#189)."""
+    surfaces = [("PR title", "ship it"), ("commit 3f2a1b0 message", "by alice")]
+    problems = gate.leak_violations(surfaces, ["alice", "bob"])
+    assert len(problems) == 1
+    assert "commit 3f2a1b0 message" in problems[0]
+    assert "entry 1" in problems[0]
+    assert "alice" not in problems[0]
+
+
+def test_leak_violations_match_case_insensitively():
+    problems = gate.leak_violations([("PR body", "Mail ALICE@example.org")], ["alice"])
+    assert len(problems) == 1
+
+
+def test_leak_violations_report_every_hit_pair_once():
+    surfaces = [("PR title", "alice and bob"), ("PR body", "bob, bob, bob")]
+    problems = gate.leak_violations(surfaces, ["alice", "bob"])
+    assert len(problems) == 3
+
+
+def test_empty_blocklist_finds_nothing():
+    assert gate.leak_violations([("PR body", "anything at all")], []) == []
+
+
 # ------------------------------------------------- copies stay pinned
 
 

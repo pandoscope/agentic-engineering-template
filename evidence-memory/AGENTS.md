@@ -66,6 +66,11 @@ If you leak anything — even low-risk, even by accident — that is
 itself a detection. File it. Prevention here is built from observed
 weak spots, not imagined ones.
 
+The prek and CI leak scans (gitleaks + the PUSH_BLOCKLIST denylist)
+catch **verbatim** strings only — paraphrase sails through. A green
+scan is a narrowed surface, never clearance; the re-read above stays
+mandatory.
+
 ## Filing
 
 ```bash

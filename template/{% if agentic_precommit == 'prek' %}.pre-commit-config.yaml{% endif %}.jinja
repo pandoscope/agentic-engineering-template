@@ -33,6 +33,11 @@ repos:
     hooks:
       - id: yamllint
         args: [--strict]
+  # Credential class (#189): stock rules over the staged diff, offline.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7
     hooks:
@@ -54,6 +59,14 @@ repos:
       # Roots come from the agentic_disambiguate_roots answer: prek has no
       # repo-owned env file to feed DISAMBIGUATE_ROOTS through, so answer
       # data is the only place roots survive `copier update` unpatched.
+      # Identity class (#189): PUSH_BLOCKLIST is `|`-separated values
+      # in env, never committed — exactly grep's alternation syntax.
+      # `-l` prints only the offending FILE, never the matched line;
+      # unset env means the layer is off and the hook passes.
+      - id: push-blocklist
+        name: no blocklisted string in staged files
+        entry: bash -c '[ -z "${PUSH_BLOCKLIST:-}" ] || ! grep -IilE -- "$PUSH_BLOCKLIST" "$@"' --
+        language: system
       - id: disambiguate-lint
         name: disambiguate --lint
         entry: uvx disambiguate=={{ agentic_disambiguate_version }} --lint{% if agentic_disambiguate_roots %} {{ agentic_disambiguate_roots }}{% endif %}

@@ -11,6 +11,9 @@ One subcommand per job in ci-ok.yml:
              head commit — or the PR is authored by one (#187)
   aggregate  every job of every pull_request-triggered workflow on
              this head SHA succeeded — the one required context
+  rerun      stale non-green gate runs on this head SHA are re-run in
+             place, so a superseded red stops blocking merge (#190) —
+             gate-rerun.yml's job, not ci-ok.yml's
 
 Decision logic lives in pure functions over plain data so the tests
 exercise it without a network; `fetch` is the only door to the API.
@@ -22,6 +25,7 @@ import os
 import re
 import sys
 import time
+import urllib.error
 import urllib.request
 
 import yaml
@@ -64,8 +68,8 @@ def graphql(query, variables, token):
     """POST one GraphQL query — the read for what REST does not expose.
 
     Review-thread resolution exists only in the GraphQL schema, so this
-    is the file's second and last network door: a POST to the fixed
-    /graphql path, under the same scheme guard as `fetch`.
+    is the file's second network door: a POST to the fixed /graphql
+    path, under the same scheme guard as `fetch`.
     """
     body = json.dumps({"query": query, "variables": variables}).encode()
     req = urllib.request.Request(  # noqa: S310 — api_url rejects every other scheme
@@ -83,6 +87,28 @@ def graphql(query, variables, token):
     if payload.get("errors"):
         raise RuntimeError(f"GraphQL errors: {payload['errors']}")
     return payload["data"]
+
+
+def post(path, token):
+    """POST one empty-bodied API path — the file's one write door.
+
+    Exists solely for `rerun-failed-jobs` (#190): superseding a stale
+    red check run takes a write, where everything the gate JUDGES stays
+    behind the two read doors above. Same scheme guard; returns the
+    HTTP status, since the endpoint answers 201 with no body.
+    """
+    req = urllib.request.Request(  # noqa: S310 — api_url rejects every other scheme
+        api_url(path),
+        data=b"",
+        method="POST",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with urllib.request.urlopen(req) as response:  # noqa: S310 — checked above
+        return response.status
 
 
 def paginate(path, token, key=None):
@@ -694,6 +720,89 @@ def run_aggregate():
         time.sleep(15)
 
 
+# -------------------------------------------------------------- rerun
+
+
+def stale_gate_runs(runs, gate_path):
+    """Completed non-green runs of the gate workflow, oldest first.
+
+    A re-judge event spawns a FRESH gate run; the prior red run's check
+    runs stay `failure` on the same head SHA, and required-check
+    evaluation counts that stale red over the newer green (#190 —
+    observed blocking #188's merge). Only re-running the old run in
+    place supersedes its verdict. `skipped` already passes evaluation,
+    so it is not stale; anything else non-success is.
+    """
+    return [
+        run
+        for run in sorted(runs, key=lambda run: run["id"])
+        if run["path"] == gate_path
+        and run["status"] == "completed"
+        and run["conclusion"] not in ("success", "skipped")
+    ]
+
+
+def gate_busy(runs, gate_path):
+    """Is any run of the gate workflow still queued or in flight?
+
+    Re-running an old run while a fresh one is in progress queues into
+    the same `ci-ok-<pr>` concurrency group and cancel-in-progress
+    kills the fresh run — trading one stale red for another. The rerun
+    therefore waits for quiet first, which is also why it lives in its
+    own workflow with its own group.
+    """
+    return any(
+        run["path"] == gate_path and run["status"] != "completed" for run in runs
+    )
+
+
+def run_rerun():
+    """Re-run each stale red gate run once, serially, then stop.
+
+    This job SYNCS old runs with the gate's current verdict; it never
+    judges. A rerun re-executes the gate's own jobs, which read live
+    data (#159), so a red flips green only when the condition genuinely
+    holds now — a still-unmet condition reruns red and keeps blocking,
+    which is correct and not this job's failure. Hence exit 0 on every
+    orderly path; each run is attempted at most once so a legitimately
+    red gate cannot loop.
+    """
+    token = os.environ["GH_TOKEN"]
+    repo = os.environ["GITHUB_REPOSITORY"]
+    sha = os.environ["HEAD_SHA"]
+    gate_path = os.environ["GATE_WORKFLOW"]
+    deadline = time.monotonic() + int(os.environ.get("GATE_RERUN_TIMEOUT", "1500"))
+
+    attempted = set()
+    while True:
+        runs = paginate(
+            f"/repos/{repo}/actions/runs?head_sha={sha}", token, "workflow_runs"
+        )
+        if not gate_busy(runs, gate_path):
+            stale = [
+                run
+                for run in stale_gate_runs(runs, gate_path)
+                if run["id"] not in attempted
+            ]
+            if not stale:
+                done = f"re-ran {sorted(attempted)}" if attempted else "none found"
+                print(f"No stale non-green gate runs left on {sha} ({done}).")
+                return 0
+            run = stale[0]
+            attempted.add(run["id"])
+            print(f"re-running failed jobs of run {run['id']} ({run['conclusion']})")
+            try:
+                post(f"/repos/{repo}/actions/runs/{run['id']}/rerun-failed-jobs", token)
+            except urllib.error.HTTPError as err:
+                # E.g. a cancelled run with nothing rerunnable (409) —
+                # note it and move on; syncing must not go red itself.
+                print(f"::warning::rerun of {run['id']} refused: {err}")
+        if time.monotonic() > deadline:
+            print("::warning::gate runs still in flight at the rerun timeout.")
+            return 0
+        time.sleep(15)
+
+
 def main():
     verb = sys.argv[1] if len(sys.argv) > 1 else ""
     runners = {
@@ -701,6 +810,7 @@ def main():
         "reviews": run_reviews,
         "approval": run_approval,
         "aggregate": run_aggregate,
+        "rerun": run_rerun,
     }
     if verb not in runners:
         print(f"usage: check_gate.py {{{'|'.join(runners)}}}", file=sys.stderr)

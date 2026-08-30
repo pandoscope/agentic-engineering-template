@@ -75,6 +75,9 @@ GITHUB_ONLY_FILES = frozenset(
         # The merge-approval gate (#187): the approver allowlist its
         # check reads.
         ".github/merge-approvers.json",
+        # The stale-red janitor (#190): re-runs superseded red gate
+        # runs in place so they stop blocking merge.
+        ".github/workflows/gate-rerun.yml",
     }
 )
 

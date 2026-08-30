@@ -14,6 +14,9 @@ One subcommand per job in ci-ok.yml:
   rerun      stale non-green gate runs on this head SHA are re-run in
              place, so a superseded red stops blocking merge (#190) —
              gate-rerun.yml's job, not ci-ok.yml's
+  leaks      no PUSH_BLOCKLIST value appears on any surface this PR
+             publishes: title, body, commit messages, commit author
+             and committer names/emails, and the diff (#189)
 
 Decision logic lives in pure functions over plain data so the tests
 exercise it without a network; `fetch` is the only door to the API.
@@ -803,6 +806,87 @@ def run_rerun():
         time.sleep(15)
 
 
+# -------------------------------------------------------------- leaks
+
+
+def parse_blocklist(value):
+    """PUSH_BLOCKLIST env → the denylist values, blanks dropped.
+
+    Values-only and `|`-separated (pandoscope/skills#46): the variable
+    carries WHAT to block and nothing else, so the committed side of
+    the contract is just this parser and the variable's name.
+    """
+    if not value:
+        return []
+    return [entry.strip() for entry in value.split("|") if entry.strip()]
+
+
+def leak_violations(surfaces, values):
+    """Denylist hits over (label, text) surfaces — value-silent.
+
+    Case-insensitive substring match, one violation per (surface,
+    entry) pair. The violation names WHERE and WHICH entry, never
+    WHAT: the values are the identifying material this gate keeps off
+    public surfaces, and this gate's own log on a public repo is such
+    a surface (#189).
+    """
+    problems = []
+    for label, text in surfaces:
+        lowered = (text or "").lower()
+        for position, value in enumerate(values, start=1):
+            if value.lower() in lowered:
+                problems.append(
+                    f"{label} carries PUSH_BLOCKLIST entry {position} — "
+                    "scrub it and rewrite the offending commit or text"
+                )
+    return problems
+
+
+def pr_surfaces(pr, commits, files):
+    """Every text surface this PR publishes, labeled for the verdict.
+
+    Commit metadata is listed explicitly because no established
+    scanner covers author/committer name and email (#189) — an agent's
+    misconfigured git identity auto-publishes on merge with no
+    approval step in between.
+    """
+    surfaces = [("PR title", pr.get("title")), ("PR body", pr.get("body"))]
+    for entry in commits:
+        sha = entry["sha"][:7]
+        commit = entry["commit"]
+        surfaces.append((f"commit {sha} message", commit.get("message")))
+        for role in ("author", "committer"):
+            who = commit.get(role) or {}
+            surfaces.append((f"commit {sha} {role} name", who.get("name")))
+            surfaces.append((f"commit {sha} {role} email", who.get("email")))
+    for changed in files:
+        surfaces.append((f"diff of {changed['filename']}", changed.get("patch")))
+    return surfaces
+
+
+def run_leaks():
+    token = os.environ["GH_TOKEN"]
+    repo = os.environ["GITHUB_REPOSITORY"]
+    values = parse_blocklist(os.environ.get("PUSH_BLOCKLIST"))
+    if not values:
+        # An unset org secret must not fail every fork and fresh
+        # consumer, but silence would hide that the layer is off.
+        print("::warning::PUSH_BLOCKLIST is empty — the denylist layer is inactive")
+        return 0
+    with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as handle:
+        event = json.load(handle)
+    pr = live_pr(event["pull_request"], token)
+    number = pr["number"]
+    commits = paginate(f"/repos/{repo}/pulls/{number}/commits", token)
+    files = paginate(f"/repos/{repo}/pulls/{number}/files", token)
+    problems = leak_violations(pr_surfaces(pr, commits, files), values)
+    for problem in problems:
+        print(f"::error::{problem}")
+    if not problems:
+        print("No blocklisted string on any surface this PR publishes.")
+    return 1 if problems else 0
+
+
 def main():
     verb = sys.argv[1] if len(sys.argv) > 1 else ""
     runners = {
@@ -811,6 +895,7 @@ def main():
         "approval": run_approval,
         "aggregate": run_aggregate,
         "rerun": run_rerun,
+        "leaks": run_leaks,
     }
     if verb not in runners:
         print(f"usage: check_gate.py {{{'|'.join(runners)}}}", file=sys.stderr)

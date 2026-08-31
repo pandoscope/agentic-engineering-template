@@ -650,6 +650,24 @@ def test_blocklist_hook_tolerates_editor_added_newlines_and_stray_pipes(tmp_path
     assert only_noise.returncode == 0
 
 
+def test_blocklist_hook_also_gates_the_commit_message(tmp_path):
+    """Commit messages auto-publish on push with no approval step, so
+    the local gate covers them too: a second hook with the same entry
+    at the commit-msg stage, where git hands it the message file. The
+    functional path is the same entry already proven above; this pins
+    the wiring in both prek configs."""
+    template = (
+        ROOT
+        / "template"
+        / "{% if agentic_precommit == 'prek' %}.pre-commit-config.yaml{% endif %}.jinja"
+    ).read_text()
+    own = (ROOT / ".pre-commit-config.yaml").read_text()
+    for config in (template, own):
+        _, tail = config.split("id: push-blocklist-msg", 1)
+        assert "stages: [commit-msg]" in tail.split("- id:")[0]
+        assert config.count(BLOCKLIST_HOOK_ENTRY) == 2
+
+
 def test_blocklist_hook_matches_the_value_not_its_placeholder_label(tmp_path):
     """`value=pb:name` entries: the label is metadata, never a pattern —
     a file merely MENTIONING the placeholder must pass, and the value

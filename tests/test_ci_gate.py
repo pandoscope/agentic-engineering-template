@@ -512,12 +512,23 @@ def test_an_in_flight_gate_run_is_not_stale_and_reports_as_busy():
 
 def test_parse_blocklist_splits_on_pipes_and_drops_blanks():
     assert gate.parse_blocklist("alice|Bob Example| |bob@example.org|") == [
-        "alice",
-        "Bob Example",
-        "bob@example.org",
+        ("alice", "entry 1"),
+        ("Bob Example", "entry 2"),
+        ("bob@example.org", "entry 4"),
     ]
     assert gate.parse_blocklist("") == []
     assert gate.parse_blocklist(None) == []
+
+
+def test_parse_blocklist_reads_explicit_placeholder_labels():
+    """An entry may name its own placeholder (`value=pb:name`), so the
+    label survives list edits — a positional 'entry N' drifts the
+    moment a term is inserted above it."""
+    assert gate.parse_blocklist("alice=pb:old-account|bob|carol=pb:nickname") == [
+        ("alice", "pb:old-account"),
+        ("bob", "entry 2"),
+        ("carol", "pb:nickname"),
+    ]
 
 
 def test_leak_violations_name_surface_and_entry_never_the_value():
@@ -525,21 +536,25 @@ def test_leak_violations_name_surface_and_entry_never_the_value():
     a CI log on a public repo is a public surface — so a violation names
     WHERE and WHICH entry, never WHAT (#189)."""
     surfaces = [("PR title", "ship it"), ("commit 3f2a1b0 message", "by alice")]
-    problems = gate.leak_violations(surfaces, ["alice", "bob"])
+    values = gate.parse_blocklist("alice=pb:old-account|bob")
+    problems = gate.leak_violations(surfaces, values)
     assert len(problems) == 1
     assert "commit 3f2a1b0 message" in problems[0]
-    assert "entry 1" in problems[0]
+    assert "pb:old-account" in problems[0]
     assert "alice" not in problems[0]
 
 
 def test_leak_violations_match_case_insensitively():
-    problems = gate.leak_violations([("PR body", "Mail ALICE@example.org")], ["alice"])
+    problems = gate.leak_violations(
+        [("PR body", "Mail ALICE@example.org")], gate.parse_blocklist("alice")
+    )
     assert len(problems) == 1
+    assert "entry 1" in problems[0]
 
 
 def test_leak_violations_report_every_hit_pair_once():
     surfaces = [("PR title", "alice and bob"), ("PR body", "bob, bob, bob")]
-    problems = gate.leak_violations(surfaces, ["alice", "bob"])
+    problems = gate.leak_violations(surfaces, gate.parse_blocklist("alice|bob"))
     assert len(problems) == 3
 
 
@@ -573,7 +588,7 @@ def test_leaks_job_rides_the_gate_everywhere():
 
 BLOCKLIST_HOOK_ENTRY = (
     'bash -c \'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\\r\\n" | '
-    'sed "s/||*/|/g;s/^|//;s/|$//"); '
+    'sed "s/=[^|]*//g;s/||*/|/g;s/^|//;s/|$//"); '
     '[ -z "$p" ] || ! grep -IilE -- "$p" "$@"\' --'
 )
 
@@ -633,6 +648,17 @@ def test_blocklist_hook_tolerates_editor_added_newlines_and_stray_pipes(tmp_path
         assert hit.returncode == 1, f"blocklist {messy!r} missed a real hit"
     only_noise = run_blocklist_hook(tmp_path, "anything", "|\n")
     assert only_noise.returncode == 0
+
+
+def test_blocklist_hook_matches_the_value_not_its_placeholder_label(tmp_path):
+    """`value=pb:name` entries: the label is metadata, never a pattern —
+    a file merely MENTIONING the placeholder must pass, and the value
+    still fails."""
+    labeled = "alice=pb:old-account|bob"
+    hit = run_blocklist_hook(tmp_path, "alice was here", labeled)
+    assert hit.returncode == 1
+    mention = run_blocklist_hook(tmp_path, "scrubbed to pb:old-account", labeled)
+    assert mention.returncode == 0
 
 
 # ------------------------------------------------- copies stay pinned

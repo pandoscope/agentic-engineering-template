@@ -72,6 +72,14 @@ repos:
         name: no blocklisted string in staged files
         entry: bash -c 'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\r\n" | sed "s/=[^|]*//g;s/||*/|/g;s/^|//;s/|$//"); [ -z "$p" ] || ! grep -IilE -- "$p" "$@"' --
         language: system
+      # The same gate at the commit-msg stage: messages auto-publish
+      # on push with no approval step, and the pre-commit stage fires
+      # before a message exists. Git hands this hook the message file.
+      - id: push-blocklist-msg
+        name: no blocklisted string in the commit message
+        entry: bash -c 'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\r\n" | sed "s/=[^|]*//g;s/||*/|/g;s/^|//;s/|$//"); [ -z "$p" ] || ! grep -IilE -- "$p" "$@"' --
+        language: system
+        stages: [commit-msg]
       - id: disambiguate-lint
         name: disambiguate --lint
         entry: uvx disambiguate=={{ agentic_disambiguate_version }} --lint{% if agentic_disambiguate_roots %} {{ agentic_disambiguate_roots }}{% endif %}

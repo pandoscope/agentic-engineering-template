@@ -587,6 +587,27 @@ def test_pr_surfaces_include_the_prs_own_comment_threads():
     assert surfaces["review comment 7 on a.py"] == "inline note"
 
 
+def test_referenced_tickets_come_from_any_ref_in_the_body():
+    """Every `#n` / `owner/repo#n` the body mentions, keyword or not:
+    a see-also leaks exactly like a CLOSES."""
+    body = "CLOSES #7, see also pandoscope/skills#9 and #7 again"
+    refs = gate.referenced_tickets(body, "pandoscope/meta")
+    assert refs == ["pandoscope/meta#7", "pandoscope/skills#9"]
+    assert gate.referenced_tickets(None, "pandoscope/meta") == []
+
+
+def test_pr_surfaces_include_branch_name_and_referenced_tickets():
+    """The branch name publishes with the PR; referenced tickets are
+    already public, so a hit there is red-and-loud at the gate rather
+    than prevention — the principal fixes the ticket, the PR unblocks."""
+    pr = {"title": "t", "body": "b", "head": {"ref": "claude/7-thing"}}
+    tickets = [("o/r#5", "ticket body", [{"id": 3, "body": "a comment"}])]
+    surfaces = dict(gate.pr_surfaces(pr, [], [], tickets=tickets))
+    assert surfaces["branch name"] == "claude/7-thing"
+    assert surfaces["ticket o/r#5 body"] == "ticket body"
+    assert surfaces["ticket o/r#5 comment 3"] == "a comment"
+
+
 def test_leaks_job_rides_the_gate_everywhere():
     """Layer 2 of #189: the leaks job rides ci-ok in the template AND
     both store variants, so the one required context enforces it. The

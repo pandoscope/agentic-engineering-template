@@ -810,33 +810,44 @@ def run_rerun():
 
 
 def parse_blocklist(value):
-    """PUSH_BLOCKLIST env → the denylist values, blanks dropped.
+    """PUSH_BLOCKLIST env → (value, name) pairs, blanks dropped.
 
-    Values-only and `|`-separated (pandoscope/skills#46): the variable
-    carries WHAT to block and nothing else, so the committed side of
-    the contract is just this parser and the variable's name.
+    `|`-separated values (pandoscope/skills#46); the variable carries
+    WHAT to block and nothing else, so the committed side of the
+    contract is just this parser and the variable's name. An entry may
+    name its own placeholder (`value=pb:name`, `=` and `|` reserved):
+    the name is what violations and scrub placeholders say, and it
+    survives list edits where a positional index would drift. An
+    unlabeled entry falls back to its raw field position.
     """
     if not value:
         return []
-    return [entry.strip() for entry in value.split("|") if entry.strip()]
+    pairs = []
+    for position, entry in enumerate(value.split("|"), start=1):
+        term, _, name = entry.partition("=")
+        term = term.strip()
+        if term:
+            pairs.append((term, name.strip() or f"entry {position}"))
+    return pairs
 
 
 def leak_violations(surfaces, values):
     """Denylist hits over (label, text) surfaces — value-silent.
 
     Case-insensitive substring match, one violation per (surface,
-    entry) pair. The violation names WHERE and WHICH entry, never
-    WHAT: the values are the identifying material this gate keeps off
-    public surfaces, and this gate's own log on a public repo is such
-    a surface (#189).
+    entry) pair; `values` is parse_blocklist output. The violation
+    names WHERE and WHICH entry — by the entry's own placeholder name
+    when it carries one — never WHAT: the values are the identifying
+    material this gate keeps off public surfaces, and this gate's own
+    log on a public repo is such a surface (#189).
     """
     problems = []
     for label, text in surfaces:
         lowered = (text or "").lower()
-        for position, value in enumerate(values, start=1):
-            if value.lower() in lowered:
+        for term, name in values:
+            if term.lower() in lowered:
                 problems.append(
-                    f"{label} carries PUSH_BLOCKLIST entry {position} — "
+                    f"{label} carries PUSH_BLOCKLIST {name} — "
                     "scrub it and rewrite the offending commit or text"
                 )
     return problems

@@ -562,6 +562,31 @@ def test_empty_blocklist_finds_nothing():
     assert gate.leak_violations([("PR body", "anything at all")], []) == []
 
 
+def test_pr_surfaces_include_the_prs_own_comment_threads():
+    """Comments publish the instant they are posted, so scanning them
+    cannot prevent — but the gate re-runs on exactly these events, and
+    a hit blocks merge and goes loud instead of lingering quietly."""
+    pr = {"title": "t", "body": "b"}
+    comments = [{"id": 9, "user": {"login": "x"}, "body": "general remark"}]
+    reviews = [{"id": 4, "user": {"login": "x"}, "body": "review summary"}]
+    review_comments = [
+        {"id": 7, "user": {"login": "x"}, "body": "inline note", "path": "a.py"}
+    ]
+    surfaces = dict(
+        gate.pr_surfaces(
+            pr,
+            [],
+            [],
+            comments=comments,
+            reviews=reviews,
+            review_comments=review_comments,
+        )
+    )
+    assert surfaces["comment 9"] == "general remark"
+    assert surfaces["review 4"] == "review summary"
+    assert surfaces["review comment 7 on a.py"] == "inline note"
+
+
 def test_leaks_job_rides_the_gate_everywhere():
     """Layer 2 of #189: the leaks job rides ci-ok in the template AND
     both store variants, so the one required context enforces it. The

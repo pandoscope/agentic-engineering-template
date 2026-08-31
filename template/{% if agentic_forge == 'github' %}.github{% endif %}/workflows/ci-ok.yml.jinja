@@ -79,6 +79,39 @@ jobs:
           REFERENCE_KEYWORDS: .github/reference-keywords.json
         run: python3 scripts/ci/check_gate.py reviews
 
+  leaks:
+    name: "leaks"
+    runs-on: {{ agentic_actions_runner }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          # gitleaks walks the PR's own commits, not just the merge ref.
+          fetch-depth: 0
+
+      # Credential class (#189): the pinned gitleaks binary scans every
+      # PR commit's content. Pinned by version AND checksum — a moving
+      # release tag could swap the scanner under every repo's CI at
+      # once. --redact keeps whatever it finds out of this public log.
+      - name: gitleaks finds no credential in any PR commit
+        env:
+          BASE_SHA: {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %}
+          HEAD_SHA: {% raw %}${{ github.event.pull_request.head.sha }}{% endraw %}
+        run: |
+          curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz"
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          ./gitleaks git --redact --no-banner --exit-code 1 \
+            --log-opts "$BASE_SHA..$HEAD_SHA"
+
+      # Identity class (#189): known strings, matched verbatim against
+      # every surface this PR publishes. The org secret carries values
+      # only — the repo commits nothing but this variable's name.
+      - name: No blocklisted string on any surface this PR publishes
+        env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          PUSH_BLOCKLIST: {% raw %}${{ secrets.PUSH_BLOCKLIST }}{% endraw %}
+        run: python3 scripts/ci/check_gate.py leaks
+
 {% if agentic_merge_approval_gate %}  approval:
     name: "merge approval"
     runs-on: {{ agentic_actions_runner }}

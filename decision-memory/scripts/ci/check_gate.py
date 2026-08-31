@@ -16,7 +16,8 @@ One subcommand per job in ci-ok.yml:
              gate-rerun.yml's job, not ci-ok.yml's
   leaks      no PUSH_BLOCKLIST value appears on any surface this PR
              publishes: title, body, commit messages, commit author
-             and committer names/emails, and the diff (#189)
+             and committer names/emails, the diff, and the PR's own
+             comment and review threads (#189)
 
 Decision logic lives in pure functions over plain data so the tests
 exercise it without a network; `fetch` is the only door to the API.
@@ -853,13 +854,16 @@ def leak_violations(surfaces, values):
     return problems
 
 
-def pr_surfaces(pr, commits, files):
+def pr_surfaces(pr, commits, files, comments=(), reviews=(), review_comments=()):
     """Every text surface this PR publishes, labeled for the verdict.
 
     Commit metadata is listed explicitly because no established
     scanner covers author/committer name and email (#189) — an agent's
     misconfigured git identity auto-publishes on merge with no
-    approval step in between.
+    approval step in between. The PR's own comment threads are scanned
+    too: a comment publishes the instant it is posted, so this cannot
+    prevent, but the gate re-runs on exactly those events — a hit
+    blocks merge and goes loud instead of lingering quietly.
     """
     surfaces = [("PR title", pr.get("title")), ("PR body", pr.get("body"))]
     for entry in commits:
@@ -872,6 +876,15 @@ def pr_surfaces(pr, commits, files):
             surfaces.append((f"commit {sha} {role} email", who.get("email")))
     for changed in files:
         surfaces.append((f"diff of {changed['filename']}", changed.get("patch")))
+    for comment in comments:
+        surfaces.append((f"comment {comment['id']}", comment.get("body")))
+    for review in reviews:
+        surfaces.append((f"review {review['id']}", review.get("body")))
+    for comment in review_comments:
+        where = comment.get("path") or "(general)"
+        surfaces.append(
+            (f"review comment {comment['id']} on {where}", comment.get("body"))
+        )
     return surfaces
 
 
@@ -890,7 +903,17 @@ def run_leaks():
     number = pr["number"]
     commits = paginate(f"/repos/{repo}/pulls/{number}/commits", token)
     files = paginate(f"/repos/{repo}/pulls/{number}/files", token)
-    problems = leak_violations(pr_surfaces(pr, commits, files), values)
+    problems = leak_violations(
+        pr_surfaces(
+            pr,
+            commits,
+            files,
+            comments=paginate(f"/repos/{repo}/issues/{number}/comments", token),
+            reviews=paginate(f"/repos/{repo}/pulls/{number}/reviews", token),
+            review_comments=paginate(f"/repos/{repo}/pulls/{number}/comments", token),
+        ),
+        values,
+    )
     for problem in problems:
         print(f"::error::{problem}")
     if not problems:

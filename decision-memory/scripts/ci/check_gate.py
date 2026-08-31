@@ -16,8 +16,9 @@ One subcommand per job in ci-ok.yml:
              gate-rerun.yml's job, not ci-ok.yml's
   leaks      no PUSH_BLOCKLIST value appears on any surface this PR
              publishes: title, body, commit messages, commit author
-             and committer names/emails, the diff, and the PR's own
-             comment and review threads (#189)
+             and committer names/emails, the branch name, the diff,
+             the PR's own comment and review threads, and the bodies
+             and comments of every ticket the body references (#189)
 
 Decision logic lives in pure functions over plain data so the tests
 exercise it without a network; `fetch` is the only door to the API.
@@ -854,18 +855,43 @@ def leak_violations(surfaces, values):
     return problems
 
 
-def pr_surfaces(pr, commits, files, comments=(), reviews=(), review_comments=()):
+def referenced_tickets(body, repo):
+    """Every ticket the body mentions, keyword or not, as owner/repo#n.
+
+    Broader than closing_refs on purpose: a see-also reference leaks
+    exactly like a CLOSES, so any `#n` / `owner/repo#n` occurrence
+    puts that ticket's surfaces under the scan.
+    """
+    refs = set()
+    for match in re.finditer(REF, body or ""):
+        ref = match.group(0)
+        refs.add(ref if "/" in ref else f"{repo}{ref}")
+    return sorted(refs)
+
+
+def pr_surfaces(
+    pr, commits, files, comments=(), reviews=(), review_comments=(), tickets=()
+):
     """Every text surface this PR publishes, labeled for the verdict.
 
     Commit metadata is listed explicitly because no established
     scanner covers author/committer name and email (#189) — an agent's
     misconfigured git identity auto-publishes on merge with no
-    approval step in between. The PR's own comment threads are scanned
-    too: a comment publishes the instant it is posted, so this cannot
-    prevent, but the gate re-runs on exactly those events — a hit
+    approval step in between. The PR's own comment threads and the
+    tickets it references (`tickets` is (ref, body, comments) tuples)
+    are scanned too: those publish the instant they are posted, so
+    this cannot prevent — but the gate re-runs on PR events, and a hit
     blocks merge and goes loud instead of lingering quietly.
     """
     surfaces = [("PR title", pr.get("title")), ("PR body", pr.get("body"))]
+    if pr.get("head"):
+        surfaces.append(("branch name", pr["head"].get("ref")))
+    for ref, body, ticket_comments in tickets:
+        surfaces.append((f"ticket {ref} body", body))
+        for comment in ticket_comments:
+            surfaces.append(
+                (f"ticket {ref} comment {comment['id']}", comment.get("body"))
+            )
     for entry in commits:
         sha = entry["sha"][:7]
         commit = entry["commit"]
@@ -903,6 +929,20 @@ def run_leaks():
     number = pr["number"]
     commits = paginate(f"/repos/{repo}/pulls/{number}/commits", token)
     files = paginate(f"/repos/{repo}/pulls/{number}/files", token)
+    tickets = []
+    for ref in referenced_tickets(pr.get("body"), repo):
+        ticket_repo, _, ticket_number = ref.rpartition("#")
+        try:
+            issue = fetch(f"/repos/{ticket_repo}/issues/{ticket_number}", token)
+            ticket_comments = paginate(
+                f"/repos/{ticket_repo}/issues/{ticket_number}/comments", token
+            )
+        except (OSError, ValueError) as error:
+            # A ref the token cannot read (foreign or private repo) is
+            # not this gate's to judge — say so and move on.
+            print(f"::notice::could not scan referenced ticket {ref}: {error}")
+            continue
+        tickets.append((ref, issue.get("body"), ticket_comments))
     problems = leak_violations(
         pr_surfaces(
             pr,
@@ -911,6 +951,7 @@ def run_leaks():
             comments=paginate(f"/repos/{repo}/issues/{number}/comments", token),
             reviews=paginate(f"/repos/{repo}/pulls/{number}/reviews", token),
             review_comments=paginate(f"/repos/{repo}/pulls/{number}/comments", token),
+            tickets=tickets,
         ),
         values,
     )

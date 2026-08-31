@@ -61,6 +61,8 @@ repos:
       # data is the only place roots survive `copier update` unpatched.
       # Identity class (#189): PUSH_BLOCKLIST is `|`-separated values
       # in env, never committed — exactly grep's alternation syntax.
+      # An entry may name its placeholder (`value=pb:name`); labels
+      # are metadata and are stripped before the pattern is built.
       # `-l` prints only the offending FILE, never the matched line;
       # unset env means the layer is off and the hook passes. The
       # pattern is normalized first (CR/LF and stray pipes stripped):
@@ -68,7 +70,7 @@ repos:
       # alternative into the pattern, matching every file.
       - id: push-blocklist
         name: no blocklisted string in staged files
-        entry: bash -c 'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\r\n" | sed "s/||*/|/g;s/^|//;s/|$//"); [ -z "$p" ] || ! grep -IilE -- "$p" "$@"' --
+        entry: bash -c 'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\r\n" | sed "s/=[^|]*//g;s/||*/|/g;s/^|//;s/|$//"); [ -z "$p" ] || ! grep -IilE -- "$p" "$@"' --
         language: system
       - id: disambiguate-lint
         name: disambiguate --lint

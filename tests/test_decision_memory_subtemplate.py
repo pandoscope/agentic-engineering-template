@@ -41,6 +41,12 @@ STORE_FILES = frozenset(
         ".github/workflows/ci-ok.yml",
         ".github/reference-keywords.json",
         "scripts/ci/check_gate.py",
+        # The audit's script bridges render with the shared scripts/ci
+        # payload; the audit WORKFLOW does not — stores render only
+        # their own workflow set, and as private repos they are not
+        # exposed (#189: the visibility gate would skip them anyway).
+        "scripts/ci/trufflehog-detectors.sh",
+        "scripts/ci/trufflehog-report.sh",
         ".github/workflows/template-update.yml",
         ".github/workflows/ticket-closed.yml",
         ".gitignore",

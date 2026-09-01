@@ -596,6 +596,46 @@ def test_claude_md_states_principal_precedence(
     )
 
 
+def test_branch_name_hook_guards_the_pattern(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A claude/* branch that the gate cannot parse is refused at
+    commit time (skills#147): otherwise the ticket gate's
+    branch-derived half silently never fires. Other prefixes and a
+    repo without the keywords file (Forgejo) pass."""
+    dst_path = _render(tmp_path, base_answers, "branch-name-hook")
+
+    _check_file_contents(
+        dst_path / ".pre-commit-config.yaml",
+        ["id: branch-name", "scripts/check-branch-name.sh"],
+    )
+    script = dst_path / "scripts" / "check-branch-name.sh"
+    assert script.stat().st_mode & 0o111, "hook script must be executable"
+
+    def run_on(branch: str, keywords: bool = True) -> subprocess.CompletedProcess:
+        repo = tmp_path / f"repo-{branch.replace('/', '_')}-{keywords}"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+        if keywords:
+            (repo / ".github").mkdir()
+            source = (dst_path / ".github" / "reference-keywords.json").read_text()
+            (repo / ".github" / "reference-keywords.json").write_text(source)
+        subprocess.run(["git", "checkout", "-q", "-b", branch], cwd=repo, check=True)
+        return subprocess.run([str(script)], cwd=repo, capture_output=True, text=True)
+
+    assert run_on("claude/sk162-session-probe").returncode == 0
+    assert run_on("claude/196-precedence").returncode == 0
+    assert run_on("claude/7-9-two-tickets").returncode == 0
+
+    bad = run_on("claude/memory-tools-consolidation-h7fnxf")
+    assert bad.returncode != 0
+    assert "branch_pattern" in bad.stderr
+
+    assert run_on("chore/template-update-v9").returncode == 0
+    assert run_on("claude/anything", keywords=False).returncode == 0
+
+
 def test_commitlint_config_rejects_fixup_and_squash_commits(
     tmp_path: Path,
     base_answers: dict[str, str],

@@ -567,9 +567,11 @@ def test_commitlint_config_rejects_fixup_and_squash_commits(
     commitlint's defaultIgnores silently exempts fixup!/squash!
     commits (measured: a fixup! commit sailed through the PR gate), so
     "the type enum IS the allow-list" only holds with defaultIgnores
-    off. Merge and revert commits keep an explicit exemption: PR
-    branches legitimately merge main in, and git-generated revert
-    headers are not conventional.
+    off. Merge headers get NO exemption — merge commits are allowed
+    only on main (ruled), and this gate lints only feature-branch
+    commits, so a Merge header in its range is itself the violation.
+    Only git-generated revert headers stay exempt: they are not
+    conventional, and reverts are legitimate anywhere.
     """
     dst_path = _render(tmp_path, base_answers, "commitlint-ignores")
 
@@ -577,9 +579,9 @@ def test_commitlint_config_rejects_fixup_and_squash_commits(
         dst_path / "commitlint.config.mjs",
         [
             "defaultIgnores: false",
-            'startsWith("Merge ")',
             "startsWith('Revert \"')",
         ],
+        unexpect_strs=['startsWith("Merge'],
     )
 
 

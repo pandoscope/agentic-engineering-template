@@ -41,10 +41,13 @@ for entry in $list; do
     escaped="$(printf %s "$value" | sed -e 's/[.[\*^$()+?{}|\\]/\\&/g' -e 's/\]/\\]/g')"
     # Single-quoted YAML scalars: only ' is special (doubled below);
     # double quotes would treat the regex backslashes as YAML escapes
-    # and trufflehog rejects the whole config.
-    yq_value="${value//\'/\'\'}"
-    yq_escaped="${escaped//\'/\'\'}"
-    yq_label="${label//\'/\'\'}"
+    # and trufflehog rejects the whole config. The quote lives in a
+    # variable because bash 3.2 (macOS) keeps the backslashes of an
+    # escaped-quote replacement string literal.
+    q="'"
+    yq_value="${value//"$q"/$q$q}"
+    yq_escaped="${escaped//"$q"/$q$q}"
+    yq_label="${label//"$q"/$q$q}"
     {
         printf "  - name: '%s'\n" "$yq_label"
         printf '    keywords:\n'

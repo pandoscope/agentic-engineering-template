@@ -71,8 +71,10 @@ jobs:
           echo "Vendored files match the stamped template ($stamped)."
 
   # Full conventional commits on every PR commit (#137): the type enum
-  # IS the allow-list — `fixup!`/`squash!` fail header parsing and
-  # `wip` is not a type, so "unsquashed history" stays safe to require.
+  # IS the allow-list — `wip` is not a type, and the config turns
+  # commitlint's defaultIgnores off so `fixup!`/`squash!` headers are
+  # parsed (and fail) instead of silently skipped (#196). That keeps
+  # "unsquashed history" safe to require.
   commitlint:
     name: "commitlint (PR commits)"
     if: {% raw %}${{ github.event_name == 'pull_request' }}{% endraw %}

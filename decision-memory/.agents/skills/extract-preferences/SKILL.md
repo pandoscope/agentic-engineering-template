@@ -135,6 +135,12 @@ decision, not a recommendation dressed as one.
 rule per file, conditional and falsifiable: a condition, an outcome,
 and a way to be wrong.
 
+State the candidate as a **fundamental**: one preference, in the
+plainest words that survive a cold read. A rule that needs a
+corollary is two rules — write two files. Decomposing at proposal
+time is cheaper than decomposing at promotion, when a counter has to
+be divided along with the words.
+
 ```text
 pref-proposal: prefers the simplest solution that solves the actual problem
 ```

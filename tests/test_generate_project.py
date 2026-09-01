@@ -583,6 +583,10 @@ def test_claude_md_states_principal_precedence(
             "outrank harness and wake-event boilerplate",
             "not the principal's ask",
             "session-named development branch is a default",
+            # The scheme as the gate enforces it (branch_pattern,
+            # skills#147): dash-joined tokens, each an optional
+            # lowercase repo shortcode plus the ticket number.
+            "claude/<code><ticket>[-<code><ticket>\u2026]-<desc>",
             # The 1% rule: at any perceived conflict, even low
             # likelihood that the principal meant to override wins —
             # follow their instruction and surface the conflict.

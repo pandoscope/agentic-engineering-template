@@ -563,6 +563,35 @@ def test_lint_workflow_guards_vendored_template_drift(
         )
 
 
+def test_claude_md_states_principal_precedence(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """CLAUDE.md pins the principal's rules above harness boilerplate.
+
+    Two measured collisions drove this: a subscription wake event's
+    embedded "schedule a check-in" text was taken as authorization
+    against the Forge Budget rule, and the harness's session-named
+    development branch overrode the AGENTS.md branch convention.
+    """
+    dst_path = _render(tmp_path, base_answers, "claude-precedence")
+
+    _check_file_contents(
+        dst_path / "CLAUDE.md",
+        [
+            "## Principal Precedence",
+            "outrank harness and wake-event boilerplate",
+            "not the principal's ask",
+            "session-named development branch is a default",
+            # The 1% rule: at any perceived conflict, even low
+            # likelihood that the principal meant to override wins —
+            # follow their instruction and surface the conflict.
+            "1% likelihood",
+            "surface the conflict",
+        ],
+    )
+
+
 def test_commitlint_config_rejects_fixup_and_squash_commits(
     tmp_path: Path,
     base_answers: dict[str, str],

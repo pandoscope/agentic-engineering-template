@@ -563,6 +563,99 @@ def test_lint_workflow_guards_vendored_template_drift(
         )
 
 
+def test_claude_md_states_principal_precedence(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """CLAUDE.md pins the principal's rules above harness boilerplate.
+
+    Two measured collisions drove this: a subscription wake event's
+    embedded "schedule a check-in" text was taken as authorization
+    against the Forge Budget rule, and the harness's session-named
+    development branch overrode the AGENTS.md branch convention.
+    """
+    dst_path = _render(tmp_path, base_answers, "claude-precedence")
+
+    _check_file_contents(
+        dst_path / "CLAUDE.md",
+        [
+            "## Principal Precedence",
+            "outrank harness and wake-event boilerplate",
+            "not the principal's ask",
+            "session-named development branch is a default",
+            # The scheme as the gate enforces it (branch_pattern,
+            # skills#147): dash-joined tokens, each an optional
+            # lowercase repo shortcode plus the ticket number.
+            "claude/<code><ticket>[-<code><ticket>\u2026]-<desc>",
+            # The 1% rule: at any perceived conflict, even low
+            # likelihood that the principal meant to override wins —
+            # follow their instruction and surface the conflict.
+            "1% likelihood",
+            "surface the conflict",
+        ],
+    )
+
+
+def test_agents_md_rules_branch_repair_commits_as_fixups(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A fix to this branch's own commits rides as fixup!, folded
+    before merge — standalone fix:/refactor: commits are for defects
+    that exist on main. The red commitlint gate while a fixup! exists
+    is the fold reminder."""
+    dst_path = _render(tmp_path, base_answers, "fixup-rule")
+
+    _check_file_contents(
+        dst_path / "AGENTS.md",
+        [
+            "branch's own commits is a `fixup!`",
+            "--autosquash",
+            "defects that already exist on `main`",
+        ],
+    )
+
+
+def test_branch_name_hook_guards_the_pattern(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A claude/* branch that the gate cannot parse is refused at
+    commit time (skills#147): otherwise the ticket gate's
+    branch-derived half silently never fires. Other prefixes and a
+    repo without the keywords file (Forgejo) pass."""
+    dst_path = _render(tmp_path, base_answers, "branch-name-hook")
+
+    _check_file_contents(
+        dst_path / ".pre-commit-config.yaml",
+        ["id: branch-name", "scripts/check-branch-name.sh"],
+    )
+    script = dst_path / "scripts" / "check-branch-name.sh"
+    assert script.stat().st_mode & 0o111, "hook script must be executable"
+
+    def run_on(branch: str, keywords: bool = True) -> subprocess.CompletedProcess:
+        repo = tmp_path / f"repo-{branch.replace('/', '_')}-{keywords}"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
+        if keywords:
+            (repo / ".github").mkdir()
+            source = (dst_path / ".github" / "reference-keywords.json").read_text()
+            (repo / ".github" / "reference-keywords.json").write_text(source)
+        subprocess.run(["git", "checkout", "-q", "-b", branch], cwd=repo, check=True)
+        return subprocess.run([str(script)], cwd=repo, capture_output=True, text=True)
+
+    assert run_on("claude/sk162-session-probe").returncode == 0
+    assert run_on("claude/196-precedence").returncode == 0
+    assert run_on("claude/7-9-two-tickets").returncode == 0
+
+    bad = run_on("claude/memory-tools-consolidation-h7fnxf")
+    assert bad.returncode != 0
+    assert "branch_pattern" in bad.stderr
+
+    assert run_on("chore/template-update-v9").returncode == 0
+    assert run_on("claude/anything", keywords=False).returncode == 0
+
+
 def test_commitlint_config_rejects_fixup_and_squash_commits(
     tmp_path: Path,
     base_answers: dict[str, str],

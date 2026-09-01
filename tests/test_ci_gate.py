@@ -71,6 +71,25 @@ def test_branch_numbers_must_appear_in_the_body():
     assert any("ticket 9" in p for p in problems)
 
 
+def test_shortcode_qualified_branch_numbers_bind_like_bare_ones():
+    """skills#147 ruling: branch tokens may carry a lowercase repo
+    shortcode before the ticket number (`claude/sk162-session-probe`),
+    expressing cross-repo arc identity — one branch name for an arc
+    spanning repos. The gate binds on the trailing digits."""
+    problems, _ = ticket("ADVANCES #162", branch="claude/sk162-session-probe")
+    assert problems == []
+
+    problems, _ = ticket("CLOSES #7", branch="claude/sk7-meta9-two-repos")
+    assert any("ticket 9" in p for p in problems)
+
+
+def test_shortcode_with_digits_still_yields_the_trailing_number():
+    """`d10e` is a real shortcode containing digits — the ticket number
+    is the token's trailing digit run, never the shortcode's."""
+    problems, _ = ticket("CLOSES #9", branch="claude/d10e76-browser-check")
+    assert any("ticket 76" in p for p in problems)
+
+
 def test_non_claude_branch_carries_no_branch_constraint():
     problems, _ = ticket("CLOSES #7", branch="chore/template-update-v9.9.9")
     assert problems == []

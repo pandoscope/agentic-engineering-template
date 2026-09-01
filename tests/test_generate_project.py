@@ -596,6 +596,26 @@ def test_claude_md_states_principal_precedence(
     )
 
 
+def test_agents_md_rules_branch_repair_commits_as_fixups(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A fix to this branch's own commits rides as fixup!, folded
+    before merge — standalone fix:/refactor: commits are for defects
+    that exist on main. The red commitlint gate while a fixup! exists
+    is the fold reminder."""
+    dst_path = _render(tmp_path, base_answers, "fixup-rule")
+
+    _check_file_contents(
+        dst_path / "AGENTS.md",
+        [
+            "branch's own commits is a `fixup!`",
+            "--autosquash",
+            "defects that already exist on `main`",
+        ],
+    )
+
+
 def test_branch_name_hook_guards_the_pattern(
     tmp_path: Path,
     base_answers: dict[str, str],

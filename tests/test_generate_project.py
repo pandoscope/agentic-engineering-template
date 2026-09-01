@@ -558,6 +558,31 @@ def test_lint_workflow_guards_vendored_template_drift(
         )
 
 
+def test_commitlint_config_rejects_fixup_and_squash_commits(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """commitlint must parse fixup!/squash! headers, not skip them.
+
+    commitlint's defaultIgnores silently exempts fixup!/squash!
+    commits (measured: a fixup! commit sailed through the PR gate), so
+    "the type enum IS the allow-list" only holds with defaultIgnores
+    off. Merge and revert commits keep an explicit exemption: PR
+    branches legitimately merge main in, and git-generated revert
+    headers are not conventional.
+    """
+    dst_path = _render(tmp_path, base_answers, "commitlint-ignores")
+
+    _check_file_contents(
+        dst_path / "commitlint.config.mjs",
+        [
+            "defaultIgnores: false",
+            'startsWith("Merge ")',
+            "startsWith('Revert \"')",
+        ],
+    )
+
+
 def test_grilling_pinned_to_frankify_derivation(
     tmp_path: Path,
     base_answers: dict[str, str],

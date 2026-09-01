@@ -550,7 +550,7 @@ def test_lint_workflow_guards_vendored_template_drift(
                 "copier recopy",
                 '--defaults --trust --skip-tasks --vcs-ref "$stamped"',
                 "copier-template-extensions",
-                'awk \'$1 == "_commit:" {print $2}\'',
+                "awk '$1 == \"_commit:\" {print $2}'",
                 "not a stamped repo",
                 "git status --porcelain",
                 "template-owned",

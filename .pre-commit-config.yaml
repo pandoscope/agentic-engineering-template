@@ -10,6 +10,13 @@ ci:
 repos:
   - repo: local
     hooks:
+      # Branch discipline (skills#147), same hook the template ships.
+      - id: branch-name
+        name: branch name matches the ticket gate's branch_pattern
+        entry: scripts/check-branch-name.sh
+        language: script
+        pass_filenames: false
+        always_run: true
       # The self-application route, checked where the information still
       # exists (#130). A root file with a `template/` counterpart is
       # render output, so a commit edits the source or the stamp, never

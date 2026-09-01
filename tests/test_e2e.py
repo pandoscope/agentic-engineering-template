@@ -50,6 +50,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/agent-session.md",
         "docs/glossary/template-stamp.md",
         "docs/glossary/pandoscope-template.md",
+        "scripts/check-branch-name.sh",
         "scripts/enable-agent-shims.sh",
         "skills-lock.json",
         # The uniform gate's judge (#137) renders on every forge; only

@@ -552,6 +552,11 @@ def test_lint_workflow_guards_vendored_template_drift(
                 "copier-template-extensions",
                 "awk '$1 == \"_commit:\" {print $2}'",
                 "not a stamped repo",
+                # CLAUDE.md invites local Learnings and copier update
+                # three-way-merges them — the drift job must restore
+                # it after recopy, or every Learnings-bearing repo
+                # goes permanently red.
+                "git checkout -- CLAUDE.md",
                 "git status --porcelain",
                 "template-owned",
             ],

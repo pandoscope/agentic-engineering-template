@@ -142,6 +142,9 @@ Code-specific skills:
 - Never push to `main`
 - Create PR immediately on branch creation
 - Commits: conventional commits
+- **Merge commits only on `main`** — feature branches rebase onto
+  `main`, never merge it in; the `commitlint` job rejects `Merge`
+  headers on PR commits.
 {%- set refkw = reference_keywords() %}
 {%- set closing = refkw.allowed | dictsort | selectattr("1", "equalto", "closing") | map(attribute="0") | list %}
 {%- set nonclosing = refkw.allowed | dictsort | rejectattr("1", "equalto", "closing") | map(attribute="0") | list %}

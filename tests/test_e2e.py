@@ -67,6 +67,9 @@ GITHUB_ONLY_FILES = frozenset(
         ".github/workflows/add-to-project.yml",
         ".github/workflows/labels.yml",
         ".github/workflows/lint.yml",
+        # Inert without a `.pandoscope-sessions` marker (paths filter);
+        # the marker is a per-repo opt-in the template never stamps.
+        ".github/workflows/notify-sessions-manifest.yml",
         ".github/workflows/ticket-closed.yml",
         # The uniform CI gate (#137): the one required context and the
         # keyword file its checks read.

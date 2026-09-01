@@ -498,6 +498,93 @@ def test_forgejo_forge_ships_no_github_workflow(
     assert not (dst_path / ".github").exists()
 
 
+def test_github_forge_ships_notify_sessions_manifest_workflow(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """GitHub forge: the sessions-marker notify workflow is vendored.
+
+    Vendored unconditionally because its path filter makes it inert in
+    any repo without a `.pandoscope-sessions` marker; the marker itself
+    stays a per-repo opt-in the template never stamps.
+    """
+    dst_path = _render(tmp_path, base_answers, "notify-github")
+
+    _check_file_contents(
+        dst_path / ".github" / "workflows" / "notify-sessions-manifest.yml",
+        [
+            'paths: [".pandoscope-sessions"]',
+            "event_type=sessions-marker-changed",
+            "runs-on: ubuntu-latest",
+            # GitHub expressions must survive rendering (file is not Jinja).
+            "${{ vars.RELEASE_BOT_CLIENT_ID }}",
+            "${{ secrets.RELEASE_BOT_PRIVATE_KEY }}",
+        ],
+    )
+    assert not (dst_path / ".pandoscope-sessions").exists(), (
+        "the marker is a per-repo opt-in, never stamped by the template"
+    )
+
+
+def test_lint_workflow_guards_vendored_template_drift(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """Hand-editing a template-vendored file must turn CI red.
+
+    The lint workflow recopies the STAMPED template version (the
+    `_commit` in the answers file) and fails on any diff — a
+    local-modification check, orthogonal to the being-behind drift the
+    template-update weekly audit covers. Rendered even without prek,
+    like the conflict-marker job: both guard the template contract. The
+    template repo itself carries no answers file, so the job skips
+    cleanly there.
+    """
+    for precommit in ("prek", "none"):
+        answers = {**base_answers, "agentic_precommit": precommit}
+        dst_path = _render(tmp_path, answers, f"lint-drift-{precommit}")
+
+        _check_file_contents(
+            dst_path / ".github" / "workflows" / "lint.yml",
+            [
+                "copier recopy",
+                '--defaults --trust --skip-tasks --vcs-ref "$stamped"',
+                "copier-template-extensions",
+                "awk '$1 == \"_commit:\" {print $2}'",
+                "not a stamped repo",
+                "git status --porcelain",
+                "template-owned",
+            ],
+        )
+
+
+def test_commitlint_config_rejects_fixup_and_squash_commits(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """commitlint must parse fixup!/squash! headers, not skip them.
+
+    commitlint's defaultIgnores silently exempts fixup!/squash!
+    commits (measured: a fixup! commit sailed through the PR gate), so
+    "the type enum IS the allow-list" only holds with defaultIgnores
+    off. Merge headers get NO exemption — merge commits are allowed
+    only on main (ruled), and this gate lints only feature-branch
+    commits, so a Merge header in its range is itself the violation.
+    Only git-generated revert headers stay exempt: they are not
+    conventional, and reverts are legitimate anywhere.
+    """
+    dst_path = _render(tmp_path, base_answers, "commitlint-ignores")
+
+    _check_file_contents(
+        dst_path / "commitlint.config.mjs",
+        [
+            "defaultIgnores: false",
+            "startsWith('Revert \"')",
+        ],
+        unexpect_strs=['startsWith("Merge'],
+    )
+
+
 def test_grilling_pinned_to_frankify_derivation(
     tmp_path: Path,
     base_answers: dict[str, str],

@@ -118,7 +118,11 @@ preference:
 2. **Merge overlapping rules.** Two rules firing on the same condition
    become one. The merged rule takes the **lowest** counter of its
    constituents and the **most recent** `last:` date — a merged claim
-   is only as well-evidenced as its weakest part.
+   is only as well-evidenced as its weakest part. A merge is for rules
+   that say the same thing twice — never for two preferences that
+   merely fit on one line. One line states one preference (the
+   fundamentals rule in `docs/conventions.md`); re-fusing split lines
+   to save tokens is a format violation, not a compression.
 3. **Tighten wording.** Same condition, same falsifiable outcome,
    fewer tokens. This is the safest move and usually the smallest win.
 

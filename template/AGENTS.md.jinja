@@ -145,6 +145,13 @@ Code-specific skills:
 - **Merge commits only on `main`** — feature branches rebase onto
   `main`, never merge it in; the `commitlint` job rejects `Merge`
   headers on PR commits.
+- **A fix to this branch's own commits is a `fixup!`**
+  (`git commit --fixup <sha>`), never a standalone `fix:`/`refactor:`
+  commit — fold before merge with
+  `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash`. The commitlint
+  gate stays red while a `fixup!` exists: that is the fold reminder,
+  not a failure to route around. Standalone `fix:` commits are for
+  defects that already exist on `main`.
 {%- set refkw = reference_keywords() %}
 {%- set closing = refkw.allowed | dictsort | selectattr("1", "equalto", "closing") | map(attribute="0") | list %}
 {%- set nonclosing = refkw.allowed | dictsort | rejectattr("1", "equalto", "closing") | map(attribute="0") | list %}

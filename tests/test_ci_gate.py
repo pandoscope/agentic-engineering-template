@@ -967,13 +967,14 @@ def test_root_stamp_carries_the_payload_scan_workflow():
 # ------------------------------------------------------- template drift
 
 
-def test_drift_recopy_never_prompts():
+def test_drift_check_fails_loudly_on_claude_md_drift():
     """Measured on pandoscope/disambiguate#82: `copier recopy` asks
-    "Overwrite CLAUDE.md? (Y/n)" wherever CLAUDE.md carries the local
-    Learnings it invites, and a non-interactive runner dies there
-    before the diff — the drift check goes red on the sanctioned
-    content it exists to exempt. --overwrite answers the prompt; the
-    CLAUDE.md restore right after keeps the exemption (#199)."""
+    "Overwrite CLAUDE.md? (Y/n)" wherever that file diverged, and a
+    non-interactive runner dies there before the diff — the drift
+    check never reached its verdict. --overwrite gets past the prompt;
+    the verdict then covers CLAUDE.md like every other stamped file.
+    Ruled on #213: CLAUDE.md must not drift in any repo, so no restore
+    exempts it (#199)."""
     text = (
         ROOT
         / "template"
@@ -981,5 +982,6 @@ def test_drift_recopy_never_prompts():
         / "workflows"
         / "lint.yml.jinja"
     ).read_text()
-    recopy = text[text.index("copier recopy") : text.index("git checkout -- CLAUDE.md")]
+    recopy = text[text.index("copier recopy") : text.index("git status --porcelain")]
     assert "--overwrite" in recopy
+    assert "git checkout -- CLAUDE.md" not in text

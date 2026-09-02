@@ -57,11 +57,12 @@ jobs:
           stamped="$(awk '$1 == "_commit:" {print $2}' "$answers_file")"
 
           # Seeded (_skip_if_exists) files already exist, so recopy
-          # leaves them alone — they stay exempt structurally.
-          # --overwrite: recopy prompts "Overwrite CLAUDE.md?" wherever
-          # that file carries the local Learnings it invites, and a
-          # runner has no terminal to answer — the restore below is
-          # what keeps that content exempt, not the prompt.
+          # leaves them alone — they stay exempt structurally. Every
+          # other stamped file, CLAUDE.md included, is template-owned
+          # and must not drift in any repo (#199): --overwrite lets a
+          # runner with no terminal past copier's "Overwrite?" prompt
+          # so the diff below judges the drift instead of the job
+          # dying before it — fail loudly, never exempt silently.
           uvx --with copier-template-extensions copier recopy \
             --answers-file "$answers_file" \
             --defaults --trust --skip-tasks --overwrite --vcs-ref "$stamped"
@@ -71,13 +72,6 @@ jobs:
           # again, with the same script the update ran, so the diff
           # judges the converged state, not the raw render (#203).
           bash scripts/ci/prune_glossary.sh || true
-
-          # CLAUDE.md invites local Learnings ("new non-obvious
-          # findings go in this file") and copier update three-way
-          # merges them, so local content there is sanctioned, not
-          # drift. Restore it after the recopy: the diff judges only
-          # files that are pristine-by-contract.
-          git checkout -- CLAUDE.md
 
           if [ -n "$(git status --porcelain)" ]; then
             git status --porcelain

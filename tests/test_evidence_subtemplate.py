@@ -35,6 +35,7 @@ STORE_FILES = frozenset(
         ".github/workflows/ci-ok.yml",
         ".github/reference-keywords.json",
         "scripts/ci/check_gate.py",
+        "scripts/ci/prune_glossary.sh",
         # The audit's script bridges render with the shared scripts/ci
         # payload; the audit WORKFLOW does not — stores render only
         # their own workflow set, and as private repos they are not

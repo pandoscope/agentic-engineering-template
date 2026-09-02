@@ -56,6 +56,9 @@ COMMON_FILES = frozenset(
         # The uniform gate's judge (#137) renders on every forge; only
         # its GitHub workflow vehicle is forge-conditional.
         "scripts/ci/check_gate.py",
+        # The glossary prune (#67, #203, #210): task, update workflow,
+        # drift job and the template root all run this one script.
+        "scripts/ci/prune_glossary.sh",
         # The daily self-audit's denylist bridges (#189): value-silent
         # bash on both ends of the trufflehog scan.
         "scripts/ci/trufflehog-detectors.sh",

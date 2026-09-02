@@ -29,6 +29,17 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      # The glossary prune every stamped repo runs, for real, on this
+      # root too (#210). Consumers converge by deletion; here the
+      # glossary is pinned render output kept reachable by README.md's
+      # index, so a removal is a defect: the stamped script restores
+      # tracked terms and fails naming them.
+      - id: prune-glossary
+        name: "glossary prune removes nothing (every term reachable)"
+        entry: bash scripts/ci/prune_glossary.sh --fail-on-removal
+        language: system
+        pass_filenames: false
+        always_run: true
       # Identity class (#189): PUSH_BLOCKLIST is `|`-separated values
       # in env, never committed — exactly grep's alternation syntax.
       # An entry may name its placeholder (`value=pb:name`); labels

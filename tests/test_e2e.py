@@ -106,6 +106,9 @@ EXPECTED_WITH_PREK = (
     | GITHUB_ONLY_FILES
     | {
         ".pre-commit-config.yaml",
+        # Seeded once (#216): a home for the repo's own hooks that the
+        # template never stamps again and the drift check never judges.
+        ".pre-commit-config.local.yaml",
         "scripts/ensure-prek.sh",
     }
 )

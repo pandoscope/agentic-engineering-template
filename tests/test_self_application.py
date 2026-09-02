@@ -43,13 +43,13 @@ def _skip_if_exists_paths() -> set[str]:
     paths: set[str] = set()
     for entry in config.get("_skip_if_exists", []):
         # Entries are jinja-guarded per subtemplate, e.g.
-        # "{% if ... %}docs/conventions.md{% endif %}" — keep the literal
-        # text between the tags.
-        for literal in re.findall(r"%\}([^{]+)\{%", entry):
-            if literal.strip():
-                paths.add(literal.strip())
-        if "{%" not in entry and entry.strip():
-            paths.add(entry.strip())
+        # "{% if ... %}docs/conventions.md{% endif %}" — drop the tags and
+        # keep what they guard. An answer interpolation inside the path
+        # ("docs/glossary/{{ agentic_project_slug }}.md") stays verbatim:
+        # only a render resolves it, and the guard leaves it alone too.
+        literal = re.sub(r"\{%.*?%\}", "", entry).strip()
+        if literal:
+            paths.add(literal)
     return paths
 
 

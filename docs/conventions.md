@@ -28,6 +28,7 @@ For any change touching a templated file, always follow this route:
      --data agentic_project_description="Copier template for agentic engineering scaffolding" \
      --data agentic_project_slug=agentic-engineering-template \
      --data agentic_repo_owner=frankify-app \
+     --data agentic_merge_approvers=pando-genet \
      . <tmp-render-dir>
    ```
 

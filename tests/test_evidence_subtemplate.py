@@ -41,6 +41,7 @@ STORE_FILES = frozenset(
         # exposed (#189: the visibility gate would skip them anyway).
         "scripts/ci/trufflehog-detectors.sh",
         "scripts/ci/trufflehog-report.sh",
+        "scripts/ci/secret-scanning-report.sh",
         ".github/workflows/template-update.yml",
         ".github/workflows/ticket-closed.yml",
         ".github/workflows/labels.yml",

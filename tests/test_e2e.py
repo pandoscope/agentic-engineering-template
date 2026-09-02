@@ -60,6 +60,8 @@ COMMON_FILES = frozenset(
         # bash on both ends of the trufflehog scan.
         "scripts/ci/trufflehog-detectors.sh",
         "scripts/ci/trufflehog-report.sh",
+        # The forge-native net's reporter (#189, layer 4).
+        "scripts/ci/secret-scanning-report.sh",
     }
 )
 
@@ -81,6 +83,8 @@ GITHUB_ONLY_FILES = frozenset(
         ".github/workflows/ci-ok.yml",
         # The daily per-repo self-audit (#189, layer 3).
         ".github/workflows/trufflehog-audit.yml",
+        # The daily forge-native secret-scanning check (#189, layer 4).
+        ".github/workflows/secret-scanning.yml",
         ".github/reference-keywords.json",
         # The merge-approval gate (#187): the approver allowlist its
         # check reads.

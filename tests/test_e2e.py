@@ -85,6 +85,8 @@ GITHUB_ONLY_FILES = frozenset(
         ".github/workflows/trufflehog-audit.yml",
         # The daily forge-native secret-scanning check (#189, layer 4).
         ".github/workflows/secret-scanning.yml",
+        # The event-driven denylist scan of issue/comment payloads (#208).
+        ".github/workflows/payload-scan.yml",
         ".github/reference-keywords.json",
         # The merge-approval gate (#187): the approver allowlist its
         # check reads.

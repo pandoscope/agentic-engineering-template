@@ -962,3 +962,24 @@ def test_root_stamp_carries_the_payload_scan_workflow():
     text = (ROOT / ".github" / "workflows" / "payload-scan.yml").read_text()
     assert "{%" not in text
     assert "runs-on: ubuntu-latest" in text
+
+
+# ------------------------------------------------------- template drift
+
+
+def test_drift_recopy_never_prompts():
+    """Measured on pandoscope/disambiguate#82: `copier recopy` asks
+    "Overwrite CLAUDE.md? (Y/n)" wherever CLAUDE.md carries the local
+    Learnings it invites, and a non-interactive runner dies there
+    before the diff — the drift check goes red on the sanctioned
+    content it exists to exempt. --overwrite answers the prompt; the
+    CLAUDE.md restore right after keeps the exemption (#199)."""
+    text = (
+        ROOT
+        / "template"
+        / "{% if agentic_forge == 'github' %}.github{% endif %}"
+        / "workflows"
+        / "lint.yml.jinja"
+    ).read_text()
+    recopy = text[text.index("copier recopy") : text.index("git checkout -- CLAUDE.md")]
+    assert "--overwrite" in recopy

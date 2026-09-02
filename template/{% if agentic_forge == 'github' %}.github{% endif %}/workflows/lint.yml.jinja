@@ -58,9 +58,13 @@ jobs:
 
           # Seeded (_skip_if_exists) files already exist, so recopy
           # leaves them alone — they stay exempt structurally.
+          # --overwrite: recopy prompts "Overwrite CLAUDE.md?" wherever
+          # that file carries the local Learnings it invites, and a
+          # runner has no terminal to answer — the restore below is
+          # what keeps that content exempt, not the prompt.
           uvx --with copier-template-extensions copier recopy \
             --answers-file "$answers_file" \
-            --defaults --trust --skip-tasks --vcs-ref "$stamped"
+            --defaults --trust --skip-tasks --overwrite --vcs-ref "$stamped"
 
           # The recopy re-delivers every shared glossary term, including
           # the ones this repo's stamp pruned as unlinked (#67). Prune

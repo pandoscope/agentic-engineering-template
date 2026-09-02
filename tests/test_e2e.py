@@ -56,6 +56,10 @@ COMMON_FILES = frozenset(
         # The uniform gate's judge (#137) renders on every forge; only
         # its GitHub workflow vehicle is forge-conditional.
         "scripts/ci/check_gate.py",
+        # The daily self-audit's denylist bridges (#189): value-silent
+        # bash on both ends of the trufflehog scan.
+        "scripts/ci/trufflehog-detectors.sh",
+        "scripts/ci/trufflehog-report.sh",
     }
 )
 
@@ -75,6 +79,8 @@ GITHUB_ONLY_FILES = frozenset(
         # The uniform CI gate (#137): the one required context and the
         # keyword file its checks read.
         ".github/workflows/ci-ok.yml",
+        # The daily per-repo self-audit (#189, layer 3).
+        ".github/workflows/trufflehog-audit.yml",
         ".github/reference-keywords.json",
         # The merge-approval gate (#187): the approver allowlist its
         # check reads.

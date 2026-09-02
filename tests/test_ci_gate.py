@@ -962,3 +962,45 @@ def test_root_stamp_carries_the_payload_scan_workflow():
     text = (ROOT / ".github" / "workflows" / "payload-scan.yml").read_text()
     assert "{%" not in text
     assert "runs-on: ubuntu-latest" in text
+
+
+# ------------------------------------------------------- template drift
+
+
+def test_drift_check_fails_loudly_on_claude_md_drift():
+    """Measured on pandoscope/disambiguate#82: `copier recopy` asks
+    "Overwrite CLAUDE.md? (Y/n)" wherever that file diverged, and a
+    non-interactive runner dies there before the diff — the drift
+    check never reached its verdict. --overwrite gets past the prompt;
+    the verdict then covers CLAUDE.md like every other stamped file.
+    Ruled on #213: CLAUDE.md must not drift in any repo, so no restore
+    exempts it (#199)."""
+    text = (
+        ROOT
+        / "template"
+        / "{% if agentic_forge == 'github' %}.github{% endif %}"
+        / "workflows"
+        / "lint.yml.jinja"
+    ).read_text()
+    recopy = text[text.index("copier recopy") : text.index("git status --porcelain")]
+    assert "--overwrite" in recopy
+    assert "git checkout -- CLAUDE.md" not in text
+
+
+def test_drift_check_blanks_installer_owned_lock_hashes():
+    """Measured on pandoscope/disambiguate#82 (#214): the post-render
+    skill installer recomputes every computedHash in skills-lock.json,
+    so the stamped hashes are stale by construction in every consumer.
+    The verdict compares the lock with those fields blanked — skill
+    set, sources and paths still fail loudly; the one installer-owned
+    field does not."""
+    text = (
+        ROOT
+        / "template"
+        / "{% if agentic_forge == 'github' %}.github{% endif %}"
+        / "workflows"
+        / "lint.yml.jinja"
+    ).read_text()
+    step = text[text.index("copier recopy") : text.index("git status --porcelain")]
+    assert "computedHash" in step
+    assert "skills-lock.json" in step

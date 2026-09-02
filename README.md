@@ -178,8 +178,16 @@ what makes them lintable here.
 - [pandoscope template](docs/glossary/pandoscope-template.md)
 
 These links live in this repo's own README, which is NOT part of the render —
-so in a generated repo the same terms arrive unlinked, stay orphaned until
-something references them, and can be removed with `disambiguate prune`.
+so in a generated repo the same terms arrive unlinked and are pruned
+(`disambiguate prune`) by the post-stamp task, and again by the rendered
+template-update and lint workflows, which run copier with `--skip-tasks`.
+A consumer keeps exactly the shared terms it links; nothing roots them by
+hand. One script does it everywhere, `scripts/ci/prune_glossary.sh`: the
+post-stamp task, the update workflow and the drift job run it plain, and this
+root runs it on every commit as the `prune-glossary` prek hook with
+`--fail-on-removal` — here every term must survive, because the glossary is
+render output pinned by the self-application test, so a removal is a defect
+and the hook fails naming and restoring the term.
 
 ## Developing this template
 

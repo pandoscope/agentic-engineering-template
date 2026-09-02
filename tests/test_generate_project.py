@@ -463,6 +463,10 @@ def test_github_forge_ships_template_update_workflow(
             "copier update",
             "--defaults --trust --skip-tasks",
             "copier-template-extensions",
+            # --skip-tasks skips the post-stamp glossary prune; the
+            # workflow runs the same script explicitly or every update
+            # ships orphans (#203).
+            "bash scripts/ci/prune_glossary.sh || true",
             "actions/create-github-app-token",
             "RELEASE_BOT_CLIENT_ID",
             "RELEASE_BOT_PRIVATE_KEY",
@@ -550,6 +554,10 @@ def test_lint_workflow_guards_vendored_template_drift(
                 "copier recopy",
                 '--defaults --trust --skip-tasks --vcs-ref "$stamped"',
                 "copier-template-extensions",
+                # Recopy resurrects the terms the stamp pruned; the drift
+                # job prunes again so a converged glossary is not drift
+                # (#203).
+                "bash scripts/ci/prune_glossary.sh || true",
                 "awk '$1 == \"_commit:\" {print $2}'",
                 "not a stamped repo",
                 # CLAUDE.md invites local Learnings and copier update

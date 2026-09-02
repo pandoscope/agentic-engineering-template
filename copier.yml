@@ -214,5 +214,5 @@ _tasks:
   # the set by hand. Advisory for the same reason as the report above — an
   # unconverged glossary is a lint finding, not a reason to lose the stamp.
   - >-
-    {% if agentic_subtemplate == 'template' %}uvx disambiguate=={{ agentic_disambiguate_version }} prune
+    {% if agentic_subtemplate == 'template' %}bash scripts/ci/prune_glossary.sh
     || true{% else %}true{% endif %}

@@ -1243,3 +1243,70 @@ def test_no_question_gate_consults_the_environment() -> None:
         "probe into `default` so the answer is asked, recorded, and "
         "reproducible."
     )
+
+
+def test_architecture_and_project_term_are_seeded_once(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The architecture stub and the project's own glossary term are
+    seeds, not stamps (#216).
+
+    Both start as one-liners derived from the answers, and a real repo
+    grows the full document in place. Stamping them again would reset
+    that on every `copier update`, and the vendored-drift check would
+    then judge a repo for owning its own architecture.
+    """
+    dst_path = _render(tmp_path, base_answers, "seeded")
+
+    architecture = dst_path / "docs" / "architecture.md"
+    term = dst_path / "docs" / "glossary" / f"{base_answers['agentic_project_slug']}.md"
+    architecture.write_text("# The real architecture\n")
+    term.write_text("## Snake Farm\n\nThe real definition.\n")
+
+    copier.run_copy(
+        src_path=str(PROJECT_ROOT),
+        dst_path=dst_path,
+        data=base_answers,
+        defaults=True,
+        unsafe=True,
+        skip_tasks=True,
+        overwrite=True,
+        vcs_ref="HEAD",
+    )
+
+    assert architecture.read_text() == "# The real architecture\n"
+    assert term.read_text() == "## Snake Farm\n\nThe real definition.\n"
+
+
+def test_repo_owned_hooks_get_a_seeded_config_of_their_own(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A repo's language hooks live in a file the template seeds once
+    and never stamps again (#216).
+
+    The stamped config delegates to it, so the hooks still run on every
+    commit, while the vendored-drift check has nothing to judge — the
+    repo never has to edit a template-owned file to lint its own code.
+    """
+    dst_path = _render(tmp_path, base_answers, "repo-hooks")
+
+    local = dst_path / ".pre-commit-config.local.yaml"
+    _check_file_contents(local, ["repos:"])
+    stamped = (dst_path / ".pre-commit-config.yaml").read_text()
+    assert "repo-hooks" in stamped
+    assert ".pre-commit-config.local.yaml" in stamped
+
+    local.write_text("repos:\n  - repo: local\n    hooks: []\n")
+    copier.run_copy(
+        src_path=str(PROJECT_ROOT),
+        dst_path=dst_path,
+        data=base_answers,
+        defaults=True,
+        unsafe=True,
+        skip_tasks=True,
+        overwrite=True,
+        vcs_ref="HEAD",
+    )
+    assert local.read_text() == "repos:\n  - repo: local\n    hooks: []\n"

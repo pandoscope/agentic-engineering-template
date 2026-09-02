@@ -179,6 +179,17 @@ _answers_file: .copier-answers.agentic.yml
 # live there so AGENTS.md updates never conflict with hand-written content.
 _skip_if_exists:
   - "{% if agentic_subtemplate == 'template' %}docs/conventions.md{% endif %}"
+  # The architecture stub and the project's own glossary term are seeds
+  # too (#216): both start as a one-liner derived from the answers and a
+  # real repo grows the document in place. Stamping them again would
+  # reset that on every update, and the drift check would then judge a
+  # repo for owning its own architecture.
+  - "{% if agentic_subtemplate == 'template' and agentic_project_kind == 'code' %}docs/architecture.md{% endif %}"
+  - "{% if agentic_subtemplate == 'template' %}docs/glossary/{{ agentic_project_slug }}.md{% endif %}"
+  # Repo-owned hooks (language formatters, type checkers) live here; the
+  # stamped .pre-commit-config.yaml delegates to it, so they run on every
+  # commit while the drift check has no template-owned file to judge.
+  - "{% if agentic_subtemplate == 'template' and agentic_precommit == 'prek' %}.pre-commit-config.local.yaml{% endif %}"
   # The store's preference set (source + render) and its config knobs are
   # seeded once and owned by the store; everything else in the decision-memory
   # subtemplate is vendored (overwritten on copier update). Clobbering any of

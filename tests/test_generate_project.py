@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import copier
@@ -338,6 +339,45 @@ def test_conventions_file_seeded_once_and_never_overwritten(
         vcs_ref="HEAD",
     )
     assert conventions.read_text() == "# Hand-written vault rules\n"
+
+
+def test_local_session_hook_seeded_once_and_wired_last(
+    render_project: Callable[..., Path],
+    base_answers: dict[str, str],
+) -> None:
+    """#220: the stamped settings run a repo-owned SessionStart script.
+
+    `.claude/settings.json` is template-owned, so a repo's own session
+    bootstrap cannot live there without failing the drift check. The
+    template seeds `scripts/session-start.local.sh` once, runs it after
+    its own hooks, and never overwrites it.
+    """
+    dst_path = render_project(dst_name="local-session-hook")
+
+    settings = json.loads((dst_path / ".claude" / "settings.json").read_text())
+    commands = [
+        hook["command"]
+        for group in settings["hooks"]["SessionStart"]
+        for hook in group["hooks"]
+    ]
+    assert commands[-1] == 'bash "$CLAUDE_PROJECT_DIR/scripts/session-start.local.sh"'
+
+    local_hook = dst_path / "scripts" / "session-start.local.sh"
+    assert local_hook.stat().st_mode & 0o111, "local hook must be executable"
+    check_file_contents(local_hook, ["never overwritten", "set -u"])
+
+    local_hook.write_text("#!/usr/bin/env bash\nnpm install -g bats\n")
+    copier.run_copy(
+        src_path=str(PROJECT_ROOT),
+        dst_path=dst_path,
+        data=base_answers,
+        defaults=True,
+        unsafe=True,
+        skip_tasks=True,
+        overwrite=True,
+        vcs_ref="HEAD",
+    )
+    assert local_hook.read_text() == "#!/usr/bin/env bash\nnpm install -g bats\n"
 
 
 def test_language_non_english_omits_codespell(

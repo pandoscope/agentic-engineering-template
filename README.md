@@ -92,6 +92,7 @@ This template only writes files it is configured to own. It does not silently ta
 | --- | --- |
 | `AGENTS.md`, `CLAUDE.md` | agentic-template |
 | `docs/conventions.md` | **project** — seeded once by agentic-template, never overwritten (`_skip_if_exists`) |
+| `scripts/session-start.local.sh` | **project** — seeded once by agentic-template, never overwritten (`_skip_if_exists`); the stamped `.claude/settings.json` runs it as its last SessionStart hook |
 | `skills-lock.json`, `.agents/skills/`, `.claude/skills` (symlink) | agentic-template |
 | `docs/glossary/`, `docs/architecture.md` | agentic-template |
 | `.editorconfig`, `.codespellrc`, `commitlint.config.mjs` | agentic-template |

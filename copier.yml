@@ -179,6 +179,10 @@ _answers_file: .copier-answers.agentic.yml
 # live there so AGENTS.md updates never conflict with hand-written content.
 _skip_if_exists:
   - "{% if agentic_subtemplate == 'template' %}docs/conventions.md{% endif %}"
+  # The repo's own SessionStart bootstrap (#220): the stamped
+  # .claude/settings.json is template-owned and runs this script last, so a
+  # repo's session tooling lives here instead of drifting the settings file.
+  - "{% if agentic_subtemplate == 'template' %}scripts/session-start.local.sh{% endif %}"
   # The store's preference set (source + render) and its config knobs are
   # seeded once and owned by the store; everything else in the decision-memory
   # subtemplate is vendored (overwritten on copier update). Clobbering any of

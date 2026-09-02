@@ -181,6 +181,12 @@ These links live in this repo's own README, which is NOT part of the render —
 so in a generated repo the same terms arrive unlinked, stay orphaned until
 something references them, and can be removed with `disambiguate prune`.
 
+The same prune runs on this root too — the `prune-glossary` prek hook, which
+the lint CI job runs on every PR, with the pin from `copier.yml`. Here every
+term must survive it: the glossary is render output pinned by the
+self-application test, so a removal is a defect, and the hook fails naming
+the term and restoring it.
+
 ## Developing this template
 
 ```shell

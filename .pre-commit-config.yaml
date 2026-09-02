@@ -1,7 +1,7 @@
 # See https://pre-commit.com for more information
 exclude: "CHANGELOG.md|.copier-answers.agentic.yml|.all-contributorsrc|\\.agents/skills"
 default_stages: [pre-commit]
-default_install_hook_types: [pre-commit, commit-msg]
+default_install_hook_types: [pre-commit, commit-msg, pre-merge-commit, pre-push]
 
 ci:
   autofix_commit_msg: "chore(pre-commit.ci): auto fixes"
@@ -17,6 +17,28 @@ repos:
         language: script
         pass_filenames: false
         always_run: true
+      # Linear history (skills#147), mirrored from the template's config:
+      # a claude/* branch is rebased onto main, never merged into.
+      - id: linear-history-merge
+        name: no merge commit on a working branch (merge)
+        entry: scripts/check-linear-history.sh --merge
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-merge-commit]
+      - id: linear-history-commit
+        name: no merge commit on a working branch (commit)
+        entry: scripts/check-linear-history.sh --commit
+        language: script
+        pass_filenames: false
+        always_run: true
+      - id: linear-history
+        name: no merge commit on a working branch (push)
+        entry: scripts/check-linear-history.sh --push
+        language: script
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
       # The self-application route, checked where the information still
       # exists (#130). A root file with a `template/` counterpart is
       # render output, so a commit edits the source or the stamp, never

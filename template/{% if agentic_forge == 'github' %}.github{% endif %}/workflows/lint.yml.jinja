@@ -116,6 +116,28 @@ jobs:
         run: |
           npm install --no-save --no-audit --no-fund @commitlint/cli@19 @commitlint/config-conventional@19
           npx --no-install commitlint --config commitlint.config.mjs --from {% raw %}${{ github.event.pull_request.base.sha }}{% endraw %} --to {% raw %}${{ github.event.pull_request.head.sha }}{% endraw %}
+
+  # Linear history (skills#147): a working branch is rebased onto
+  # main, never merged into. The commit hooks refuse the merge locally;
+  # this is the layer a --no-verify or a hookless clone cannot skip.
+  # Judged on the PR's own range, so the forge's merges on main are
+  # never in it.
+  linear-history:
+    name: "linear history (PR commits)"
+    if: {% raw %}${{ github.event_name == 'pull_request' }}{% endraw %}
+    runs-on: {{ agentic_actions_runner }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: No merge commit in the PR's range
+        run: |
+          merges="$(git rev-list --merges {% raw %}${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}{% endraw %})"
+          [ -z "$merges" ] && { echo "The PR's range is linear."; exit 0; }
+          git log --no-walk --format='%h %s' $merges
+          echo "::error::The PR carries merge commit(s). A working branch is rebased onto main, never merged into (skills#147): git rebase origin/main, then push with --force-with-lease."
+          exit 1
 {%- if agentic_precommit == 'prek' %}
 
   prek:

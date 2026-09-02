@@ -10,7 +10,11 @@
           {
             "type": "command",
             "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/ensure-prek.sh\""
-          }{% endif %}
+          }{% endif %},
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/scripts/session-start.local.sh\""
+          }
         ]
       }
     ]

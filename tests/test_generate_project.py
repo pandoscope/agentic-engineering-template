@@ -542,7 +542,9 @@ def test_lint_workflow_guards_vendored_template_drift(
     template-update weekly audit covers. Rendered even without prek,
     like the conflict-marker job: both guard the template contract. The
     template repo itself carries no answers file, so the job skips
-    cleanly there.
+    cleanly there. CLAUDE.md is judged like every other stamped file
+    (#213 ruling: fail loudly, never exempt silently); --overwrite only
+    gets a terminal-less runner past copier's prompt to that verdict.
     """
     for precommit in ("prek", "none"):
         answers = {**base_answers, "agentic_precommit": precommit}
@@ -552,7 +554,7 @@ def test_lint_workflow_guards_vendored_template_drift(
             dst_path / ".github" / "workflows" / "lint.yml",
             [
                 "copier recopy",
-                '--defaults --trust --skip-tasks --vcs-ref "$stamped"',
+                '--defaults --trust --skip-tasks --overwrite --vcs-ref "$stamped"',
                 "copier-template-extensions",
                 # Recopy resurrects the terms the stamp pruned; the drift
                 # job prunes again so a converged glossary is not drift
@@ -560,11 +562,6 @@ def test_lint_workflow_guards_vendored_template_drift(
                 "bash scripts/ci/prune_glossary.sh || true",
                 "awk '$1 == \"_commit:\" {print $2}'",
                 "not a stamped repo",
-                # CLAUDE.md invites local Learnings and copier update
-                # three-way-merges them — the drift job must restore
-                # it after recopy, or every Learnings-bearing repo
-                # goes permanently red.
-                "git checkout -- CLAUDE.md",
                 "git status --porcelain",
                 "template-owned",
             ],

@@ -321,3 +321,28 @@ def test_e2e_smoke_full_render_runs_tasks(
     assert (dst_path / ".agents" / "skills").is_dir(), (
         "post-render skills install must populate .agents/skills/"
     )
+
+
+def test_stamped_files_survive_a_consumers_own_hooks_unchanged(tmp_path, base_answers):
+    """Measured on pandoscope/disambiguate#82 (#216): the drift check
+    flagged three template-side defects every consumer trips on —
+    doctor.sh rendering with a doubled final newline (end-of-file-fixer
+    trims it), the glossary markdownlint config lacking MD049 off (the
+    avoided-term grammar's literal `_Avoid_:` prefix collides with it),
+    and a stale suppression in pandoscope-template.md."""
+    dst_path = tmp_path / "stamp-hooks"
+    copier.run_copy(
+        src_path=str(PROJECT_ROOT),
+        dst_path=dst_path,
+        data=base_answers,
+        defaults=True,
+        unsafe=True,
+        skip_tasks=True,
+        vcs_ref="HEAD",
+    )
+    doctor = (dst_path / "scripts" / "doctor.sh").read_bytes()
+    assert doctor.endswith(b"\n") and not doctor.endswith(b"\n\n")
+    lint = (dst_path / "docs" / "glossary" / ".markdownlint-cli2.yaml").read_text()
+    assert "MD049: false" in lint
+    term = (dst_path / "docs" / "glossary" / "pandoscope-template.md").read_text()
+    assert "ignore[unlinked-term]" not in term

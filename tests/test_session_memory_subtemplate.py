@@ -37,6 +37,7 @@ STORE_FILES = frozenset(
         # The glossary prune every stamped repo runs (#203); a store has
         # no glossary, so here it reports that and exits 0.
         "scripts/ci/prune_glossary.sh",
+        "scripts/ci/template-update-body.sh",
     }
 )
 

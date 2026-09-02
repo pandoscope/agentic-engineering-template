@@ -165,11 +165,11 @@ Code-specific skills:
   recognized the reference. Every ticket number in a
   `{{ refkw.branch_pattern }}` branch must appear as a canonical
   reference in the body.
-- **Answer every review comment with a full commit URL or `{{ refkw.no_commit_marker }} <why>`**
-  (enforced by the `review-answers` job): the commit URL must be a real
-  commit on the PR — verify with `git rev-parse` before pasting, never
-  expand a short hash from memory — and resolving a thread is not
-  answering it.
+- **Answer every review comment by naming the fixing commit or `{{ refkw.no_commit_marker }} <why>`**
+  (enforced by the `review-answers` job): the commit — as a URL or a
+  sha of seven or more hex digits — must be a real commit on the PR;
+  verify with `git rev-parse` before pasting, never expand a short hash
+  from memory, and resolving a thread is not answering it.
 - Document unexpected encounters and design decisions in commit message as well as PR/Issue
 - **A push rejected over a commit you did not write is rebased around, never forced.**
   Branch rules re-evaluate every commit an update spans, not just the new ones,

@@ -217,23 +217,33 @@ def test_verified_commit_url_answers_a_thread():
     )
 
 
-def test_bare_hash_or_wrong_sha_does_not_answer():
-    hash_only = [thread("pando-genet", ("pando-ramet", "Fixed in 5e1f03e"))]
-    wrong = [
-        thread(
-            "pando-genet",
-            (
-                "pando-ramet",
-                "Fixed in https://github.com/o/r/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-            ),
-        )
-    ]
-    assert gate.review_violations(
-        hash_only, "pando-ramet", SHAS, "https://github.com", "No commit:"
-    )
-    assert gate.review_violations(
-        wrong, "pando-ramet", SHAS, "https://github.com", "No commit:"
-    )
+def test_any_spelling_of_a_pr_commit_answers():
+    """The gate holds the PR's shas; matching one is the proof (#205)."""
+    for body in (
+        "Fixed in 5e1f03e",
+        "Fixed in https://github.com/o/r/pull/9/commits/5e1f03edb10baf9e7ad0dfa8d9c36dfdc055a13b",
+        "see 5e1f03edb10baf9e7ad0dfa8d9c36dfdc055a13b (folded)",
+    ):
+        threads = [thread("pando-genet", ("pando-ramet", body))]
+        assert (
+            gate.review_violations(
+                threads, "pando-ramet", SHAS, "https://github.com", "No commit:"
+            )
+            == []
+        ), body
+
+
+def test_a_sha_not_on_the_pr_does_not_answer_however_wrapped():
+    for body in (
+        "Fixed in https://github.com/o/r/commit/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "Fixed in aaaaaaa",
+        "the value 0xdeadbeef is a bitmask, not a commit",
+        "Fixed in 5e1f03",  # six digits: below the floor, not a sha
+    ):
+        threads = [thread("pando-genet", ("pando-ramet", body))]
+        assert gate.review_violations(
+            threads, "pando-ramet", SHAS, "https://github.com", "No commit:"
+        ), body
 
 
 def test_no_commit_marker_answers_but_loose_wording_does_not():

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -659,6 +660,149 @@ def test_branch_name_hook_guards_the_pattern(
 
     assert run_on("chore/template-update-v9").returncode == 0
     assert run_on("claude/anything", keywords=False).returncode == 0
+
+
+def test_linear_history_hooks_refuse_a_merge_into_a_working_branch(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A claude/* branch is rebased onto main, never merged into
+    (skills#147): the only merge commits are the forge's own. Three
+    prek stages share one script — the merge is refused as `git merge`
+    would commit it, a conflicted merge finished with `git commit` is
+    refused at pre-commit, and the push is the backstop for a merge
+    that got past both. A merge commit main already holds passes."""
+    dst_path = _render(tmp_path, base_answers, "linear-history-hooks")
+
+    _check_file_contents(
+        dst_path / ".pre-commit-config.yaml",
+        [
+            "default_install_hook_types: [pre-commit, commit-msg, pre-merge-commit, pre-push]",
+            "id: linear-history",
+            "scripts/check-linear-history.sh",
+            "stages: [pre-merge-commit]",
+            "stages: [pre-push]",
+        ],
+    )
+    _check_file_contents(
+        dst_path / ".github" / "workflows" / "lint.yml",
+        [
+            "linear-history:",
+            'name: "linear history (PR commits)"',
+            "git rev-list --merges",
+        ],
+    )
+    script = dst_path / "scripts" / "check-linear-history.sh"
+    assert script.stat().st_mode & 0o111, "hook script must be executable"
+
+    env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "t",
+        "GIT_AUTHOR_EMAIL": "t@example.test",
+        "GIT_COMMITTER_NAME": "t",
+        "GIT_COMMITTER_EMAIL": "t@example.test",
+    }
+
+    def git(repo: Path, *args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=env,
+        ).stdout.strip()
+
+    def land(repo: Path, branch: str, msg: str) -> None:
+        git(repo, "checkout", "-q", branch)
+        with (repo / f"{branch.replace('/', '-')}.txt").open("a") as fh:
+            fh.write(msg + "\n")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", msg)
+        git(repo, "push", "-q", "origin", branch)
+
+    def diverged(name: str) -> Path:
+        """A working branch off main, with main advanced past it on origin."""
+        origin = tmp_path / f"{name}.git"
+        subprocess.run(
+            ["git", "init", "-q", "--bare", "-b", "main", origin], check=True
+        )
+        repo = tmp_path / name
+        subprocess.run(
+            ["git", "clone", "-q", str(origin), str(repo)],
+            check=True,
+            capture_output=True,
+        )
+        git(repo, "checkout", "-q", "-b", "main")
+        (repo / "README.md").write_text("seed\n")
+        git(repo, "add", "-A")
+        git(repo, "commit", "-q", "-m", "chore: seed")
+        git(repo, "push", "-q", "-u", "origin", "main")
+        git(repo, "remote", "set-head", "origin", "main")
+        git(repo, "checkout", "-q", "-b", "claude/147-work", "main")
+        land(repo, "claude/147-work", "feat: the work")
+        land(repo, "main", "feat: a merged PR")
+        git(repo, "checkout", "-q", "claude/147-work")
+        git(repo, "fetch", "-q", "origin")
+        return repo
+
+    def check(repo: Path, mode: str, **extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(script), mode],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env={**env, **extra},
+        )
+
+    # --merge: the pre-merge-commit stage, on a working branch.
+    repo = diverged("merge")
+    refused = check(repo, "--merge")
+    assert refused.returncode != 0
+    assert "git merge --abort && git rebase origin/main" in refused.stderr
+    git(repo, "checkout", "-q", "main")
+    assert check(repo, "--merge").returncode == 0, "main is not a working branch"
+
+    # --commit: a conflicted merge being finished by hand.
+    repo = diverged("commit")
+    assert check(repo, "--commit").returncode == 0, "an ordinary commit passes"
+    (repo / ".git" / "MERGE_HEAD").write_text(
+        git(repo, "rev-parse", "origin/main") + "\n"
+    )
+    refused = check(repo, "--commit")
+    assert refused.returncode != 0
+    assert "git merge --abort && git rebase origin/main" in refused.stderr
+
+    # --push: the backstop, fed the refs prek hands a pre-push hook.
+    repo = diverged("push")
+    git(repo, "merge", "--no-ff", "origin/main", "-m", "chore: merge main")
+    refs = {
+        "PRE_COMMIT_LOCAL_BRANCH": "refs/heads/claude/147-work",
+        "PRE_COMMIT_TO_REF": git(repo, "rev-parse", "HEAD"),
+    }
+    refused = check(repo, "--push", **refs)
+    assert refused.returncode != 0
+    assert "chore: merge main" in refused.stderr
+    assert "git rebase origin/main" in refused.stderr
+    git(repo, "reset", "-q", "--hard", "HEAD~1")
+    git(repo, "rebase", "-q", "origin/main")
+    refs["PRE_COMMIT_TO_REF"] = git(repo, "rev-parse", "HEAD")
+    assert check(repo, "--push", **refs).returncode == 0, "a linear branch pushes"
+
+    # A forge merge on main is not the branch's: a working branch off
+    # a merged main is linear in its own range.
+    repo = diverged("forge")
+    git(repo, "checkout", "-q", "main")
+    git(repo, "merge", "--no-ff", "claude/147-work", "-m", "Merge pull request #1")
+    git(repo, "push", "-q", "origin", "main")
+    git(repo, "checkout", "-q", "-b", "claude/148-next", "main")
+    (repo / "next.txt").write_text("next\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-q", "-m", "feat: next")
+    refs = {
+        "PRE_COMMIT_LOCAL_BRANCH": "refs/heads/claude/148-next",
+        "PRE_COMMIT_TO_REF": git(repo, "rev-parse", "HEAD"),
+    }
+    assert check(repo, "--push", **refs).returncode == 0
 
 
 def test_commitlint_config_rejects_fixup_and_squash_commits(

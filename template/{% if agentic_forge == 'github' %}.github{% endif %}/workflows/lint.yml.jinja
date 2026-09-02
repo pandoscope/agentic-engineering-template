@@ -73,6 +73,18 @@ jobs:
           # judges the converged state, not the raw render (#203).
           bash scripts/ci/prune_glossary.sh || true
 
+          # skills-lock.json: the post-render skill installer recomputes
+          # every computedHash from the installed files, so the stamped
+          # hashes are stale by construction (#214). Judge the lock with
+          # that one installer-owned field blanked — a differing skill
+          # set, source or path still fails loudly below.
+          if [ -f skills-lock.json ] && git cat-file -e HEAD:skills-lock.json 2>/dev/null; then
+            strip='walk(if type == "object" and has("computedHash") then .computedHash = "" else . end)'
+            if [ "$(git show HEAD:skills-lock.json | jq -S "$strip")" = "$(jq -S "$strip" skills-lock.json)" ]; then
+              git checkout -- skills-lock.json
+            fi
+          fi
+
           if [ -n "$(git status --porcelain)" ]; then
             git status --porcelain
             git diff

@@ -985,3 +985,22 @@ def test_drift_check_fails_loudly_on_claude_md_drift():
     recopy = text[text.index("copier recopy") : text.index("git status --porcelain")]
     assert "--overwrite" in recopy
     assert "git checkout -- CLAUDE.md" not in text
+
+
+def test_drift_check_blanks_installer_owned_lock_hashes():
+    """Measured on pandoscope/disambiguate#82 (#214): the post-render
+    skill installer recomputes every computedHash in skills-lock.json,
+    so the stamped hashes are stale by construction in every consumer.
+    The verdict compares the lock with those fields blanked — skill
+    set, sources and paths still fail loudly; the one installer-owned
+    field does not."""
+    text = (
+        ROOT
+        / "template"
+        / "{% if agentic_forge == 'github' %}.github{% endif %}"
+        / "workflows"
+        / "lint.yml.jinja"
+    ).read_text()
+    step = text[text.index("copier recopy") : text.index("git status --porcelain")]
+    assert "computedHash" in step
+    assert "skills-lock.json" in step

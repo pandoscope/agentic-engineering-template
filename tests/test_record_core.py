@@ -244,3 +244,50 @@ def test_recorder_operates_on_the_checkout_it_lives_in(tmp_path: Path) -> None:
     )
     relocated = load_module("relocated_record", store / "tools" / "record.py")
     assert relocated.store_root() == store
+
+
+def _record(outcome: str, cited: list[str], disconfirmed=None, correction=None) -> dict:
+    record = {
+        "options": [
+            {"slot": 1, "role": "prediction", "rules_cited": cited},
+            {"slot": 2, "rules_cited": ["other rule."]},
+        ],
+        "chosen_slot": 1 if outcome == "hit" else 2,
+        "outcome": outcome,
+        "prediction_stream": "preference-driven",
+    }
+    if disconfirmed is not None:
+        record["rules_disconfirmed"] = disconfirmed
+    if correction is not None:
+        record["correction"] = correction
+    return record
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_disconfirmed_rule_earns_no_confirmation() -> None:
+    """AET#227: a rule the decider set aside is neither win nor loss.
+
+    submit bumped "Makes absence observable" from 1 to 2 on a record
+    that listed it under rules_disconfirmed (decision-memory PR #25).
+    """
+    record = _record("hit", ["rule a.", "rule b."], disconfirmed=["rule b."])
+    confirmations, skipped = record_tool.confirmations_for(record)
+    assert confirmations == [("rule a.", False)]
+    assert skipped == [("rule b.", "disconfirmed")]
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_correction_earns_no_automatic_confirmation() -> None:
+    """A record whose reason was replaced confirms nothing by itself."""
+    record = _record("hit", ["rule a."], correction=True)
+    confirmations, skipped = record_tool.confirmations_for(record)
+    assert confirmations == []
+    assert skipped == [("rule a.", "correction")]
+
+
+@pytest.mark.xfail(strict=True)
+def test_an_independent_confirmation_still_skips_a_disconfirmed_rule() -> None:
+    record = _record("miss", ["rule a."], disconfirmed=["other rule."])
+    confirmations, skipped = record_tool.confirmations_for(record)
+    assert confirmations == []
+    assert skipped == [("other rule.", "disconfirmed")]

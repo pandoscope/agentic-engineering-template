@@ -637,6 +637,36 @@ def test_pr_surfaces_include_branch_name_and_referenced_tickets():
     assert surfaces["ticket o/r#5 comment 3"] == "a comment"
 
 
+def test_diff_surface_is_the_added_side_only():
+    """A removal cannot publish anything main does not already publish,
+    and the PR that scrubs a value from main is exactly the one whose
+    removal lines carry it — so scanning them made a scrub unable to
+    pass (#238). Only `+` lines are the diff's published surface; the
+    `+++` header is a filename, not content."""
+    patch = (
+        "@@ -1,3 +1,3 @@\n"
+        " context alice-free\n"
+        "-fixture = 'alice@example.org'\n"
+        "+fixture = 'nobody@example.org'\n"
+    )
+    files = [{"filename": "tests/test_x.py", "patch": patch}]
+    surfaces = dict(gate.pr_surfaces({"title": "t", "body": "b"}, [], files))
+    surface = surfaces["diff of tests/test_x.py"]
+    assert "nobody@example.org" in surface
+    assert "alice" not in surface
+    assert "+++" not in surface
+    assert gate.leak_violations(
+        [("diff of tests/test_x.py", surface)], gate.parse_blocklist("alice")
+    ) == []
+
+
+def test_diff_surface_survives_a_missing_patch():
+    """Binary and oversized files arrive without a patch; that is no
+    surface, not a crash."""
+    surfaces = dict(gate.pr_surfaces({}, [], [{"filename": "img.png"}]))
+    assert surfaces["diff of img.png"] == ""
+
+
 def test_leaks_job_rides_the_gate_everywhere():
     """Layer 2 of #189: the leaks job rides ci-ok in the template AND
     both store variants, so the one required context enforces it. The

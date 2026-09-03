@@ -1016,6 +1016,33 @@ class ReplayTests(unittest.TestCase):
         }
 
 
+class LeakCheckTests(unittest.TestCase):
+    """`cases` reports what still identifies the recorded answer (AET#228).
+
+    Records are immutable, so a leak is reported, never repaired: the
+    reader of the report decides what a pass is worth.
+    """
+
+    @unittest.expectedFailure
+    def test_a_key_carried_by_all_but_one_option_is_an_odd_option_leak(self):
+        options = [
+            {"slot": 1, "label": "a", "role": "prediction"},
+            {"slot": 2, "label": "b", "if_clause": "if x", "note": "n"},
+            {"slot": 3, "label": "c", "if_clause": "if y", "note": "n"},
+        ]
+        record = make_record("20260715T143205Z-a", 1, options=options)
+        payload = replay.build_cases([record], 20)
+        self.assertEqual(
+            payload["leaks"],
+            [{"id": "20260715T143205Z-a", "channel": "odd-option", "key": "note"}],
+        )
+
+    @unittest.expectedFailure
+    def test_a_symmetric_key_set_is_no_leak(self):
+        payload = replay.build_cases([make_record("20260715T143205Z-a", 1)], 20)
+        self.assertEqual(payload["leaks"], [])
+
+
 class CorpusReplayTests(unittest.TestCase):
     """The harness must cope with the real corpus, not just fixtures."""
 

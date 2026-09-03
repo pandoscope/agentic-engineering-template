@@ -69,9 +69,13 @@ python .github/store/replay.py cases --out /tmp/cases.json
 
 `cases.json` holds the most recent decisions (`replay_window` in
 `store.config.json`) **masked to their input side** — question,
-context, and options with the recorded prediction role, cited rules and
-in-session reasoning stripped, in a per-record shuffled order so slot
-position carries no signal.
+context, and options with the recorded prediction role, cited rules,
+if-clauses and in-session reasoning stripped, in a per-record shuffled
+order so slot position carries no signal. Its `leaks` list (also
+printed to stderr) names every record whose case still gives the
+answer away: a key carried by all options but one, or a context that
+narrates the ruling. Records are immutable, so a leak is not fixed
+here — carry the list into step 6 and read the gate against it.
 
 ### 4. Predict under the baseline set
 
@@ -175,6 +179,13 @@ Slot numbers in the cases are shuffled per record and mapped back
 during scoring, so a run cannot score by learning that slot 1 is the
 prediction slot. `predicted_slot` in the report is the recorded slot;
 `presented_slot` is what the run answered.
+
+Both reports carry `blind_baselines`: `always_slot_1` and `odd_option`
+(the one option without an if-clause, where exactly one lacks it), the
+hit rates a reader of the cases alone would get. A gated stream at or
+below either number, or a run scoring every leaked case right, is
+measuring the cases, not the rules — say so in the PR and do not lean
+on that pass.
 
 On `insufficient-evidence`, extract first: run `extract-preferences`,
 let sessions score against the rules, and compact once the gated stream

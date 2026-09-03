@@ -164,11 +164,19 @@ python .github/store/replay.py gate    --baseline base.json \
 ```
 
 `cases` masks each record to its input side and strips the fields that
-leak the old rule set's answer (`role`, `rules_cited`, and the
-in-session `reasoning`). `score` joins an agent's predictions with the
-recorded `chosen_slot`. `gate` compares two scored runs: exit 0 on
-`pass`, 1 on `fail` when the **preference-driven** hit rate degrades,
-and 3 on `insufficient-evidence`.
+leak the recorded answer or the old rule set (`role`, `rules_cited`,
+`if_clause` — only alternatives carry one, so its absence marks the
+prediction slot — and the in-session `reasoning`). It also lists
+`leaks`, per record: an `odd-option` key carried by every option but
+one, or a `context` that narrates the ruling (a small denylist). Leaks
+are reported to stderr and never repaired — records are immutable — so
+read a pass with them in mind. `score` joins an agent's predictions
+with the recorded `chosen_slot` and reports `blind_baselines` next to
+the streams: `always_slot_1` and `odd_option`, what a reader of the
+case alone would score. `gate` compares two scored runs and carries the
+candidate's baselines: exit 0 on `pass`, 1 on `fail` when the
+**preference-driven** hit rate degrades, and 3 on
+`insufficient-evidence`.
 
 Two streams, exactly as recording uses them: a prediction citing rules
 scores preference-driven, one citing none scores cold. The gate is the

@@ -892,6 +892,8 @@ class BudgetGateTests(unittest.TestCase):
 
 class ReplayTests(unittest.TestCase):
     def test_mask_strips_leaky_fields(self):
+        """The if-clause singles out the prediction slot: alternatives
+        carry one by contract, the prediction does not (AET#228)."""
         case = replay.mask_record(make_record("20260715T143205Z-a", 1))
         self.assertNotIn("chosen_slot", case)
         self.assertNotIn("outcome", case)
@@ -899,7 +901,7 @@ class ReplayTests(unittest.TestCase):
             self.assertNotIn("role", option)
             self.assertNotIn("rules_cited", option)
             self.assertNotIn("reasoning", option)
-        self.assertEqual(case["options"][1]["if_clause"], "if x")
+            self.assertNotIn("if_clause", option)
 
     def test_mask_can_keep_reasoning(self):
         case = replay.mask_record(
@@ -988,6 +990,18 @@ class ReplayTests(unittest.TestCase):
         result = replay.gate(baseline, candidate)
         self.assertEqual(result["gate"], "fail")
 
+    def test_gate_carries_the_candidate_blind_baselines(self):
+        """The gate report is what lands in the PR body; the baselines
+        must travel with it or the reader never sees them."""
+        baseline = self._report(pd=(4, 5), cold=(1, 5), sha="base")
+        candidate = self._report(pd=(4, 5), cold=(1, 5), sha="cand")
+        candidate["blind_baselines"] = {
+            "always_slot_1": {"n": 5, "hits": 4, "hit_rate": 0.8},
+            "odd_option": {"n": 3, "hits": 3, "hit_rate": 1.0},
+        }
+        result = replay.gate(baseline, candidate)
+        self.assertEqual(result["blind_baselines"], candidate["blind_baselines"])
+
     def test_gate_fails_on_mismatched_windows(self):
         baseline = self._report(pd=(1, 1), cold=(0, 0), sha="base", ids=["a"])
         candidate = self._report(pd=(1, 1), cold=(0, 0), sha="cand", ids=["b"])
@@ -1012,6 +1026,98 @@ class ReplayTests(unittest.TestCase):
             "stream_shifts": [],
             "cases": [{"id": case_id} for case_id in ids],
         }
+
+
+class LeakCheckTests(unittest.TestCase):
+    """`cases` reports what still identifies the recorded answer (AET#228).
+
+    Records are immutable, so a leak is reported, never repaired: the
+    reader of the report decides what a pass is worth.
+    """
+
+    def test_a_key_carried_by_all_but_one_option_is_an_odd_option_leak(self):
+        options = [
+            {"slot": 1, "label": "a", "role": "prediction"},
+            {"slot": 2, "label": "b", "if_clause": "if x", "note": "n"},
+            {"slot": 3, "label": "c", "if_clause": "if y", "note": "n"},
+        ]
+        record = make_record("20260715T143205Z-a", 1, options=options)
+        payload = replay.build_cases([record], 20)
+        self.assertEqual(
+            payload["leaks"],
+            [{"id": "20260715T143205Z-a", "channel": "odd-option", "key": "note"}],
+        )
+
+    def test_a_symmetric_key_set_is_no_leak(self):
+        payload = replay.build_cases([make_record("20260715T143205Z-a", 1)], 20)
+        self.assertEqual(payload["leaks"], [])
+
+    def test_a_context_that_narrates_the_ruling_is_a_context_leak(self):
+        """The context is input side, written before the ruling; a
+        past-tense verdict in it hands the reader the answer."""
+        record = make_record("20260715T143205Z-a", 1)
+        record["context"] = "Two layouts were open. The principal reviewed: 'B.'"
+        payload = replay.build_cases([record], 20)
+        self.assertEqual(
+            payload["leaks"],
+            [
+                {
+                    "id": "20260715T143205Z-a",
+                    "channel": "context",
+                    "match": "The principal reviewed",
+                }
+            ],
+        )
+
+    def test_a_context_stating_the_situation_is_no_leak(self):
+        record = make_record("20260715T143205Z-a", 1)
+        record["context"] = "Two layouts are open; the reviewer prefers neither yet."
+        self.assertEqual(replay.build_cases([record], 20)["leaks"], [])
+
+    def test_a_missing_context_is_no_leak(self):
+        record = make_record("20260715T143205Z-a", 1)
+        record["context"] = None
+        self.assertEqual(replay.build_cases([record], 20)["leaks"], [])
+
+
+class BlindBaselineTests(unittest.TestCase):
+    """Every score report carries what a reader of the case alone would
+    score, so a rule-set hit rate is read against it (AET#228)."""
+
+    @staticmethod
+    def _odd(record_id, chosen_slot):
+        options = [
+            {"slot": 1, "label": "a", "role": "prediction"},
+            {"slot": 2, "label": "b", "if_clause": "if x"},
+            {"slot": 3, "label": "c", "if_clause": "if y"},
+        ]
+        return make_record(record_id, chosen_slot, options=options)
+
+    @staticmethod
+    def _even(record_id, chosen_slot):
+        options = [
+            {"slot": 1, "label": "a", "role": "prediction", "if_clause": "if w"},
+            {"slot": 2, "label": "b", "if_clause": "if x"},
+        ]
+        return make_record(record_id, chosen_slot, options=options)
+
+    def test_score_reports_always_slot_1_and_odd_option_baselines(self):
+        records = [
+            self._odd("20260715T143205Z-a", 1),
+            self._odd("20260716T143205Z-b", 2),
+            self._even("20260717T143205Z-c", 2),
+        ]
+        predictions, _ = replay.normalise_predictions(
+            [make_prediction(record["id"], 1) for record in records]
+        )
+        report, _ = replay.score(records, predictions, 20, "prefs")
+        self.assertEqual(
+            report["blind_baselines"],
+            {
+                "always_slot_1": {"n": 3, "hits": 1, "hit_rate": 0.3333},
+                "odd_option": {"n": 2, "hits": 1, "hit_rate": 0.5},
+            },
+        )
 
 
 class CorpusReplayTests(unittest.TestCase):

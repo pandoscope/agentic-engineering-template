@@ -30,9 +30,11 @@ stream the CANDIDATE assigns, and the shifts are reported so a hit-rate
 change driven by re-labelling rather than by better rules is visible.
 
 Masking removes `role` and `rules_cited` from the options — they encode
-the original prediction and its stream — and, by default, the
-in-session `reasoning`, which was written under the OLD rule set and
-would otherwise leak that set's answer into the candidate run.
+the original prediction and its stream — the `if_clause`, which only
+alternatives carry and so singles out the prediction slot by its
+absence, and, by default, the in-session `reasoning`, which was written
+under the OLD rule set and would otherwise leak that set's answer into
+the candidate run.
 
 Slot ORDER is masked too, because slot 1 is the prediction slot by
 convention and deciders pick it far more often than chance: on a real
@@ -42,6 +44,13 @@ record's options in an order derived from its id, and `score` derives
 the same order to map a prediction back. The mapping is never written
 into the cases file — shipping it would hand the ordering signal
 straight back.
+
+Two channels survive masking and are REPORTED rather than repaired,
+because records are immutable: `cases` lists `leaks` — a key carried
+by every option but one, or a context that narrates the ruling — and
+`score` carries blind baselines (always slot 1, the odd option) next to
+the streams, so a hit rate is always read against what the case alone
+gives away.
 
 Stdlib only. Usage:
 
@@ -62,6 +71,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -101,7 +111,12 @@ def preferences_sha256(text: str) -> str:
 
 
 # Option fields that leak the recorded prediction or the old rule set.
-_LEAKY_OPTION_FIELDS = ("role", "rules_cited")
+# `if_clause` is structural: the prediction slot never carries one and
+# every alternative must, so the one option without it IS the recorded
+# prediction. The clause is the recommender's argument for an
+# alternative, not the decider's input, so nothing a predictor
+# legitimately needs is lost.
+_LEAKY_OPTION_FIELDS = ("role", "rules_cited", "if_clause")
 _OLD_RULE_SET_FIELDS = ("reasoning",)
 
 _CASE_FIELDS = ("id", "date", "project", "question", "context", "artifact_ref")
@@ -204,14 +219,65 @@ def mask_record(record: dict, include_reasoning: bool = False) -> dict:
     return case
 
 
+LEAK_ODD_OPTION = "odd-option"
+LEAK_CONTEXT = "context"
+
+# Ruling narration in the input-side context. A denylist, deliberately
+# small: it flags the phrasings measured on a real corpus (a verdict in
+# the past tense, a reference to what was ruled) and nothing subtler.
+# The context is written before the ruling by contract, so a match is a
+# recording-discipline finding as much as a masking one.
+_CONTEXT_NARRATION = re.compile(
+    r"\b(?:ruled|ruling)\b"
+    r"|\bthe principal (?:caught|chose|decided|reviewed|accepted|rejected"
+    r"|merged|reverted)\b"
+    r"|\bwas (?:chosen|decided|accepted|rejected|merged|reverted|rewritten)\b",
+    re.IGNORECASE,
+)
+
+
+def case_leaks(case: dict) -> list[dict]:
+    """What still identifies the recorded answer in one masked case.
+
+    Structural: a key carried by every option but one singles that
+    option out, exactly as the if-clause did before it was masked. The
+    check runs on the masked case, so a field the recorder adds later
+    is caught the day it ships, not the day someone notices 20/20.
+
+    Textual: a context that narrates the ruling. Reported once per
+    case, on the first match, so a long context does not flood the
+    report.
+    """
+    options = case.get("options") or []
+    leaks: list[dict] = []
+    if len(options) >= 2:
+        keys = set().union(*(option.keys() for option in options))
+        for key in sorted(keys):
+            carriers = sum(1 for option in options if key in option)
+            if carriers == len(options) - 1:
+                leaks.append(
+                    {"id": case.get("id"), "channel": LEAK_ODD_OPTION, "key": key}
+                )
+    context = case.get("context")
+    if isinstance(context, str):
+        match = _CONTEXT_NARRATION.search(context)
+        if match:
+            leaks.append(
+                {"id": case.get("id"), "channel": LEAK_CONTEXT, "match": match.group(0)}
+            )
+    return leaks
+
+
 def build_cases(
     records: list[dict], window: int, include_reasoning: bool = False
 ) -> dict:
     selected = select_window(records, window)
+    cases = [mask_record(record, include_reasoning) for record in selected]
     return {
         "window": window,
         "count": len(selected),
         "slot_order": "permuted",
+        "leaks": [leak for case in cases for leak in case_leaks(case)],
         "instructions": (
             "For each case, predict which slot the decider will choose. "
             "Answer only from the injected preference set plus the case "
@@ -224,7 +290,7 @@ def build_cases(
             "If you expect the decider to answer with none of the listed "
             "options, predict the slot one past the last one."
         ),
-        "cases": [mask_record(record, include_reasoning) for record in selected],
+        "cases": cases,
     }
 
 
@@ -265,6 +331,41 @@ def normalise_predictions(payload: object) -> tuple[dict[str, dict], list[str]]:
 
 def _rate(hits: int, total: int) -> float | None:
     return round(hits / total, 4) if total else None
+
+
+def odd_option_slot(record: dict) -> int | None:
+    """The recorded slot a reader of the raw record would pick: the one
+    option without an if-clause, when exactly one lacks it."""
+    without = [
+        slot
+        for slot, option in zip(record_slots(record), _option_dicts(record))
+        if "if_clause" not in option
+    ]
+    return without[0] if len(without) == 1 else None
+
+
+def blind_baselines(records: list[dict]) -> dict:
+    """What scoring without any rule set would get on these records.
+
+    `always_slot_1` answers the prediction slot every time; `odd_option`
+    answers the one option without an if-clause and abstains where there
+    is none. Both are reported next to the streams so a hit rate is
+    read against what the case alone gives away.
+    """
+    slot_1 = {"n": 0, "hits": 0}
+    odd = {"n": 0, "hits": 0}
+    for record in records:
+        chosen = record.get("chosen_slot")
+        slot_1["n"] += 1
+        slot_1["hits"] += int(chosen == 1)
+        odd_slot = odd_option_slot(record)
+        if odd_slot is not None:
+            odd["n"] += 1
+            odd["hits"] += int(chosen == odd_slot)
+    return {
+        "always_slot_1": {**slot_1, "hit_rate": _rate(slot_1["hits"], slot_1["n"])},
+        "odd_option": {**odd, "hit_rate": _rate(odd["hits"], odd["n"])},
+    }
 
 
 def score(
@@ -333,6 +434,7 @@ def score(
             }
             for stream in STREAMS
         },
+        "blind_baselines": blind_baselines(selected),
         "stream_shifts": shifts,
         "cases": cases,
     }
@@ -422,6 +524,7 @@ def gate(baseline: dict, candidate: dict, min_gated_cases: int = 0) -> dict:
             "baseline": baseline.get("streams", {}).get(COLD, {}),
             "candidate": candidate.get("streams", {}).get(COLD, {}),
         },
+        "blind_baselines": candidate.get("blind_baselines", {}),
         "stream_shifts": {
             "cold_to_preference_driven": sum(
                 1 for shift in shifts if shift["candidate"] == PREFERENCE_DRIVEN
@@ -507,7 +610,15 @@ def main(argv: list[str] | None = None) -> int:
     records = load_records(args.root)
 
     if args.command == "cases":
-        _emit(build_cases(records, window, args.include_reasoning), args.out)
+        payload = build_cases(records, window, args.include_reasoning)
+        _emit(payload, args.out)
+        for leak in payload["leaks"]:
+            detail = leak.get("key") or leak.get("match")
+            print(
+                f"LEAK {leak['channel']}: {leak['id']} — {detail!r} identifies the "
+                "recorded answer; read the gate's pass with that in mind",
+                file=sys.stderr,
+            )
         return 0
 
     predictions, errors = normalise_predictions(_read_json(args.predictions))

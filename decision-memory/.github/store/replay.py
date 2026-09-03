@@ -517,6 +517,7 @@ def gate(baseline: dict, candidate: dict, min_gated_cases: int = 0) -> dict:
             "baseline": baseline.get("streams", {}).get(COLD, {}),
             "candidate": candidate.get("streams", {}).get(COLD, {}),
         },
+        "blind_baselines": candidate.get("blind_baselines", {}),
         "stream_shifts": {
             "cold_to_preference_driven": sum(
                 1 for shift in shifts if shift["candidate"] == PREFERENCE_DRIVEN

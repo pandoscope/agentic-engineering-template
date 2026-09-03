@@ -990,7 +990,6 @@ class ReplayTests(unittest.TestCase):
         result = replay.gate(baseline, candidate)
         self.assertEqual(result["gate"], "fail")
 
-    @unittest.expectedFailure
     def test_gate_carries_the_candidate_blind_baselines(self):
         """The gate report is what lands in the PR body; the baselines
         must travel with it or the reader never sees them."""

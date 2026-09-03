@@ -1068,6 +1068,47 @@ class LeakCheckTests(unittest.TestCase):
         self.assertEqual(replay.build_cases([record], 20)["leaks"], [])
 
 
+class BlindBaselineTests(unittest.TestCase):
+    """Every score report carries what a reader of the case alone would
+    score, so a rule-set hit rate is read against it (AET#228)."""
+
+    @staticmethod
+    def _odd(record_id, chosen_slot):
+        options = [
+            {"slot": 1, "label": "a", "role": "prediction"},
+            {"slot": 2, "label": "b", "if_clause": "if x"},
+            {"slot": 3, "label": "c", "if_clause": "if y"},
+        ]
+        return make_record(record_id, chosen_slot, options=options)
+
+    @staticmethod
+    def _even(record_id, chosen_slot):
+        options = [
+            {"slot": 1, "label": "a", "role": "prediction", "if_clause": "if w"},
+            {"slot": 2, "label": "b", "if_clause": "if x"},
+        ]
+        return make_record(record_id, chosen_slot, options=options)
+
+    @unittest.expectedFailure
+    def test_score_reports_always_slot_1_and_odd_option_baselines(self):
+        records = [
+            self._odd("20260715T143205Z-a", 1),
+            self._odd("20260716T143205Z-b", 2),
+            self._even("20260717T143205Z-c", 2),
+        ]
+        predictions, _ = replay.normalise_predictions(
+            [make_prediction(record["id"], 1) for record in records]
+        )
+        report, _ = replay.score(records, predictions, 20, "prefs")
+        self.assertEqual(
+            report["blind_baselines"],
+            {
+                "always_slot_1": {"n": 3, "hits": 1, "hit_rate": 0.3333},
+                "odd_option": {"n": 2, "hits": 1, "hit_rate": 0.5},
+            },
+        )
+
+
 class CorpusReplayTests(unittest.TestCase):
     """The harness must cope with the real corpus, not just fixtures."""
 

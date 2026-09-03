@@ -211,14 +211,39 @@ def mask_record(record: dict, include_reasoning: bool = False) -> dict:
     return case
 
 
+LEAK_ODD_OPTION = "odd-option"
+
+
+def case_leaks(case: dict) -> list[dict]:
+    """What still identifies the recorded answer in one masked case.
+
+    Structural: a key carried by every option but one singles that
+    option out, exactly as the if-clause did before it was masked. The
+    check runs on the masked case, so a field the recorder adds later
+    is caught the day it ships, not the day someone notices 20/20.
+    """
+    options = case.get("options") or []
+    leaks: list[dict] = []
+    if len(options) < 2:
+        return leaks
+    keys = set().union(*(option.keys() for option in options))
+    for key in sorted(keys):
+        carriers = sum(1 for option in options if key in option)
+        if carriers == len(options) - 1:
+            leaks.append({"id": case.get("id"), "channel": LEAK_ODD_OPTION, "key": key})
+    return leaks
+
+
 def build_cases(
     records: list[dict], window: int, include_reasoning: bool = False
 ) -> dict:
     selected = select_window(records, window)
+    cases = [mask_record(record, include_reasoning) for record in selected]
     return {
         "window": window,
         "count": len(selected),
         "slot_order": "permuted",
+        "leaks": [leak for case in cases for leak in case_leaks(case)],
         "instructions": (
             "For each case, predict which slot the decider will choose. "
             "Answer only from the injected preference set plus the case "
@@ -231,7 +256,7 @@ def build_cases(
             "If you expect the decider to answer with none of the listed "
             "options, predict the slot one past the last one."
         ),
-        "cases": [mask_record(record, include_reasoning) for record in selected],
+        "cases": cases,
     }
 
 

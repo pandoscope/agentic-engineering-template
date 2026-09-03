@@ -710,6 +710,18 @@ def independent_rules(record: dict) -> list[str]:
     return []
 
 
+def confirmations_for(
+    record: dict,
+) -> tuple[list[tuple[str, bool]], list[tuple[str, str]]]:
+    """The counter bumps a record earns, and the citations it withholds.
+
+    Returns `(confirmations, skipped)`: `confirmations` is a list of
+    `(rule, independent)` pairs to bump, `skipped` a list of
+    `(rule, reason)` pairs that were cited but earn nothing.
+    """
+    raise NotImplementedError
+
+
 def build_pr_body(records: list[dict], streams: dict[str, dict[str, int]]) -> str:
     def rate(stream: str) -> str:
         counts = streams[stream]

@@ -30,9 +30,11 @@ stream the CANDIDATE assigns, and the shifts are reported so a hit-rate
 change driven by re-labelling rather than by better rules is visible.
 
 Masking removes `role` and `rules_cited` from the options — they encode
-the original prediction and its stream — and, by default, the
-in-session `reasoning`, which was written under the OLD rule set and
-would otherwise leak that set's answer into the candidate run.
+the original prediction and its stream — the `if_clause`, which only
+alternatives carry and so singles out the prediction slot by its
+absence, and, by default, the in-session `reasoning`, which was written
+under the OLD rule set and would otherwise leak that set's answer into
+the candidate run.
 
 Slot ORDER is masked too, because slot 1 is the prediction slot by
 convention and deciders pick it far more often than chance: on a real
@@ -101,7 +103,12 @@ def preferences_sha256(text: str) -> str:
 
 
 # Option fields that leak the recorded prediction or the old rule set.
-_LEAKY_OPTION_FIELDS = ("role", "rules_cited")
+# `if_clause` is structural: the prediction slot never carries one and
+# every alternative must, so the one option without it IS the recorded
+# prediction. The clause is the recommender's argument for an
+# alternative, not the decider's input, so nothing a predictor
+# legitimately needs is lost.
+_LEAKY_OPTION_FIELDS = ("role", "rules_cited", "if_clause")
 _OLD_RULE_SET_FIELDS = ("reasoning",)
 
 _CASE_FIELDS = ("id", "date", "project", "question", "context", "artifact_ref")

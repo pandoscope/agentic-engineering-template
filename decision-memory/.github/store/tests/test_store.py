@@ -891,7 +891,6 @@ class BudgetGateTests(unittest.TestCase):
 
 
 class ReplayTests(unittest.TestCase):
-    @unittest.expectedFailure
     def test_mask_strips_leaky_fields(self):
         """The if-clause singles out the prediction slot: alternatives
         carry one by contract, the prediction does not (AET#228)."""

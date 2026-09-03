@@ -1040,6 +1040,34 @@ class LeakCheckTests(unittest.TestCase):
         payload = replay.build_cases([make_record("20260715T143205Z-a", 1)], 20)
         self.assertEqual(payload["leaks"], [])
 
+    @unittest.expectedFailure
+    def test_a_context_that_narrates_the_ruling_is_a_context_leak(self):
+        """The context is input side, written before the ruling; a
+        past-tense verdict in it hands the reader the answer."""
+        record = make_record("20260715T143205Z-a", 1)
+        record["context"] = "Two layouts were open. The principal reviewed: 'B.'"
+        payload = replay.build_cases([record], 20)
+        self.assertEqual(
+            payload["leaks"],
+            [
+                {
+                    "id": "20260715T143205Z-a",
+                    "channel": "context",
+                    "match": "The principal reviewed",
+                }
+            ],
+        )
+
+    def test_a_context_stating_the_situation_is_no_leak(self):
+        record = make_record("20260715T143205Z-a", 1)
+        record["context"] = "Two layouts are open; the reviewer prefers neither yet."
+        self.assertEqual(replay.build_cases([record], 20)["leaks"], [])
+
+    def test_a_missing_context_is_no_leak(self):
+        record = make_record("20260715T143205Z-a", 1)
+        record["context"] = None
+        self.assertEqual(replay.build_cases([record], 20)["leaks"], [])
+
 
 class CorpusReplayTests(unittest.TestCase):
     """The harness must cope with the real corpus, not just fixtures."""

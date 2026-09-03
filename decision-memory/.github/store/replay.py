@@ -45,6 +45,13 @@ the same order to map a prediction back. The mapping is never written
 into the cases file — shipping it would hand the ordering signal
 straight back.
 
+Two channels survive masking and are REPORTED rather than repaired,
+because records are immutable: `cases` lists `leaks` — a key carried
+by every option but one, or a context that narrates the ruling — and
+`score` carries blind baselines (always slot 1, the odd option) next to
+the streams, so a hit rate is always read against what the case alone
+gives away.
+
 Stdlib only. Usage:
 
     python .github/store/replay.py cases --out /tmp/cases.json

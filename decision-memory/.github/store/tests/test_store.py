@@ -1040,7 +1040,6 @@ class LeakCheckTests(unittest.TestCase):
         payload = replay.build_cases([make_record("20260715T143205Z-a", 1)], 20)
         self.assertEqual(payload["leaks"], [])
 
-    @unittest.expectedFailure
     def test_a_context_that_narrates_the_ruling_is_a_context_leak(self):
         """The context is input side, written before the ruling; a
         past-tense verdict in it hands the reader the answer."""

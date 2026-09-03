@@ -64,6 +64,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -212,6 +213,20 @@ def mask_record(record: dict, include_reasoning: bool = False) -> dict:
 
 
 LEAK_ODD_OPTION = "odd-option"
+LEAK_CONTEXT = "context"
+
+# Ruling narration in the input-side context. A denylist, deliberately
+# small: it flags the phrasings measured on a real corpus (a verdict in
+# the past tense, a reference to what was ruled) and nothing subtler.
+# The context is written before the ruling by contract, so a match is a
+# recording-discipline finding as much as a masking one.
+_CONTEXT_NARRATION = re.compile(
+    r"\b(?:ruled|ruling)\b"
+    r"|\bthe principal (?:caught|chose|decided|reviewed|accepted|rejected"
+    r"|merged|reverted)\b"
+    r"|\bwas (?:chosen|decided|accepted|rejected|merged|reverted|rewritten)\b",
+    re.IGNORECASE,
+)
 
 
 def case_leaks(case: dict) -> list[dict]:
@@ -221,16 +236,28 @@ def case_leaks(case: dict) -> list[dict]:
     option out, exactly as the if-clause did before it was masked. The
     check runs on the masked case, so a field the recorder adds later
     is caught the day it ships, not the day someone notices 20/20.
+
+    Textual: a context that narrates the ruling. Reported once per
+    case, on the first match, so a long context does not flood the
+    report.
     """
     options = case.get("options") or []
     leaks: list[dict] = []
-    if len(options) < 2:
-        return leaks
-    keys = set().union(*(option.keys() for option in options))
-    for key in sorted(keys):
-        carriers = sum(1 for option in options if key in option)
-        if carriers == len(options) - 1:
-            leaks.append({"id": case.get("id"), "channel": LEAK_ODD_OPTION, "key": key})
+    if len(options) >= 2:
+        keys = set().union(*(option.keys() for option in options))
+        for key in sorted(keys):
+            carriers = sum(1 for option in options if key in option)
+            if carriers == len(options) - 1:
+                leaks.append(
+                    {"id": case.get("id"), "channel": LEAK_ODD_OPTION, "key": key}
+                )
+    context = case.get("context")
+    if isinstance(context, str):
+        match = _CONTEXT_NARRATION.search(context)
+        if match:
+            leaks.append(
+                {"id": case.get("id"), "channel": LEAK_CONTEXT, "match": match.group(0)}
+            )
     return leaks
 
 
@@ -539,7 +566,15 @@ def main(argv: list[str] | None = None) -> int:
     records = load_records(args.root)
 
     if args.command == "cases":
-        _emit(build_cases(records, window, args.include_reasoning), args.out)
+        payload = build_cases(records, window, args.include_reasoning)
+        _emit(payload, args.out)
+        for leak in payload["leaks"]:
+            detail = leak.get("key") or leak.get("match")
+            print(
+                f"LEAK {leak['channel']}: {leak['id']} — {detail!r} identifies the "
+                "recorded answer; read the gate's pass with that in mind",
+                file=sys.stderr,
+            )
         return 0
 
     predictions, errors = normalise_predictions(_read_json(args.predictions))

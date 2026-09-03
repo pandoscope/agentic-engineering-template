@@ -4,6 +4,7 @@ from collections.abc import Sequence
 import json
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -1277,6 +1278,35 @@ def test_architecture_and_project_term_are_seeded_once(
 
     assert architecture.read_text() == "# The real architecture\n"
     assert term.read_text() == "## Snake Farm\n\nThe real definition.\n"
+
+
+def test_repo_owned_hooks_pass_while_the_seeded_config_is_hookless(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The delegating hook exits 0 on the seeded `repos: []` config (#236).
+
+    prek exits nonzero on a config that defines no hooks, so a freshly
+    stamped repo failed `prek run --all-files` out of the box. The entry
+    must treat a hookless local config like the no-config case.
+    """
+    dst_path = _render(tmp_path, base_answers, "repo-hooks-empty")
+
+    stamped = yaml.safe_load((dst_path / ".pre-commit-config.yaml").read_text())
+    entry = next(
+        hook["entry"]
+        for repo in stamped["repos"]
+        for hook in repo.get("hooks", [])
+        if hook.get("id") == "repo-hooks"
+    )
+    result = subprocess.run(
+        [*shlex.split(entry), "README.md"],
+        cwd=dst_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_repo_owned_hooks_get_a_seeded_config_of_their_own(

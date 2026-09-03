@@ -990,6 +990,19 @@ class ReplayTests(unittest.TestCase):
         result = replay.gate(baseline, candidate)
         self.assertEqual(result["gate"], "fail")
 
+    @unittest.expectedFailure
+    def test_gate_carries_the_candidate_blind_baselines(self):
+        """The gate report is what lands in the PR body; the baselines
+        must travel with it or the reader never sees them."""
+        baseline = self._report(pd=(4, 5), cold=(1, 5), sha="base")
+        candidate = self._report(pd=(4, 5), cold=(1, 5), sha="cand")
+        candidate["blind_baselines"] = {
+            "always_slot_1": {"n": 5, "hits": 4, "hit_rate": 0.8},
+            "odd_option": {"n": 3, "hits": 3, "hit_rate": 1.0},
+        }
+        result = replay.gate(baseline, candidate)
+        self.assertEqual(result["blind_baselines"], candidate["blind_baselines"])
+
     def test_gate_fails_on_mismatched_windows(self):
         baseline = self._report(pd=(1, 1), cold=(0, 0), sha="base", ids=["a"])
         candidate = self._report(pd=(1, 1), cold=(0, 0), sha="cand", ids=["b"])

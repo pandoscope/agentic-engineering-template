@@ -710,6 +710,46 @@ def independent_rules(record: dict) -> list[str]:
     return []
 
 
+def confirmations_for(
+    record: dict,
+) -> tuple[list[tuple[str, bool]], list[tuple[str, str]]]:
+    """The counter bumps a record earns, and the citations it withholds.
+
+    Returns `(confirmations, skipped)`: `confirmations` is a list of
+    `(rule, independent)` pairs to bump, `skipped` a list of
+    `(rule, reason)` pairs that were cited but earn nothing.
+
+    Two ways a rule earns a confirmation, counted apart. A `hit`
+    credits the rules cited on the slot that won — the rule agreeing
+    with itself. Anything else can still confirm a rule, if the decider
+    chose an option that cited it without that rule having proposed it;
+    that one is independent.
+
+    Two ways a citation earns nothing (AET#227). A rule listed in
+    `rules_disconfirmed` was set aside by the decider: neither win nor
+    loss. A record with `correction: true` had its reason replaced, so
+    the rules it cites did not drive the ruling and none auto-bumps;
+    the decider promotes by hand if one did.
+    """
+    if record.get("outcome") == "hit":
+        candidates = [(rule, False) for rule in prediction_rules(record)]
+    else:
+        candidates = [(rule, True) for rule in independent_rules(record)]
+    disconfirmed = {
+        rule for rule in record.get("rules_disconfirmed") or [] if isinstance(rule, str)
+    }
+    confirmations: list[tuple[str, bool]] = []
+    skipped: list[tuple[str, str]] = []
+    for rule, independent in candidates:
+        if rule in disconfirmed:
+            skipped.append((rule, "disconfirmed"))
+        elif record.get("correction") is True:
+            skipped.append((rule, "correction"))
+        else:
+            confirmations.append((rule, independent))
+    return confirmations, skipped
+
+
 def build_pr_body(records: list[dict], streams: dict[str, dict[str, int]]) -> str:
     def rate(stream: str) -> str:
         counts = streams[stream]
@@ -788,15 +828,9 @@ def cmd_submit(args: argparse.Namespace) -> int:
     for record in records:
         if record.get("prediction_stream") != "preference-driven":
             continue
-        # Two ways a rule earns a confirmation, and they are counted
-        # apart. A `hit` credits the rules cited on the slot that won —
-        # the rule agreeing with itself. Anything else can still confirm
-        # a rule, if the decider chose an option that cited it without
-        # that rule having proposed it; that one is independent.
-        if record.get("outcome") == "hit":
-            confirmations = [(rule, False) for rule in prediction_rules(record)]
-        else:
-            confirmations = [(rule, True) for rule in independent_rules(record)]
+        confirmations, skipped = confirmations_for(record)
+        for rule, reason in skipped:
+            print(f"pref-skip: {rule} ({reason}) — no counter bumped")
         for rule, independent in confirmations:
             if not source_path.exists():
                 print(f"WARN: no {validator.PREFERENCES_SOURCE} — cannot bump {rule!r}")

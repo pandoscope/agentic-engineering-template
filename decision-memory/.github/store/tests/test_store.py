@@ -1089,7 +1089,6 @@ class BlindBaselineTests(unittest.TestCase):
         ]
         return make_record(record_id, chosen_slot, options=options)
 
-    @unittest.expectedFailure
     def test_score_reports_always_slot_1_and_odd_option_baselines(self):
         records = [
             self._odd("20260715T143205Z-a", 1),

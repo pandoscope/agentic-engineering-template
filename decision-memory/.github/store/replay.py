@@ -326,6 +326,41 @@ def _rate(hits: int, total: int) -> float | None:
     return round(hits / total, 4) if total else None
 
 
+def odd_option_slot(record: dict) -> int | None:
+    """The recorded slot a reader of the raw record would pick: the one
+    option without an if-clause, when exactly one lacks it."""
+    without = [
+        slot
+        for slot, option in zip(record_slots(record), _option_dicts(record))
+        if "if_clause" not in option
+    ]
+    return without[0] if len(without) == 1 else None
+
+
+def blind_baselines(records: list[dict]) -> dict:
+    """What scoring without any rule set would get on these records.
+
+    `always_slot_1` answers the prediction slot every time; `odd_option`
+    answers the one option without an if-clause and abstains where there
+    is none. Both are reported next to the streams so a hit rate is
+    read against what the case alone gives away.
+    """
+    slot_1 = {"n": 0, "hits": 0}
+    odd = {"n": 0, "hits": 0}
+    for record in records:
+        chosen = record.get("chosen_slot")
+        slot_1["n"] += 1
+        slot_1["hits"] += int(chosen == 1)
+        odd_slot = odd_option_slot(record)
+        if odd_slot is not None:
+            odd["n"] += 1
+            odd["hits"] += int(chosen == odd_slot)
+    return {
+        "always_slot_1": {**slot_1, "hit_rate": _rate(slot_1["hits"], slot_1["n"])},
+        "odd_option": {**odd, "hit_rate": _rate(odd["hits"], odd["n"])},
+    }
+
+
 def score(
     records: list[dict],
     predictions: dict[str, dict],
@@ -392,6 +427,7 @@ def score(
             }
             for stream in STREAMS
         },
+        "blind_baselines": blind_baselines(selected),
         "stream_shifts": shifts,
         "cases": cases,
     }

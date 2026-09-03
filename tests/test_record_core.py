@@ -263,7 +263,6 @@ def _record(outcome: str, cited: list[str], disconfirmed=None, correction=None) 
     return record
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_disconfirmed_rule_earns_no_confirmation() -> None:
     """AET#227: a rule the decider set aside is neither win nor loss.
 
@@ -276,7 +275,6 @@ def test_a_disconfirmed_rule_earns_no_confirmation() -> None:
     assert skipped == [("rule b.", "disconfirmed")]
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_correction_earns_no_automatic_confirmation() -> None:
     """A record whose reason was replaced confirms nothing by itself."""
     record = _record("hit", ["rule a."], correction=True)
@@ -285,7 +283,6 @@ def test_a_correction_earns_no_automatic_confirmation() -> None:
     assert skipped == [("rule a.", "correction")]
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_independent_confirmation_still_skips_a_disconfirmed_rule() -> None:
     record = _record("miss", ["rule a."], disconfirmed=["other rule."])
     confirmations, skipped = record_tool.confirmations_for(record)

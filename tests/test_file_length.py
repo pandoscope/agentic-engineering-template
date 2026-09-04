@@ -1,15 +1,18 @@
-"""The file-length hook every stamped repo runs (#239).
+"""The file-cap hook every stamped repo runs (#239, #242).
 
-Source files grow without a signal until someone notices. The hook
-reads the length of the files a commit touches, fails on an overrun,
-and exempts only what the repo's own allowlist names — each entry with
-a ticket, so the list shrinks as the tickets close.
+The cap is what an agent pays to read the file: an estimated token
+count (bytes / 4), so comments and blank lines count and the language
+does not matter. Complexity is measured independently — ruff carries it
+for Python, and for bash (which ruff cannot read) the same hook counts
+code lines, because long bash is a rewrite-in-Python signal and a
+total-line measure would punish the comments that make bash safer.
 """
 
 from __future__ import annotations
 
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import copier
@@ -53,33 +56,92 @@ def test_an_entry_without_a_ticket_is_refused():
     assert any("src/big.py" in problem for problem in problems)
 
 
+# --------------------------------------------------------- the measure
+
+
+def test_tokens_are_estimated_from_bytes(tmp_path: Path):
+    """bytes / 4, rounded up: dependency-free, monotone, and measuring
+    the whole file — comments cost a reader tokens too."""
+    path = tmp_path / "a.py"
+    path.write_bytes(b"x" * 41)
+    tokens, code = checker.measure(str(path))
+    assert tokens == 11
+    assert code is None
+
+
+def test_bash_files_also_get_a_code_line_count(tmp_path: Path):
+    """Blank lines and comments stay free for bash: they are the
+    mitigation the research recommends, not the complexity."""
+    path = tmp_path / "a.sh"
+    path.write_text(
+        "#!/bin/sh\n"
+        "# quoting intentional: paths may contain spaces\n"
+        "\n"
+        'echo "one"\n'
+        "  \n"
+        'echo "two"  # trailing comments do not make a line free\n'
+    )
+    tokens, code = checker.measure(str(path))
+    assert code == 2
+    assert tokens > 0
+
+
+def test_a_file_it_cannot_read_as_text_is_not_measured(tmp_path: Path):
+    path = tmp_path / "blob.py"
+    path.write_bytes(b"\x00\xff" * 4000)
+    assert checker.measure(str(path)) is None
+
+
 # ---------------------------------------------------------- the verdict
 
 
-def test_a_file_over_the_limit_is_named_with_its_length():
-    problems = checker.review({"a.py": 801}, 800, {}, set())
+def test_a_file_over_the_token_cap_is_named_with_its_estimate():
+    problems = checker.review({"a.py": (10001, None)}, 10000, 150, {}, set())
     assert len(problems) == 1
-    assert "a.py" in problems[0] and "801" in problems[0] and "800" in problems[0]
+    assert "a.py" in problems[0] and "10001" in problems[0]
+    assert "token" in problems[0]
 
 
-def test_a_file_at_the_limit_passes():
-    assert checker.review({"a.py": 800}, 800, {}, set()) == []
+def test_a_file_at_the_token_cap_passes():
+    assert checker.review({"a.py": (10000, None)}, 10000, 150, {}, set()) == []
+
+
+def test_a_bash_file_over_the_code_line_limit_points_at_python():
+    """Within the token cap but over the code-line limit: the fix for
+    long bash is not splitting it."""
+    problems = checker.review({"x.sh": (500, 151)}, 10000, 150, {}, set())
+    assert len(problems) == 1
+    assert "x.sh" in problems[0] and "151" in problems[0]
+    assert "Python" in problems[0]
+
+
+def test_a_bash_file_at_the_code_line_limit_passes():
+    assert checker.review({"x.sh": (500, 150)}, 10000, 150, {}, set()) == []
 
 
 def test_an_allowlisted_overrun_passes():
-    assert checker.review({"a.py": 2300}, 800, {"a.py": "#184"}, set()) == []
+    measures = {"a.py": (12000, None), "x.sh": (500, 200)}
+    allowlist = {"a.py": "#184", "x.sh": "#185"}
+    assert checker.review(measures, 10000, 150, allowlist, set()) == []
 
 
-def test_an_allowlisted_file_back_under_the_limit_must_leave_the_list():
+def test_an_allowlisted_file_back_under_every_limit_must_leave_the_list():
     """The mechanism that makes the list shrink: the commit that brings
-    a file under the limit is the one that has to drop its line."""
-    problems = checker.review({"a.py": 400}, 800, {"a.py": "#184"}, set())
+    a file under the caps is the one that has to drop its line."""
+    problems = checker.review(
+        {"a.py": (400, None)}, 10000, 150, {"a.py": "#184"}, set()
+    )
     assert len(problems) == 1
     assert "a.py" in problems[0] and "remove" in problems[0]
 
 
+def test_an_allowlisted_bash_file_still_over_one_limit_keeps_its_line():
+    measures = {"x.sh": (500, 200)}
+    assert checker.review(measures, 10000, 150, {"x.sh": "#185"}, set()) == []
+
+
 def test_an_allowlist_entry_for_a_file_that_is_gone_must_leave_the_list():
-    problems = checker.review({}, 800, {"old.py": "#184"}, {"old.py"})
+    problems = checker.review({}, 10000, 150, {"old.py": "#184"}, {"old.py"})
     assert len(problems) == 1
     assert "old.py" in problems[0] and "remove" in problems[0]
 
@@ -87,7 +149,7 @@ def test_an_allowlist_entry_for_a_file_that_is_gone_must_leave_the_list():
 def test_a_file_not_in_this_run_is_not_judged():
     """The hook sees the files a commit touches; an untouched overrun is
     the next commit's problem, not a reason this one cannot land."""
-    assert checker.review({}, 800, {}, set()) == []
+    assert checker.review({}, 10000, 150, {}, set()) == []
 
 
 # ------------------------------------------------------------ end to end
@@ -96,40 +158,50 @@ def test_a_file_not_in_this_run_is_not_judged():
 def test_the_hook_fails_on_an_overrun_and_passes_once_it_is_allowlisted(
     tmp_path: Path,
 ):
-    (tmp_path / "big.py").write_text("x = 1\n" * 40)
-    red = run("--max", "20", "big.py", cwd=tmp_path)
+    (tmp_path / "big.py").write_text("x = 1\n" * 40)  # 240 bytes, ~60 tokens
+    red = run("--max-tokens", "20", "big.py", cwd=tmp_path)
     assert red.returncode == 1
-    assert "big.py" in red.stderr and "40" in red.stderr
+    assert "big.py" in red.stderr and "60" in red.stderr
 
     (tmp_path / ".file-length-allowlist").write_text(
         "big.py  # pandoscope/skills#184\n"
     )
-    green = run("--max", "20", "big.py", cwd=tmp_path)
+    green = run("--max-tokens", "20", "big.py", cwd=tmp_path)
+    assert green.returncode == 0, green.stderr
+
+
+def test_the_bash_limit_counts_code_not_comments(tmp_path: Path):
+    (tmp_path / "x.sh").write_text(
+        "#!/bin/sh\n" + "# a comment\n" * 40 + 'echo "a"\necho "b"\necho "c"\n'
+    )
+    red = run("--max-sh-code-lines", "2", "x.sh", cwd=tmp_path)
+    assert red.returncode == 1 and "x.sh" in red.stderr
+    green = run("--max-sh-code-lines", "3", "x.sh", cwd=tmp_path)
     assert green.returncode == 0, green.stderr
 
 
 def test_a_missing_allowlist_means_no_exemptions_not_an_error(tmp_path: Path):
     (tmp_path / "ok.py").write_text("x = 1\n" * 5)
-    assert run("--max", "20", "ok.py", cwd=tmp_path).returncode == 0
+    assert run("--max-tokens", "20", "ok.py", cwd=tmp_path).returncode == 0
 
 
 def test_a_file_it_cannot_read_as_text_is_skipped(tmp_path: Path):
     (tmp_path / "blob.py").write_bytes(b"\x00\xff" * 4000)
-    assert run("--max", "20", "blob.py", cwd=tmp_path).returncode == 0
+    assert run("--max-tokens", "20", "blob.py", cwd=tmp_path).returncode == 0
 
 
 # --------------------------------------------------------- the stamping
 
 
-def test_the_stamped_config_runs_the_hook_at_the_answered_limit(
+def test_the_stamped_config_runs_the_hook_at_the_answered_cap(
     tmp_path: Path, base_answers: dict[str, str]
 ):
     dst_path = render_answers(
-        tmp_path, {**base_answers, "agentic_max_file_lines": 500}, "limited"
+        tmp_path, {**base_answers, "agentic_max_file_tokens": 5000}, "capped"
     )
     config = (dst_path / ".pre-commit-config.yaml").read_text()
     assert "scripts/check_file_length.py" in config
-    assert "--max" in config and "500" in config
+    assert "--max-tokens" in config and "5000" in config
     assert (dst_path / "scripts" / "check_file_length.py").exists()
 
 
@@ -174,3 +246,18 @@ def test_the_template_runs_the_hook_on_itself(config: str):
     own sources."""
     text = (PROJECT_ROOT / config).read_text()
     assert "scripts/check_file_length.py" in text
+    assert "--max-tokens" in text
+
+
+# ------------------------------------------------- complexity, independently
+
+
+def test_the_template_repo_measures_python_complexity_with_ruff():
+    """The capacity cap deliberately ignores complexity — ruff carries
+    that side for Python, at the thresholds the research located the
+    correctness cliff (#242)."""
+    pyproject = tomllib.loads((PROJECT_ROOT / "pyproject.toml").read_text())
+    lint = pyproject["tool"]["ruff"]["lint"]
+    assert "C901" in lint["extend-select"]
+    assert "PLR0915" in lint["extend-select"]
+    assert lint["mccabe"]["max-complexity"] == 20

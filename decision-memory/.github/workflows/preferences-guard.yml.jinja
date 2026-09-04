@@ -30,7 +30,7 @@ jobs:
           python-version: "3.13"
 
       - name: Store layer self-test
-        run: python .github/store/tests/test_store.py
+        run: python -m unittest discover --start-directory .github/store/tests
 
       - name: Preference guards
         env:

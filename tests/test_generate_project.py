@@ -1,33 +1,18 @@
+"""What the answers put in a generated project: the slug, the tracker
+CLI shims, the project kind, the content language, the disambiguate
+pin, the skills tables and the two documents that carry the rules.
+"""
+
 from __future__ import annotations
 
-from collections.abc import Sequence
 import json
-import os
 import re
-import shlex
 import subprocess
 from pathlib import Path
 
 import copier
-import pytest
-import yaml
 
-from tests.conftest import load_module
-
-PROJECT_ROOT = Path(__file__).parent.parent
-
-
-def _check_file_contents(
-    file_path: Path,
-    expected_strs: Sequence[str] = (),
-    unexpect_strs: Sequence[str] = (),
-) -> None:
-    assert file_path.exists(), f"Expected file missing: {file_path}"
-    file_content = file_path.read_text()
-    for content in expected_strs:
-        assert content in file_content, f"Expected {content!r} in {file_path}"
-    for content in unexpect_strs:
-        assert content not in file_content, f"Unexpected {content!r} in {file_path}"
+from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
 
 
 def test_slug_auto_derived(
@@ -55,7 +40,7 @@ def test_slug_auto_derived(
     )
 
     assert (dst_path / "docs" / "glossary" / "my-cool-app.md").exists()
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         ["https://github.com/actions-user/my-cool-app"],
     )
@@ -65,31 +50,14 @@ def test_slug_auto_derived(
 GHX_PARITY_PROSE = "same `gh`-style interface against both GitHub and Forgejo"
 
 
-def _render(tmp_path: Path, answers: dict[str, str], dst_name: str) -> Path:
-    dst_path = tmp_path / dst_name
-    copier.run_copy(
-        src_path=str(PROJECT_ROOT),
-        dst_path=dst_path,
-        data=answers,
-        defaults=True,
-        unsafe=True,
-        skip_tasks=True,
-        # Pin HEAD: with release tags present locally, copier would
-        # otherwise render the latest RELEASE instead of this branch
-        # (CI checkouts have no tags and already fall back to HEAD).
-        vcs_ref="HEAD",
-    )
-    return dst_path
-
-
 def test_tracker_cli_default_renders_ghx_docs_and_gh_tea_shims(
     tmp_path: Path,
     base_answers: dict[str, str],
 ) -> None:
     """Default answer (ghx): ghx-flavored docs, shims for gh and tea only."""
-    dst_path = _render(tmp_path, base_answers, "tracker-default")
+    dst_path = render_answers(tmp_path, base_answers, "tracker-default")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         [
             "Use `ghx` for all repository interaction",
@@ -103,17 +71,17 @@ def test_tracker_cli_default_renders_ghx_docs_and_gh_tea_shims(
     assert not (shim_dir / "ghx").exists(), "chosen CLI must not be shimmed"
     for shim_name in ("gh", "tea"):
         shim = shim_dir / shim_name
-        _check_file_contents(
+        check_file_contents(
             shim,
             [f"{shim_name}: disabled — use ghx (see AGENTS.md)", "exit 1"],
         )
         assert shim.stat().st_mode & 0o111, f"shim {shim_name} must be executable"
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "scripts" / "doctor.sh",
         ['warn_tool ghx "not installed'],
     )
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".copier-answers.agentic.yml",
         ["agentic_tracker_cli: ghx"],
     )
@@ -125,9 +93,9 @@ def test_tracker_cli_gh_renders_gh_docs_and_ghx_tea_shims(
 ) -> None:
     """Choosing gh: gh-flavored docs without ghx prose, shims for ghx and tea."""
     answers = {**base_answers, "agentic_tracker_cli": "gh"}
-    dst_path = _render(tmp_path, answers, "tracker-gh")
+    dst_path = render_answers(tmp_path, answers, "tracker-gh")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         [
             "Use `gh` for all repository interaction",
@@ -140,17 +108,17 @@ def test_tracker_cli_gh_renders_gh_docs_and_ghx_tea_shims(
     shim_dir = dst_path / "scripts" / "agent-shims"
     assert not (shim_dir / "gh").exists(), "chosen CLI must not be shimmed"
     for shim_name in ("ghx", "tea"):
-        _check_file_contents(
+        check_file_contents(
             shim_dir / shim_name,
             [f"{shim_name}: disabled — use gh (see AGENTS.md)", "exit 1"],
         )
 
     # gh is already a required host tool, so doctor.sh must not warn on it.
-    _check_file_contents(
+    check_file_contents(
         dst_path / "scripts" / "doctor.sh",
         unexpect_strs=["warn_tool gh ", "warn_tool ghx", "warn_tool tea"],
     )
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".copier-answers.agentic.yml",
         ["agentic_tracker_cli: gh"],
     )
@@ -161,14 +129,14 @@ def test_claude_settings_put_shims_on_agent_path(
     base_answers: dict[str, str],
 ) -> None:
     """Repo-committed Claude Code config wires the shim dir onto agent PATH."""
-    dst_path = _render(tmp_path, base_answers, "tracker-settings")
+    dst_path = render_answers(tmp_path, base_answers, "tracker-settings")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".claude" / "settings.json",
         ["SessionStart", "scripts/enable-agent-shims.sh"],
     )
     hook = dst_path / "scripts" / "enable-agent-shims.sh"
-    _check_file_contents(hook, ["scripts/agent-shims", "CLAUDE_ENV_FILE"])
+    check_file_contents(hook, ["scripts/agent-shims", "CLAUDE_ENV_FILE"])
     assert hook.stat().st_mode & 0o111, "PATH hook must be executable"
 
 
@@ -178,7 +146,7 @@ def test_claude_skills_symlink_bridges_agents_skills(
 ) -> None:
     """Claude Code loads skills from .claude/skills — shipped as a symlink so
     .agents/skills stays the single canonical location."""
-    dst_path = _render(tmp_path, base_answers, "skills-bridge")
+    dst_path = render_answers(tmp_path, base_answers, "skills-bridge")
 
     link = dst_path / ".claude" / "skills"
     assert link.is_symlink(), ".claude/skills must be a symlink, not a copy"
@@ -186,8 +154,8 @@ def test_claude_skills_symlink_bridges_agents_skills(
 
     # Lint configs must exclude the bridged dir, else skill files get linted
     # through the symlink.
-    _check_file_contents(dst_path / ".markdownlint-cli2.yaml", [".claude/skills/**"])
-    _check_file_contents(dst_path / ".pre-commit-config.yaml", ["\\.claude/skills"])
+    check_file_contents(dst_path / ".markdownlint-cli2.yaml", [".claude/skills/**"])
+    check_file_contents(dst_path / ".pre-commit-config.yaml", ["\\.claude/skills"])
 
 
 def test_update_pr_body_cannot_close_an_upstream_ticket(
@@ -203,7 +171,7 @@ def test_update_pr_body_cannot_close_an_upstream_ticket(
     Behavioural, not textual: the defusing pipeline is lifted out of the
     rendered workflow and run against a real release-notes excerpt.
     """
-    dst_path = _render(tmp_path, base_answers, "changelog-defuse")
+    dst_path = render_answers(tmp_path, base_answers, "changelog-defuse")
     workflow = (dst_path / ".github" / "workflows" / "template-update.yml").read_text()
 
     defuse = re.search(r'changelog="\$\(printf[\s\S]*?\)"', workflow)
@@ -244,10 +212,10 @@ def test_vendored_gate_script_is_excluded_from_consumer_lint(
     overwrite the fix. A consumer whose rules are stricter than the
     template's own (bandit, full pycodestyle) hit exactly that (#137).
     """
-    dst_path = _render(tmp_path, base_answers, "vendored-lint")
+    dst_path = render_answers(tmp_path, base_answers, "vendored-lint")
 
     assert (dst_path / "scripts" / "ci" / "check_gate.py").exists()
-    _check_file_contents(dst_path / ".pre-commit-config.yaml", ["scripts/ci/"])
+    check_file_contents(dst_path / ".pre-commit-config.yaml", ["scripts/ci/"])
 
 
 def test_project_kind_code_renders_code_artifacts(
@@ -255,9 +223,9 @@ def test_project_kind_code_renders_code_artifacts(
     base_answers: dict[str, str],
 ) -> None:
     """Default kind (code): coding rules, code skills, and architecture stub."""
-    dst_path = _render(tmp_path, base_answers, "kind-code")
+    dst_path = render_answers(tmp_path, base_answers, "kind-code")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         [
             "Read [docs/architecture.md](docs/architecture.md)",
@@ -273,7 +241,7 @@ def test_project_kind_code_renders_code_artifacts(
         ],
     )
     assert (dst_path / "docs" / "architecture.md").exists()
-    _check_file_contents(
+    check_file_contents(
         dst_path / "skills-lock.json",
         ['"tdd"', '"requesting-code-review"', '"to-tickets"'],
     )
@@ -285,9 +253,9 @@ def test_project_kind_docs_omits_code_artifacts(
 ) -> None:
     """docs kind: no coding sections, no code skills, no architecture stub."""
     answers = {**base_answers, "agentic_project_kind": "docs"}
-    dst_path = _render(tmp_path, answers, "kind-docs")
+    dst_path = render_answers(tmp_path, answers, "kind-docs")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         [
             # Universal core survives the gate.
@@ -329,7 +297,7 @@ def test_skills_tables_sorted_alphabetically(
     base_answers: dict[str, str],
 ) -> None:
     """Both skills tables stay alphabetically sorted, as AGENTS.md instructs."""
-    dst_path = _render(tmp_path, base_answers, "skills-sorted")
+    dst_path = render_answers(tmp_path, base_answers, "skills-sorted")
 
     content = (dst_path / "AGENTS.md").read_text()
     skills_section = content.split("## Skills")[1].split("### Repo-Local")[0]
@@ -352,10 +320,10 @@ def test_conventions_file_seeded_once_and_never_overwritten(
     base_answers: dict[str, str],
 ) -> None:
     """docs/conventions.md is seeded, then left alone on re-render."""
-    dst_path = _render(tmp_path, base_answers, "conventions")
+    dst_path = render_answers(tmp_path, base_answers, "conventions")
 
     conventions = dst_path / "docs" / "conventions.md"
-    _check_file_contents(conventions, ["Snake Farm — Project Conventions"])
+    check_file_contents(conventions, ["Snake Farm — Project Conventions"])
 
     conventions.write_text("# Hand-written vault rules\n")
     copier.run_copy(
@@ -377,15 +345,15 @@ def test_language_non_english_omits_codespell(
 ) -> None:
     """Non-English content: no codespell hook, no .codespellrc."""
     answers = {**base_answers, "agentic_language": "de"}
-    dst_path = _render(tmp_path, answers, "lang-de")
+    dst_path = render_answers(tmp_path, answers, "lang-de")
 
     assert not (dst_path / ".codespellrc").exists()
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".pre-commit-config.yaml",
         ["disambiguate-lint"],
         unexpect_strs=["codespell"],
     )
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".copier-answers.agentic.yml",
         ["agentic_language: de"],
     )
@@ -397,14 +365,14 @@ def test_disambiguate_version_pins_hook_and_docs_commands(
 ) -> None:
     """The pinned disambiguate version flows into AGENTS.md and the prek hook."""
     answers = {**base_answers, "agentic_disambiguate_version": "0.9.9"}
-    dst_path = _render(tmp_path, answers, "disambiguate-pin")
+    dst_path = render_answers(tmp_path, answers, "disambiguate-pin")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         ["uvx disambiguate==0.9.9"],
         unexpect_strs=["uvx disambiguate <term>", "uvx disambiguate --from"],
     )
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".pre-commit-config.yaml",
         [
             "disambiguate-lint",
@@ -419,7 +387,7 @@ def test_disambiguate_roots_default_renders_bare_lint(
     base_answers: dict[str, str],
 ) -> None:
     """Empty roots answer (default): hook entry stays bare `--lint`."""
-    dst_path = _render(tmp_path, base_answers, "disambiguate-roots-default")
+    dst_path = render_answers(tmp_path, base_answers, "disambiguate-roots-default")
 
     precommit = (dst_path / ".pre-commit-config.yaml").read_text()
     entry_lines = [
@@ -438,136 +406,17 @@ def test_disambiguate_roots_answer_appends_lint_args(
     """A roots answer is appended verbatim to the hook's `--lint` entry."""
     roots = "docs/glossary/ --roots docs/conventions.md 'docs/notes/*.md'"
     answers = {**base_answers, "agentic_disambiguate_roots": roots}
-    dst_path = _render(tmp_path, answers, "disambiguate-roots")
+    dst_path = render_answers(tmp_path, answers, "disambiguate-roots")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".pre-commit-config.yaml",
         [f"--lint {roots}"],
     )
     # Roots survive `copier update` as data in the answers file.
-    _check_file_contents(
+    check_file_contents(
         dst_path / ".copier-answers.agentic.yml",
         ["agentic_disambiguate_roots:"],
     )
-
-
-def test_github_forge_ships_template_update_workflow(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """GitHub forge: scheduled copier-update workflow rendered verbatim."""
-    dst_path = _render(tmp_path, base_answers, "updater-github")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "template-update.yml",
-        [
-            "workflow_dispatch",
-            "copier update",
-            "--defaults --trust --skip-tasks",
-            "copier-template-extensions",
-            # --skip-tasks skips the post-stamp glossary prune; the
-            # workflow runs the same script explicitly or every update
-            # ships orphans (#203).
-            "bash scripts/ci/prune_glossary.sh || true",
-            "actions/create-github-app-token",
-            "RELEASE_BOT_CLIENT_ID",
-            "RELEASE_BOT_PRIVATE_KEY",
-            "chore/template-update-",
-            # GitHub expressions must survive rendering (file is not Jinja).
-            "${{ steps.app-token.outputs.token }}",
-            # The ticket gate's designed escape reaches the PR that needs
-            # it: the label is bootstrapped (this PR may be delivering
-            # labels.toml's entry) and applied at creation.
-            "gh label create automated",
-            "--label automated",
-            # A stale update PR is joined, never closed: the new release
-            # lands as a commit on it and the PR is refreshed in place,
-            # so conflict resolutions on the branch survive (#137).
-            "Skip on a current update PR, join a stale one",
-            'gh pr edit "$EXISTING_PR"',
-        ],
-    )
-
-
-def test_forgejo_forge_ships_no_github_workflow(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """Forgejo forge: no .github directory — the updater is GitHub-only."""
-    answers = {
-        **base_answers,
-        "agentic_forge": "forgejo",
-        "agentic_forgejo_host": "git.example.com",
-    }
-    dst_path = _render(tmp_path, answers, "updater-forgejo")
-
-    assert not (dst_path / ".github").exists()
-
-
-def test_github_forge_ships_notify_sessions_manifest_workflow(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """GitHub forge: the sessions-marker notify workflow is vendored.
-
-    Vendored unconditionally because its path filter makes it inert in
-    any repo without a `.pandoscope-sessions` marker; the marker itself
-    stays a per-repo opt-in the template never stamps.
-    """
-    dst_path = _render(tmp_path, base_answers, "notify-github")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "notify-sessions-manifest.yml",
-        [
-            'paths: [".pandoscope-sessions"]',
-            "event_type=sessions-marker-changed",
-            "runs-on: ubuntu-latest",
-            # GitHub expressions must survive rendering (file is not Jinja).
-            "${{ vars.RELEASE_BOT_CLIENT_ID }}",
-            "${{ secrets.RELEASE_BOT_PRIVATE_KEY }}",
-        ],
-    )
-    assert not (dst_path / ".pandoscope-sessions").exists(), (
-        "the marker is a per-repo opt-in, never stamped by the template"
-    )
-
-
-def test_lint_workflow_guards_vendored_template_drift(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """Hand-editing a template-vendored file must turn CI red.
-
-    The lint workflow recopies the STAMPED template version (the
-    `_commit` in the answers file) and fails on any diff — a
-    local-modification check, orthogonal to the being-behind drift the
-    template-update weekly audit covers. Rendered even without prek,
-    like the conflict-marker job: both guard the template contract. The
-    template repo itself carries no answers file, so the job skips
-    cleanly there. CLAUDE.md is judged like every other stamped file
-    (#213 ruling: fail loudly, never exempt silently); --overwrite only
-    gets a terminal-less runner past copier's prompt to that verdict.
-    """
-    for precommit in ("prek", "none"):
-        answers = {**base_answers, "agentic_precommit": precommit}
-        dst_path = _render(tmp_path, answers, f"lint-drift-{precommit}")
-
-        _check_file_contents(
-            dst_path / ".github" / "workflows" / "lint.yml",
-            [
-                "copier recopy",
-                '--defaults --trust --skip-tasks --overwrite --vcs-ref "$stamped"',
-                "copier-template-extensions",
-                # Recopy resurrects the terms the stamp pruned; the drift
-                # job prunes again so a converged glossary is not drift
-                # (#203).
-                "bash scripts/ci/prune_glossary.sh || true",
-                "awk '$1 == \"_commit:\" {print $2}'",
-                "not a stamped repo",
-                "git status --porcelain",
-                "template-owned",
-            ],
-        )
 
 
 def test_claude_md_states_principal_precedence(
@@ -581,9 +430,9 @@ def test_claude_md_states_principal_precedence(
     against the Forge Budget rule, and the harness's session-named
     development branch overrode the AGENTS.md branch convention.
     """
-    dst_path = _render(tmp_path, base_answers, "claude-precedence")
+    dst_path = render_answers(tmp_path, base_answers, "claude-precedence")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "CLAUDE.md",
         [
             "## Principal Precedence",
@@ -611,9 +460,9 @@ def test_agents_md_rules_branch_repair_commits_as_fixups(
     before merge — standalone fix:/refactor: commits are for defects
     that exist on main. The red commitlint gate while a fixup! exists
     is the fold reminder."""
-    dst_path = _render(tmp_path, base_answers, "fixup-rule")
+    dst_path = render_answers(tmp_path, base_answers, "fixup-rule")
 
-    _check_file_contents(
+    check_file_contents(
         dst_path / "AGENTS.md",
         [
             "branch's own commits is a `fixup!`",
@@ -621,722 +470,3 @@ def test_agents_md_rules_branch_repair_commits_as_fixups(
             "defects that already exist on `main`",
         ],
     )
-
-
-def test_branch_name_hook_guards_the_pattern(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A claude/* branch that the gate cannot parse is refused at
-    commit time (skills#147): otherwise the ticket gate's
-    branch-derived half silently never fires. Other prefixes and a
-    repo without the keywords file (Forgejo) pass."""
-    dst_path = _render(tmp_path, base_answers, "branch-name-hook")
-
-    _check_file_contents(
-        dst_path / ".pre-commit-config.yaml",
-        ["id: branch-name", "scripts/check-branch-name.sh"],
-    )
-    script = dst_path / "scripts" / "check-branch-name.sh"
-    assert script.stat().st_mode & 0o111, "hook script must be executable"
-
-    def run_on(branch: str, keywords: bool = True) -> subprocess.CompletedProcess:
-        repo = tmp_path / f"repo-{branch.replace('/', '_')}-{keywords}"
-        repo.mkdir()
-        subprocess.run(["git", "init", "-q", "-b", "main"], cwd=repo, check=True)
-        if keywords:
-            (repo / ".github").mkdir()
-            source = (dst_path / ".github" / "reference-keywords.json").read_text()
-            (repo / ".github" / "reference-keywords.json").write_text(source)
-        subprocess.run(["git", "checkout", "-q", "-b", branch], cwd=repo, check=True)
-        return subprocess.run([str(script)], cwd=repo, capture_output=True, text=True)
-
-    assert run_on("claude/sk162-session-probe").returncode == 0
-    assert run_on("claude/196-precedence").returncode == 0
-    assert run_on("claude/7-9-two-tickets").returncode == 0
-
-    bad = run_on("claude/memory-tools-consolidation-h7fnxf")
-    assert bad.returncode != 0
-    assert "branch_pattern" in bad.stderr
-
-    assert run_on("chore/template-update-v9").returncode == 0
-    assert run_on("claude/anything", keywords=False).returncode == 0
-
-
-def test_linear_history_hooks_refuse_a_merge_into_a_working_branch(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A claude/* branch is rebased onto main, never merged into
-    (skills#147): the only merge commits are the forge's own. Three
-    prek stages share one script — the merge is refused as `git merge`
-    would commit it, a conflicted merge finished with `git commit` is
-    refused at pre-commit, and the push is the backstop for a merge
-    that got past both. A merge commit main already holds passes."""
-    dst_path = _render(tmp_path, base_answers, "linear-history-hooks")
-
-    _check_file_contents(
-        dst_path / ".pre-commit-config.yaml",
-        [
-            "default_install_hook_types: [pre-commit, commit-msg, pre-merge-commit, pre-push]",
-            "id: linear-history",
-            "scripts/check-linear-history.sh",
-            "stages: [pre-merge-commit]",
-            "stages: [pre-push]",
-        ],
-    )
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "lint.yml",
-        [
-            "linear-history:",
-            'name: "linear history (PR commits)"',
-            "git rev-list --merges",
-        ],
-    )
-    script = dst_path / "scripts" / "check-linear-history.sh"
-    assert script.stat().st_mode & 0o111, "hook script must be executable"
-
-    env = {
-        **os.environ,
-        "GIT_AUTHOR_NAME": "t",
-        "GIT_AUTHOR_EMAIL": "t@example.test",
-        "GIT_COMMITTER_NAME": "t",
-        "GIT_COMMITTER_EMAIL": "t@example.test",
-    }
-
-    def git(repo: Path, *args: str) -> str:
-        return subprocess.run(
-            ["git", "-C", str(repo), *args],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=env,
-        ).stdout.strip()
-
-    def land(repo: Path, branch: str, msg: str) -> None:
-        git(repo, "checkout", "-q", branch)
-        with (repo / f"{branch.replace('/', '-')}.txt").open("a") as fh:
-            fh.write(msg + "\n")
-        git(repo, "add", "-A")
-        git(repo, "commit", "-q", "-m", msg)
-        git(repo, "push", "-q", "origin", branch)
-
-    def diverged(name: str) -> Path:
-        """A working branch off main, with main advanced past it on origin."""
-        origin = tmp_path / f"{name}.git"
-        subprocess.run(
-            ["git", "init", "-q", "--bare", "-b", "main", origin], check=True
-        )
-        repo = tmp_path / name
-        subprocess.run(
-            ["git", "clone", "-q", str(origin), str(repo)],
-            check=True,
-            capture_output=True,
-        )
-        git(repo, "checkout", "-q", "-b", "main")
-        (repo / "README.md").write_text("seed\n")
-        git(repo, "add", "-A")
-        git(repo, "commit", "-q", "-m", "chore: seed")
-        git(repo, "push", "-q", "-u", "origin", "main")
-        git(repo, "remote", "set-head", "origin", "main")
-        git(repo, "checkout", "-q", "-b", "claude/147-work", "main")
-        land(repo, "claude/147-work", "feat: the work")
-        land(repo, "main", "feat: a merged PR")
-        git(repo, "checkout", "-q", "claude/147-work")
-        git(repo, "fetch", "-q", "origin")
-        return repo
-
-    def check(repo: Path, mode: str, **extra: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [str(script), mode],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            env={**env, **extra},
-        )
-
-    # --merge: the pre-merge-commit stage, on a working branch.
-    repo = diverged("merge")
-    refused = check(repo, "--merge")
-    assert refused.returncode != 0
-    assert "git merge --abort && git rebase origin/main" in refused.stderr
-    git(repo, "checkout", "-q", "main")
-    assert check(repo, "--merge").returncode == 0, "main is not a working branch"
-
-    # --commit: a conflicted merge being finished by hand.
-    repo = diverged("commit")
-    assert check(repo, "--commit").returncode == 0, "an ordinary commit passes"
-    (repo / ".git" / "MERGE_HEAD").write_text(
-        git(repo, "rev-parse", "origin/main") + "\n"
-    )
-    refused = check(repo, "--commit")
-    assert refused.returncode != 0
-    assert "git merge --abort && git rebase origin/main" in refused.stderr
-
-    # --push: the backstop, fed the refs prek hands a pre-push hook.
-    repo = diverged("push")
-    git(repo, "merge", "--no-ff", "origin/main", "-m", "chore: merge main")
-    refs = {
-        "PRE_COMMIT_LOCAL_BRANCH": "refs/heads/claude/147-work",
-        "PRE_COMMIT_TO_REF": git(repo, "rev-parse", "HEAD"),
-    }
-    refused = check(repo, "--push", **refs)
-    assert refused.returncode != 0
-    assert "chore: merge main" in refused.stderr
-    assert "git rebase origin/main" in refused.stderr
-    git(repo, "reset", "-q", "--hard", "HEAD~1")
-    git(repo, "rebase", "-q", "origin/main")
-    refs["PRE_COMMIT_TO_REF"] = git(repo, "rev-parse", "HEAD")
-    assert check(repo, "--push", **refs).returncode == 0, "a linear branch pushes"
-
-    # A forge merge on main is not the branch's: a working branch off
-    # a merged main is linear in its own range.
-    repo = diverged("forge")
-    git(repo, "checkout", "-q", "main")
-    git(repo, "merge", "--no-ff", "claude/147-work", "-m", "Merge pull request #1")
-    git(repo, "push", "-q", "origin", "main")
-    git(repo, "checkout", "-q", "-b", "claude/148-next", "main")
-    (repo / "next.txt").write_text("next\n")
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "feat: next")
-    refs = {
-        "PRE_COMMIT_LOCAL_BRANCH": "refs/heads/claude/148-next",
-        "PRE_COMMIT_TO_REF": git(repo, "rev-parse", "HEAD"),
-    }
-    assert check(repo, "--push", **refs).returncode == 0
-
-
-def test_commitlint_config_rejects_fixup_and_squash_commits(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """commitlint must parse fixup!/squash! headers, not skip them.
-
-    commitlint's defaultIgnores silently exempts fixup!/squash!
-    commits (measured: a fixup! commit sailed through the PR gate), so
-    "the type enum IS the allow-list" only holds with defaultIgnores
-    off. Merge headers get NO exemption — merge commits are allowed
-    only on main (ruled), and this gate lints only feature-branch
-    commits, so a Merge header in its range is itself the violation.
-    Only git-generated revert headers stay exempt: they are not
-    conventional, and reverts are legitimate anywhere.
-    """
-    dst_path = _render(tmp_path, base_answers, "commitlint-ignores")
-
-    _check_file_contents(
-        dst_path / "commitlint.config.mjs",
-        [
-            "defaultIgnores: false",
-            "startsWith('Revert \"')",
-        ],
-        unexpect_strs=['startsWith("Merge'],
-    )
-
-
-def test_grilling_pinned_to_frankify_derivation(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """`grilling` pins the frankify-app/skills derivation, not upstream."""
-    dst_path = _render(tmp_path, base_answers, "grilling-pin")
-
-    lock = json.loads((dst_path / "skills-lock.json").read_text())
-    grilling = lock["skills"]["grilling"]
-    assert grilling["source"] == "frankify-app/skills"
-    assert grilling["skillPath"] == "derived/grilling/SKILL.md"
-
-
-def test_decision_memory_url_env_var_contract(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """DECISION_MEMORY_URL is an env-var-only contract: no copier question,
-    no value in any committed artifact (.copier-answers* included); AGENTS.md
-    documents the contract and doctor.sh checks the env var."""
-    # Even if a consumer passes a URL as copier data, it must render nowhere.
-    stray_url = "https://github.com/acme/decision-memory"
-    answers = {**base_answers, "agentic_decision_memory_url": stray_url}
-    dst_path = _render(tmp_path, answers, "decision-memory")
-
-    for path in dst_path.rglob("*"):
-        if path.is_file():
-            assert stray_url not in path.read_text(), (
-                f"DECISION_MEMORY_URL value leaked into {path}"
-            )
-
-    # Not an init-time answer: no question, so nothing recorded on update.
-    _check_file_contents(
-        dst_path / ".copier-answers.agentic.yml",
-        unexpect_strs=["decision_memory"],
-    )
-    _check_file_contents(
-        dst_path / "AGENTS.md",
-        ["DECISION_MEMORY_URL", "skips recording"],
-    )
-    _check_file_contents(
-        dst_path / "scripts" / "doctor.sh",
-        ["DECISION_MEMORY_URL", 'git ls-remote "$DECISION_MEMORY_URL"'],
-    )
-
-
-def test_copier_has_no_decision_memory_question() -> None:
-    """The template must never ask for the decision-memory URL at init time."""
-    copier_yml = (PROJECT_ROOT / "copier.yml").read_text()
-    assert "decision_memory" not in copier_yml
-
-
-def test_github_forge_ships_lint_workflow_with_prek_job(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """GitHub forge + prek: lint workflow with marker check and prek jobs."""
-    dst_path = _render(tmp_path, base_answers, "lint-github-prek")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "lint.yml",
-        [
-            "pull_request",
-            "cancel-in-progress: true",
-            "git grep -nE",
-            "::error::",
-            ":!.agents/skills",
-            "uvx prek run --all-files --show-diff-on-failure",
-            "astral-sh/setup-uv",
-            # GitHub expressions must survive Jinja rendering.
-            "${{ github.ref }}",
-            # commitlint resolves the `extends` preset from the repo
-            # directory, so the preset is installed there — a cache-only
-            # `npx -p` install dies with MODULE_NOT_FOUND (#137).
-            "npm install --no-save --no-audit --no-fund @commitlint/cli@19 @commitlint/config-conventional@19",
-            "npx --no-install commitlint --config commitlint.config.mjs",
-        ],
-    )
-
-
-def test_lint_workflow_without_prek_keeps_marker_check(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """agentic_precommit=none: marker check stays (guards the updater
-    contract), the prek job is omitted."""
-    answers = {**base_answers, "agentic_precommit": "none"}
-    dst_path = _render(tmp_path, answers, "lint-github-none")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "lint.yml",
-        ["git grep -nE", "::error::"],
-        unexpect_strs=["prek"],
-    )
-
-
-def test_prek_bootstrap_rendered_and_wired(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """Template#53: prek enforcement ships with every prek-enabled render.
-
-    Copier's generation-time `prek install` task does not survive a fresh
-    `git clone`, so remote agent sessions need a SessionStart bootstrap.
-    """
-    dst_path = _render(tmp_path, base_answers, "prek-bootstrap")
-
-    assert (dst_path / "scripts" / "ensure-prek.sh").exists()
-    settings = json.loads((dst_path / ".claude" / "settings.json").read_text())
-    commands = [
-        hook["command"]
-        for group in settings["hooks"]["SessionStart"]
-        for hook in group["hooks"]
-    ]
-    assert any("ensure-prek.sh" in command for command in commands)
-    _check_file_contents(
-        dst_path / "AGENTS.md",
-        expected_strs=["prek run --all-files", "chore(stub):"],
-    )
-
-
-def test_precommit_none_omits_prek_bootstrap(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    answers = {**base_answers, "agentic_precommit": "none"}
-    dst_path = _render(tmp_path, answers, "prek-bootstrap-none")
-
-    assert not (dst_path / "scripts" / "ensure-prek.sh").exists()
-    settings = json.loads((dst_path / ".claude" / "settings.json").read_text())
-    commands = [
-        hook["command"]
-        for group in settings["hooks"]["SessionStart"]
-        for hook in group["hooks"]
-    ]
-    assert not any("ensure-prek.sh" in command for command in commands)
-
-
-# ------------------ org plumbing: labels + board auto-add ------------------
-
-
-def test_github_forge_ships_label_config_and_sync_workflow(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """Labels are config-as-code so the taxonomy is one file, not seven
-    clicked-in sets that drift."""
-    dst_path = _render(tmp_path, base_answers, "labels-github")
-
-    _check_file_contents(
-        dst_path / ".github" / "labels.toml",
-        [
-            # Triage taxonomy — the evidence store's `triage` values, so a
-            # record and its ticket classify the same way.
-            "code-bug",
-            "doc-bug",
-            "expectation-bug",
-            "feature",
-            # The quarantine lane's marker (agentic-engineering-template#62).
-            "needs-human-review",
-            # Kept deliberately: these are what Dependabot applies.
-            "dependencies",
-            "github_actions",
-        ],
-    )
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "labels.yml",
-        [
-            # Only fires when the taxonomy itself changes.
-            ".github/labels.toml",
-            "workflow_dispatch",
-            "LABELS_TOKEN",
-        ],
-    )
-
-
-def test_label_sync_is_skipped_rather_than_failed_without_its_token(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A repo that never sets the org secret must not show a permanently
-    red workflow — but the job has to be visibly SKIPPED, never a silent
-    green, or the absence of the sync reads as a successful sync."""
-    dst_path = _render(tmp_path, base_answers, "labels-guard")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "labels.yml",
-        ["if: ${{ vars.LABELS_SYNC_ENABLED == 'true' }}"],
-    )
-
-
-def test_github_forge_ships_board_auto_add_workflow(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """GitHub's built-in auto-add is plan-limited to one repository, so
-    the board is populated by an action instead."""
-    dst_path = _render(tmp_path, base_answers, "board-github")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "add-to-project.yml",
-        [
-            "actions/add-to-project",
-            # The default GITHUB_TOKEN is repo-scoped and cannot write to
-            # an ORG-level project.
-            "PROJECT_BOARD_TOKEN",
-            "vars.PROJECT_BOARD_URL",
-            # Fork PRs carry no secrets under `pull_request`; the base-context
-            # event is what makes the token reachable. Safe here only because
-            # nothing checks out PR code.
-            "pull_request_target",
-        ],
-    )
-
-
-def test_github_forge_ships_ticket_close_dispatch(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """The session-memory store closes a thread when its ticket closes,
-    and it cannot hear another repository's events — so every stamped
-    repo reports its own closes. The store's location is an org-level
-    variable, never baked in at stamping time: the rendered file must
-    name no org's store."""
-    dst_path = _render(tmp_path, base_answers, "ticket-closed")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "ticket-closed.yml",
-        [
-            "repos/${STORE}/dispatches",
-            "event_type=ticket-closed",
-            # The dispatch crosses repositories, which the repo-scoped
-            # GITHUB_TOKEN cannot do. The release-bot app signs instead
-            # of a PAT: its key already reaches every stamped repo and
-            # never expires.
-            "actions/create-github-app-token",
-            "RELEASE_BOT_PRIVATE_KEY",
-            # The minted token reaches the store repo alone.
-            "repositories: ${{ steps.store.outputs.name }}",
-            # Unset store variable -> visibly SKIPPED, never silent green.
-            "if: ${{ vars.SESSION_MEMORY_REPO != '' }}",
-        ],
-    )
-    content = (dst_path / ".github" / "workflows" / "ticket-closed.yml").read_text()
-    assert "session-memory" not in content.replace("session-memory store", "")
-
-
-def test_forgejo_forge_ships_no_github_org_plumbing(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """Both workflows are GitHub-specific: `labels` targets the GitHub
-    API and Projects V2 has no Forgejo counterpart."""
-    answers = {
-        **base_answers,
-        "agentic_forge": "forgejo",
-        "agentic_forgejo_host": "codeberg.org",
-    }
-    dst_path = _render(tmp_path, answers, "no-plumbing-forgejo")
-
-    assert not (dst_path / ".github").exists()
-
-
-def test_consumers_are_told_about_a_release_rather_than_polling_for_it(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A weekly poll means a template release reaches a consumer up to
-    seven days later — a timer catching up, not a mechanism. The cron
-    stays as the backstop: it is what makes a FAILED dispatch survivable,
-    and it covers repos stamped after the fan-out already ran.
-    """
-    dst_path = _render(tmp_path, base_answers, "dispatch-trigger")
-
-    _check_file_contents(
-        dst_path / ".github" / "workflows" / "template-update.yml",
-        [
-            "repository_dispatch:",
-            "types: [template-released]",
-            'cron: "17 5 * * 1"',
-            "workflow_dispatch:",
-        ],
-    )
-
-
-def test_the_weekly_run_fails_loudly_when_the_repo_is_behind(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A green weekly run must mean "on the latest template", not "the
-    workflow executed". Being quietly behind is the state the whole
-    updater exists to prevent, and it is invisible otherwise.
-
-    Only on `schedule`: the cron is the auditor. A dispatch that fails
-    is already visible to whoever triggered it.
-    """
-    dst_path = _render(tmp_path, base_answers, "update-audit")
-    workflow = (dst_path / ".github" / "workflows" / "template-update.yml").read_text()
-
-    assert "github.event_name == 'schedule'" in workflow
-    # Both drift causes are named, because the remedy differs: merge the
-    # PR, versus go and look at why the fan-out never arrived.
-    assert "has not been merged" in workflow
-    assert "did not reach this repo" in workflow
-    assert "::error::" in workflow
-
-
-def _detect_forge():
-    """The template's own probe, loaded from the extension it ships."""
-    return load_module(
-        "agentic_ext", PROJECT_ROOT / "extensions" / "agentic.py"
-    ).detect_forge()
-
-
-def _git_repo_with_origin(path: Path, url: str) -> None:
-    """A throwaway repo, so `detect_forge()` sees the remote we choose."""
-    path.mkdir(parents=True, exist_ok=True)
-    subprocess.run(["git", "init", "-q"], cwd=path, check=True)
-    subprocess.run(["git", "remote", "add", "origin", url], cwd=path, check=True)
-
-
-@pytest.mark.parametrize(
-    "origin_url",
-    [
-        # Detection succeeds — the case that dropped the answer.
-        "https://github.com/acme/widget.git",
-        # Detection fails — any non-github remote, including the local
-        # proxy a sandboxed agent session actually runs behind.
-        "http://127.0.0.1:41729/git/acme/widget",
-    ],
-)
-def test_the_forge_answer_is_recorded_however_the_render_environment_looks(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-    monkeypatch: pytest.MonkeyPatch,
-    origin_url: str,
-) -> None:
-    """The answers file is the record of how a repo was stamped, so a
-    question whose `when` consults the ENVIRONMENT makes that record
-    depend on where the render ran.
-
-    `detect_forge()` shells out to `git remote get-url origin` in the
-    process CWD. Gating the question on it meant the answer was written
-    when detection failed and dropped when it succeeded — two checkouts
-    of one commit producing different answers files. Detection belongs
-    in the default, not in the gate.
-    """
-    cwd = tmp_path / "cwd"
-    _git_repo_with_origin(cwd, origin_url)
-    monkeypatch.chdir(cwd)
-
-    # Assert the PRECONDITION, not a correlate of it. GitHub reachability
-    # is not the question — a git config `insteadOf` rewrite can map every
-    # github.com URL to a proxy, which leaves the network fine and the
-    # probe permanently blind. A sandboxed agent session is exactly that.
-    #
-    # Skip rather than pass: a test that cannot reach its own condition
-    # must not report the same colour as one that checked it.
-    detected = _detect_forge()
-    wanted = "github" if "github.com" in origin_url else None
-    if detected != wanted:
-        pytest.skip(
-            f"environment cannot exercise this case: origin {origin_url!r} "
-            f"resolves to detect_forge()={detected!r}, wanted {wanted!r}"
-        )
-
-    # Deliberately NOT supplied: an explicit value is recorded whatever
-    # `when` says, which is exactly what hides the defect. A real update
-    # supplies nothing — it reuses the answers file and re-evaluates the
-    # gate, so a key recorded last time can silently vanish.
-    answers_in = {k: v for k, v in base_answers.items() if k != "agentic_forge"}
-
-    dst_path = _render(tmp_path, answers_in, "forge-recorded")
-    answers = (dst_path / ".copier-answers.agentic.yml").read_text()
-
-    assert "agentic_forge: github" in answers
-
-
-# Globals the Jinja extension injects. Anything here reads the machine
-# the render happens on, not the answers.
-ENVIRONMENT_PROBES = ("detect_forge", "resolve_repo_owner")
-
-
-def test_no_question_gate_consults_the_environment() -> None:
-    """A `when` clause decides whether an answer is RECORDED, so one that
-    probes the machine makes the answers file depend on where the render
-    ran — two checkouts of one commit, two different files.
-
-    `agentic_forge` had exactly this: gated on `detect_forge()`, it was
-    written when detection failed and dropped when it succeeded. The
-    remedy is not specific to that question, so neither is this test.
-
-    Probes belong in `default`, where they seed a first stamp and are
-    then superseded by the recorded answer. `agentic_repo_owner` is the
-    worked example: same probe, in the default, always recorded.
-    """
-    questions = yaml.safe_load((PROJECT_ROOT / "copier.yml").read_text())
-
-    offenders = [
-        name
-        for name, spec in questions.items()
-        if isinstance(spec, dict)
-        for probe in ENVIRONMENT_PROBES
-        if probe in str(spec.get("when", ""))
-    ]
-
-    assert offenders == [], (
-        f"{offenders}: `when` must depend only on other answers. Move the "
-        "probe into `default` so the answer is asked, recorded, and "
-        "reproducible."
-    )
-
-
-def test_architecture_and_project_term_are_seeded_once(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """The architecture stub and the project's own glossary term are
-    seeds, not stamps (#216).
-
-    Both start as one-liners derived from the answers, and a real repo
-    grows the full document in place. Stamping them again would reset
-    that on every `copier update`, and the vendored-drift check would
-    then judge a repo for owning its own architecture.
-    """
-    dst_path = _render(tmp_path, base_answers, "seeded")
-
-    architecture = dst_path / "docs" / "architecture.md"
-    term = dst_path / "docs" / "glossary" / f"{base_answers['agentic_project_slug']}.md"
-    architecture.write_text("# The real architecture\n")
-    term.write_text("## Snake Farm\n\nThe real definition.\n")
-
-    copier.run_copy(
-        src_path=str(PROJECT_ROOT),
-        dst_path=dst_path,
-        data=base_answers,
-        defaults=True,
-        unsafe=True,
-        skip_tasks=True,
-        overwrite=True,
-        vcs_ref="HEAD",
-    )
-
-    assert architecture.read_text() == "# The real architecture\n"
-    assert term.read_text() == "## Snake Farm\n\nThe real definition.\n"
-
-
-def test_repo_owned_hooks_pass_while_the_seeded_config_is_hookless(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """The delegating hook exits 0 on the seeded `repos: []` config (#236).
-
-    prek exits nonzero on a config that defines no hooks, so a freshly
-    stamped repo failed `prek run --all-files` out of the box. The entry
-    must treat a hookless local config like the no-config case.
-    """
-    dst_path = _render(tmp_path, base_answers, "repo-hooks-empty")
-
-    stamped = yaml.safe_load((dst_path / ".pre-commit-config.yaml").read_text())
-    entry = next(
-        hook["entry"]
-        for repo in stamped["repos"]
-        for hook in repo.get("hooks", [])
-        if hook.get("id") == "repo-hooks"
-    )
-    result = subprocess.run(
-        [*shlex.split(entry), "README.md"],
-        cwd=dst_path,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-
-
-def test_repo_owned_hooks_get_a_seeded_config_of_their_own(
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A repo's language hooks live in a file the template seeds once
-    and never stamps again (#216).
-
-    The stamped config delegates to it, so the hooks still run on every
-    commit, while the vendored-drift check has nothing to judge — the
-    repo never has to edit a template-owned file to lint its own code.
-    """
-    dst_path = _render(tmp_path, base_answers, "repo-hooks")
-
-    local = dst_path / ".pre-commit-config.local.yaml"
-    _check_file_contents(local, ["repos:"])
-    stamped = (dst_path / ".pre-commit-config.yaml").read_text()
-    assert "repo-hooks" in stamped
-    assert ".pre-commit-config.local.yaml" in stamped
-
-    local.write_text("repos:\n  - repo: local\n    hooks: []\n")
-    copier.run_copy(
-        src_path=str(PROJECT_ROOT),
-        dst_path=dst_path,
-        data=base_answers,
-        defaults=True,
-        unsafe=True,
-        skip_tasks=True,
-        overwrite=True,
-        vcs_ref="HEAD",
-    )
-    assert local.read_text() == "repos:\n  - repo: local\n    hooks: []\n"

@@ -1,7 +1,7 @@
 """The vendored store layer's self-test runs in this repo's suite too.
 
-The same file runs inside a store, driven by preferences-guard.yml.
-Running it here as well means a template-side edit cannot ship a
+The same suites run inside a store, driven by preferences-guard.yml.
+Running them here as well means a template-side edit cannot ship a
 broken preference-set lifecycle to every store that updates.
 """
 
@@ -12,19 +12,27 @@ import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).parent.parent
-STORE_SELF_TEST = (
-    PROJECT_ROOT / "decision-memory" / ".github" / "store" / "tests" / "test_store.py"
-)
+STORE_ROOT = PROJECT_ROOT / "decision-memory"
+STORE_TESTS = STORE_ROOT / ".github" / "store" / "tests"
 
 
 def test_vendored_store_layer_self_test_passes() -> None:
-    """The store layer's own unittest suite must pass in the template.
+    """The store layer's own unittest suites must pass in the template.
 
-    Runs as a subprocess because the file bootstraps sys.path relative
-    to its own location, exactly as it does in a store checkout.
+    Runs as a subprocess, discovering from the store root exactly as
+    preferences-guard.yml does: the suites bootstrap sys.path relative
+    to their own location, which only holds outside this pytest process.
     """
     result = subprocess.run(
-        [sys.executable, str(STORE_SELF_TEST)],
+        [
+            sys.executable,
+            "-m",
+            "unittest",
+            "discover",
+            "--start-directory",
+            str(STORE_TESTS.relative_to(STORE_ROOT)),
+        ],
+        cwd=STORE_ROOT,
         capture_output=True,
         text=True,
         check=False,

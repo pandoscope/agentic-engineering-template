@@ -80,6 +80,16 @@ agentic_precommit:
   default: prek
   when: "{{ agentic_subtemplate == 'template' }}"
 
+agentic_max_file_lines:
+  type: int
+  help: >-
+    Lines a source file may have before the file-length hook fails. A repo
+    that wants a different cap answers it here, and the answers file records
+    that it did; existing overruns go on .file-length-allowlist with the
+    ticket that will bring each one back under.
+  default: 800
+  when: "{{ agentic_subtemplate == 'template' }}"
+
 agentic_actions_runner:
   type: str
   help: >-
@@ -190,6 +200,10 @@ _skip_if_exists:
   # stamped .pre-commit-config.yaml delegates to it, so they run on every
   # commit while the drift check has no template-owned file to judge.
   - "{% if agentic_subtemplate == 'template' and agentic_precommit == 'prek' %}.pre-commit-config.local.yaml{% endif %}"
+  # The file-length allowlist is the repo's own: which overruns it
+  # tolerates and the ticket closing each one cannot survive being
+  # stamped over on every update.
+  - "{% if agentic_subtemplate == 'template' and agentic_precommit == 'prek' %}.file-length-allowlist{% endif %}"
   # The store's preference set (source + render) and its config knobs are
   # seeded once and owned by the store; everything else in the decision-memory
   # subtemplate is vendored (overwritten on copier update). Clobbering any of

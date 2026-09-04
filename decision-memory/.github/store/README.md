@@ -341,7 +341,7 @@ decision with its costs laid out.
 ## Tests
 
 ```bash
-python .github/store/tests/test_store.py
+python -m unittest discover --start-directory .github/store/tests
 ```
 
 The git-facing adapters are thin; the decisions live in pure functions,

@@ -39,6 +39,15 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+      # Source length (#239), the same hook the template ships. The
+      # limit is this repo's own answer to agentic_max_file_lines; the
+      # allowlist beside it is empty, and an entry needs the ticket
+      # that will bring its file back under.
+      - id: file-length
+        name: no source file over the line limit
+        entry: python3 scripts/check_file_length.py --max 800
+        language: system
+        files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash)(\.jinja)?$
       # The self-application route, checked where the information still
       # exists (#130). A root file with a `template/` counterpart is
       # render output, so a commit edits the source or the stamp, never

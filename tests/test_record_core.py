@@ -22,6 +22,10 @@ PROJECT_ROOT = Path(__file__).parent.parent
 record_tool = load_module(
     "record_tool", PROJECT_ROOT / "decision-memory" / "tools" / "record.py"
 )
+# The IO shell is its own module; the checkout-facing helpers live there.
+record_store = load_module(
+    "record_store", PROJECT_ROOT / "decision-memory" / "tools" / "record_store.py"
+)
 dv = load_module(
     "decision_validator",
     PROJECT_ROOT / "decision-memory" / ".github" / "guards" / "decision_validator.py",
@@ -145,7 +149,7 @@ def test_serialize_record_round_trips() -> None:
 
 
 def test_repo_url_tail_matches_across_url_forms() -> None:
-    tail = record_tool.repo_url_tail
+    tail = record_store.repo_url_tail
     assert tail("https://github.com/acme/decision-memory.git") == (
         "acme/decision-memory"
     )
@@ -239,9 +243,8 @@ def test_recorder_operates_on_the_checkout_it_lives_in(tmp_path: Path) -> None:
     store = tmp_path / "decision-memory"
     (store / "tools").mkdir(parents=True)
     (store / ".git").mkdir()
-    (store / "tools" / "record.py").write_text(
-        (PROJECT_ROOT / "decision-memory" / "tools" / "record.py").read_text()
-    )
+    for module in (PROJECT_ROOT / "decision-memory" / "tools").glob("*.py"):
+        (store / "tools" / module.name).write_text(module.read_text())
     relocated = load_module("relocated_record", store / "tools" / "record.py")
     assert relocated.store_root() == store
 

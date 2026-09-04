@@ -52,11 +52,20 @@ COMMON_FILES = frozenset(
         "docs/glossary/pandoscope-template.md",
         "scripts/check-branch-name.sh",
         "scripts/check-linear-history.sh",
+        "scripts/check_file_length.py",
         "scripts/enable-agent-shims.sh",
         "skills-lock.json",
         # The uniform gate's judge (#137) renders on every forge; only
         # its GitHub workflow vehicle is forge-conditional.
         "scripts/ci/check_gate.py",
+        "scripts/ci/gate_aggregate.py",
+        "scripts/ci/gate_api.py",
+        "scripts/ci/gate_approval.py",
+        "scripts/ci/gate_leaks.py",
+        "scripts/ci/gate_payload.py",
+        "scripts/ci/gate_rerun.py",
+        "scripts/ci/gate_reviews.py",
+        "scripts/ci/gate_ticket.py",
         # The glossary prune (#67, #203, #210): task, update workflow,
         # drift job and the template root all run this one script.
         "scripts/ci/prune_glossary.sh",
@@ -110,6 +119,9 @@ EXPECTED_WITH_PREK = (
         # Seeded once (#216): a home for the repo's own hooks that the
         # template never stamps again and the drift check never judges.
         ".pre-commit-config.local.yaml",
+        # Seeded once (#239): the repo's own record of which overruns it
+        # tolerates and the ticket closing each one.
+        ".file-length-allowlist",
         "scripts/ensure-prek.sh",
     }
 )

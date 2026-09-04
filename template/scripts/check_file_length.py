@@ -32,7 +32,15 @@ import sys
 ALLOWLIST = ".file-length-allowlist"
 DEFAULT_MAX_TOKENS = 10000
 DEFAULT_SH_CODE_LINES = 150
+DEFAULT_CODE_LINES = 500
 SH_SUFFIXES = (".sh", ".bash")
+CODE_SUFFIXES = (".py", ".mjs", ".cjs", ".js", ".jsx", ".ts", ".tsx")
+# Line-based comment heuristics — all a hard limit needs. Python's is
+# exact; the js family's misses code after a same-line block comment,
+# which only ever under-counts.
+COMMENT_MARKS = {".py": ("#",)}
+for _suffix in (".mjs", ".cjs", ".js", ".jsx", ".ts", ".tsx"):
+    COMMENT_MARKS[_suffix] = ("//", "/*", "*", "*/")
 
 # `#123` or `owner/repo#123`, the same reference shape the ticket gate
 # reads on a pull request body.
@@ -67,12 +75,14 @@ def parse_allowlist(text: str) -> tuple[dict[str, str], list[str]]:
     return entries, problems
 
 
-def measure(path: str) -> tuple[int, int | None] | None:
-    """(estimated tokens, bash code lines) — or None for a non-text file.
+def measure(path: str) -> tuple[int, int | None, str | None] | None:
+    """(estimated tokens, code lines, kind) — None for a non-text file.
 
     Tokens are bytes / 4 rounded up: dependency-free, monotone, close
-    enough for a hard cap. The code-line count exists only for bash;
-    every other language's complexity has its own linter.
+    enough for a hard cap, and charged to every file a model reads —
+    prose and config cost a Read what source costs. Code lines (neither
+    blank nor comment) are counted for code files only: kind "sh" gets
+    the bash limit, kind "code" the general one, None only the cap.
     """
     try:
         with open(path, "rb") as handle:
@@ -81,20 +91,27 @@ def measure(path: str) -> tuple[int, int | None] | None:
     except (OSError, UnicodeDecodeError):
         return None
     tokens = (len(data) + 3) // 4
-    code = None
-    if path.endswith(SH_SUFFIXES):
-        code = sum(
-            1
-            for line in text.splitlines()
-            if line.strip() and not line.strip().startswith("#")
-        )
-    return tokens, code
+    plain = path[: -len(".jinja")] if path.endswith(".jinja") else path
+    suffix = "." + plain.rsplit(".", 1)[-1] if "." in plain else ""
+    kind = (
+        "sh" if suffix in SH_SUFFIXES else "code" if suffix in CODE_SUFFIXES else None
+    )
+    if kind is None:
+        return tokens, None, None
+    marks = COMMENT_MARKS.get(suffix, ("#",))
+    code = sum(
+        1
+        for line in text.splitlines()
+        if line.strip() and not line.strip().startswith(marks)
+    )
+    return tokens, code, kind
 
 
 def review(
-    measures: dict[str, tuple[int, int | None]],
+    measures: dict[str, tuple[int, int | None, str | None]],
     token_limit: int,
     sh_limit: int,
+    code_limit: int,
     allowlist: dict[str, str],
     missing: set[str],
 ) -> list[str]:
@@ -109,17 +126,22 @@ def review(
     for path in sorted(measures):
         if path in allowlist:
             continue
-        tokens, code = measures[path]
+        tokens, code, kind = measures[path]
         if tokens > token_limit:
             problems.append(
                 f"{path}: ~{tokens} tokens (bytes/4), over the {token_limit}-token "
                 f"cap — split it, or add `{path}  # <ticket>` to {ALLOWLIST}"
             )
-        if code is not None and code > sh_limit:
+        if kind == "sh" and code is not None and code > sh_limit:
             problems.append(
                 f"{path}: {code} code lines, over the {sh_limit}-line bash limit — "
                 f"rewrite it in Python or split out a sourced library, or add "
                 f"`{path}  # <ticket>` to {ALLOWLIST}"
+            )
+        elif kind == "code" and code is not None and code > code_limit:
+            problems.append(
+                f"{path}: {code} code lines, over the {code_limit}-line limit — "
+                f"split it, or add `{path}  # <ticket>` to {ALLOWLIST}"
             )
     for path, ticket in sorted(allowlist.items()):
         if path in missing:
@@ -128,8 +150,9 @@ def review(
                 f"(ticket {ticket})"
             )
         elif path in measures:
-            tokens, code = measures[path]
-            over = tokens > token_limit or (code is not None and code > sh_limit)
+            tokens, code, kind = measures[path]
+            limit = sh_limit if kind == "sh" else code_limit
+            over = tokens > token_limit or (code is not None and code > limit)
             if not over:
                 problems.append(
                     f"{ALLOWLIST}: {path} is back under every cap that applies "
@@ -158,6 +181,16 @@ def main(argv: list[str] | None = None) -> int:
         ),
     )
     parser.add_argument(
+        "--max-code-lines",
+        dest="code_limit",
+        type=int,
+        default=DEFAULT_CODE_LINES,
+        help=(
+            "non-blank non-comment lines a code file may have "
+            f"(default {DEFAULT_CODE_LINES})"
+        ),
+    )
+    parser.add_argument(
         "--allowlist",
         default=ALLOWLIST,
         help=f"the repo's exemption list (default {ALLOWLIST})",
@@ -178,7 +211,9 @@ def main(argv: list[str] | None = None) -> int:
             measures[path] = measured
     missing = {path for path in allowlist if not os.path.exists(path)}
 
-    problems += review(measures, args.token_limit, args.sh_limit, allowlist, missing)
+    problems += review(
+        measures, args.token_limit, args.sh_limit, args.code_limit, allowlist, missing
+    )
     for problem in problems:
         print(problem, file=sys.stderr)
     return 1 if problems else 0

@@ -130,7 +130,8 @@ repos:
         name: no source file over the token cap
         entry: python3 scripts/check_file_length.py --max-tokens {{ agentic_max_file_tokens }}
         language: system
-        files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash)(\.jinja)?$
+        files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash|md|yml|yaml|toml|json|html|css)(\.jinja)?$
+        exclude: (^|/)([^/]*lock[^/]*\.(json|yml|yaml|toml)|[^/]*\.min\.(js|css))$
       # Repo-owned hooks (#216): a repo's own language hooks live in
       # `.pre-commit-config.local.yaml`, which the template seeds once
       # and never stamps again. Delegating keeps them on the same

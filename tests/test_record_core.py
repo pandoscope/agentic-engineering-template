@@ -26,6 +26,10 @@ record_tool = load_module(
 record_store = load_module(
     "record_store", PROJECT_ROOT / "decision-memory" / "tools" / "record_store.py"
 )
+# The preference-counter math is its own module too.
+record_confirm = load_module(
+    "record_confirm", PROJECT_ROOT / "decision-memory" / "tools" / "record_confirm.py"
+)
 dv = load_module(
     "decision_validator",
     PROJECT_ROOT / "decision-memory" / ".github" / "guards" / "decision_validator.py",
@@ -200,7 +204,7 @@ def test_session_hit_rates_bucket_refined_separately() -> None:
         {"prediction_stream": "cold", "outcome": "miss"},
         {"prediction_stream": "preference-driven", "outcome": "refined"},
     ]
-    streams = record_tool.session_hit_rates(records)
+    streams = record_confirm.session_hit_rates(records)
     assert streams["cold"] == {"hit": 1, "miss": 1, "near-tie": 0, "refined": 1}
     assert streams["preference-driven"]["refined"] == 1
 
@@ -273,7 +277,7 @@ def test_a_disconfirmed_rule_earns_no_confirmation() -> None:
     that listed it under rules_disconfirmed (decision-memory PR #25).
     """
     record = _record("hit", ["rule a.", "rule b."], disconfirmed=["rule b."])
-    confirmations, skipped = record_tool.confirmations_for(record)
+    confirmations, skipped = record_confirm.confirmations_for(record)
     assert confirmations == [("rule a.", False)]
     assert skipped == [("rule b.", "disconfirmed")]
 
@@ -281,13 +285,13 @@ def test_a_disconfirmed_rule_earns_no_confirmation() -> None:
 def test_a_correction_earns_no_automatic_confirmation() -> None:
     """A record whose reason was replaced confirms nothing by itself."""
     record = _record("hit", ["rule a."], correction=True)
-    confirmations, skipped = record_tool.confirmations_for(record)
+    confirmations, skipped = record_confirm.confirmations_for(record)
     assert confirmations == []
     assert skipped == [("rule a.", "correction")]
 
 
 def test_an_independent_confirmation_still_skips_a_disconfirmed_rule() -> None:
     record = _record("miss", ["rule a."], disconfirmed=["other rule."])
-    confirmations, skipped = record_tool.confirmations_for(record)
+    confirmations, skipped = record_confirm.confirmations_for(record)
     assert confirmations == []
     assert skipped == [("other rule.", "disconfirmed")]

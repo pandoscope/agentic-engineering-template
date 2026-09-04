@@ -241,6 +241,24 @@ def test_the_stamped_config_runs_the_hook_at_the_answered_cap(
     assert (dst_path / "scripts" / "check_file_length.py").exists()
 
 
+def test_the_stamped_checker_is_not_executable(
+    tmp_path: Path, base_answers: dict[str, str]
+):
+    """#249: `copier update` writes a new file `100644` whatever mode
+    the template committed, so a `100755` source makes every consumer's
+    own drift check re-render, see the mode flip, and fail an update
+    nobody can read the cause of. The hook runs the file through
+    `python3`, so the bit was never doing anything — the shell hooks
+    that ARE invoked by path keep theirs."""
+    dst_path = render_answers(tmp_path, base_answers, "mode")
+    checker_path = dst_path / "scripts" / "check_file_length.py"
+    assert not checker_path.stat().st_mode & 0o111, (
+        "check_file_length.py must not be executable — copier update cannot carry the bit"
+    )
+    shell_hook = dst_path / "scripts" / "check-branch-name.sh"
+    assert shell_hook.stat().st_mode & 0o111, "a hook invoked by path stays executable"
+
+
 def test_the_hook_reads_the_languages_the_repo_already_lints(
     tmp_path: Path, base_answers: dict[str, str]
 ):

@@ -59,8 +59,6 @@ import datetime as dt
 import json
 import os
 import re
-import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -69,10 +67,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import record_core  # noqa: E402  (path bootstrap above)
 
 from record_confirm import (  # noqa: E402
-    bump_preference_counter,
     build_pr_body,
-    confirmations_for,
     session_hit_rates,
+)
+from record_submit import (  # noqa: E402
+    confirm_preferences,
+    open_pr,
+    session_records,
 )
 from record_store import (  # noqa: E402
     STATE_FILE,
@@ -81,7 +82,6 @@ from record_store import (  # noqa: E402
     covered_closures,
     default_branch,
     fail,
-    github_slug,
     list_closed_unmerged_prs,
     load_corpus,
     load_state,
@@ -399,78 +399,16 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
-def cmd_submit(args: argparse.Namespace) -> int:  # noqa: PLR0915 — refactor: #243
+def cmd_submit(args: argparse.Namespace) -> int:
     repo_dir = store_root()
     state = load_state(repo_dir)
     validator = load_validator(repo_dir)
     branch = state["branch"]
     today = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%d")
 
-    added = run_git(
-        repo_dir,
-        "diff",
-        "--name-only",
-        "--diff-filter=A",
-        f"{state['base_commit']}..HEAD",
-        "--",
-        "decisions/",
-    ).split()
-    # Scoped to decisions/ deliberately: a prediction is an agent's own
-    # choice, and letting one reach the counters would be the rule
-    # confirming itself through a second door.
-    records = []
-    for name in added:
-        path = repo_dir / name
-        records.append(json.loads(path.read_text(encoding="utf-8")))
-    if not records:
-        raise fail("no records on this session branch — nothing to submit")
-
+    records = session_records(repo_dir, state["base_commit"])
     streams = session_hit_rates(records)
-
-    source_path = repo_dir / validator.PREFERENCES_SOURCE
-    rendered_path = repo_dir / validator.PREFERENCES_RENDERED
-    for record in records:
-        if record.get("prediction_stream") != "preference-driven":
-            continue
-        confirmations, skipped = confirmations_for(record)
-        for rule, reason in skipped:
-            print(f"pref-skip: {rule} ({reason}) — no counter bumped")
-        for rule, independent in confirmations:
-            if not source_path.exists():
-                print(f"WARN: no {validator.PREFERENCES_SOURCE} — cannot bump {rule!r}")
-                continue
-            data, source_errors = validator.parse_preferences(
-                source_path.read_text(encoding="utf-8")
-            )
-            if source_errors:
-                raise fail(
-                    f"{validator.PREFERENCES_SOURCE} is invalid — fix it before "
-                    "submitting:\n" + "\n".join(source_errors)
-                )
-            count = bump_preference_counter(
-                data, rule, today, validator, independent=independent
-            )
-            if count is None:
-                print(
-                    f"WARN: cited rule {rule!r} not found in "
-                    f"{validator.PREFERENCES_SOURCE} — no counter bumped "
-                    "(proposal?)"
-                )
-                continue
-            source_path.write_text(
-                validator.serialize_preferences(data), encoding="utf-8"
-            )
-            rendered_path.write_text(
-                validator.render_preferences(data), encoding="utf-8"
-            )
-            run_git(
-                repo_dir,
-                "add",
-                validator.PREFERENCES_SOURCE,
-                validator.PREFERENCES_RENDERED,
-            )
-            run_git(repo_dir, "commit", "-m", f"pref-confirm: {rule} (n={count})")
-            print(f"pref-confirm: {rule} (n={count})")
+    confirm_preferences(repo_dir, records, validator, today)
 
     # Records were pushed as they landed; this catches the counter
     # bumps above and is a no-op when there were none.
@@ -480,44 +418,7 @@ def cmd_submit(args: argparse.Namespace) -> int:  # noqa: PLR0915 — refactor: 
     title = f"decision session {branch.split('/', 1)[1]} — " + (
         f"{len(records)} record(s)"
     )
-    body = build_pr_body(records, streams)
-
-    url = os.environ.get("DECISION_MEMORY_URL", "")
-    slug = github_slug(url)
-    if slug and shutil.which("gh"):
-        result = subprocess.run(
-            [
-                "gh",
-                "pr",
-                "create",
-                "--repo",
-                slug,
-                "--head",
-                branch,
-                "--title",
-                title,
-                "--body",
-                body,
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            print(result.stdout.strip())
-            return 0
-        print(
-            f"gh pr create failed ({result.stderr.strip()}) — falling back to handoff.",
-            file=sys.stderr,
-        )
-
-    print()
-    print("── PR handoff (managed environment / no usable gh) ──")
-    print("The branch is pushed; open the PR with the tooling your")
-    print("environment declares, using exactly this title and body:")
-    print()
-    print(f"Title: {title}")
-    print("Body:")
-    print(body)
+    open_pr(branch, title, build_pr_body(records, streams))
     return 0
 
 

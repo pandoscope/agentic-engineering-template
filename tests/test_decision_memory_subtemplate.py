@@ -80,6 +80,7 @@ STORE_FILES = frozenset(
         "tools/record.py",
         "tools/record_confirm.py",
         "tools/record_store.py",
+        "tools/record_submit.py",
         "tools/record_core.py",
     }
 )

@@ -8,9 +8,11 @@ from __future__ import annotations
 import os
 import shlex
 import subprocess
+from dataclasses import dataclass
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
@@ -56,20 +58,93 @@ def test_branch_name_hook_guards_the_pattern(
     assert run_on("claude/anything", keywords=False).returncode == 0
 
 
-def test_linear_history_hooks_refuse_a_merge_into_a_working_branch(  # noqa: PLR0915 — refactor: #243
-    tmp_path: Path,
-    base_answers: dict[str, str],
-) -> None:
-    """A claude/* branch is rebased onto main, never merged into
-    (skills#147): the only merge commits are the forge's own. Three
-    prek stages share one script — the merge is refused as `git merge`
-    would commit it, a conflicted merge finished with `git commit` is
-    refused at pre-commit, and the push is the backstop for a merge
-    that got past both. A merge commit main already holds passes."""
-    dst_path = render_answers(tmp_path, base_answers, "linear-history-hooks")
+@dataclass
+class LinearHistory:
+    """The rendered hook script, plus the git fixtures the stages need."""
 
+    tmp_path: Path
+    dst_path: Path
+    script: Path
+    env: dict[str, str]
+
+    def git(self, repo: Path, *args: str) -> str:
+        return subprocess.run(
+            ["git", "-C", str(repo), *args],
+            check=True,
+            capture_output=True,
+            text=True,
+            env=self.env,
+        ).stdout.strip()
+
+    def land(self, repo: Path, branch: str, msg: str) -> None:
+        self.git(repo, "checkout", "-q", branch)
+        with (repo / f"{branch.replace('/', '-')}.txt").open("a") as fh:
+            fh.write(msg + "\n")
+        self.git(repo, "add", "-A")
+        self.git(repo, "commit", "-q", "-m", msg)
+        self.git(repo, "push", "-q", "origin", branch)
+
+    def diverged(self, name: str) -> Path:
+        """A working branch off main, with main advanced past it on origin."""
+        origin = self.tmp_path / f"{name}.git"
+        subprocess.run(
+            ["git", "init", "-q", "--bare", "-b", "main", origin], check=True
+        )
+        repo = self.tmp_path / name
+        subprocess.run(
+            ["git", "clone", "-q", str(origin), str(repo)],
+            check=True,
+            capture_output=True,
+        )
+        self.git(repo, "checkout", "-q", "-b", "main")
+        (repo / "README.md").write_text("seed\n")
+        self.git(repo, "add", "-A")
+        self.git(repo, "commit", "-q", "-m", "chore: seed")
+        self.git(repo, "push", "-q", "-u", "origin", "main")
+        self.git(repo, "remote", "set-head", "origin", "main")
+        self.git(repo, "checkout", "-q", "-b", "claude/147-work", "main")
+        self.land(repo, "claude/147-work", "feat: the work")
+        self.land(repo, "main", "feat: a merged PR")
+        self.git(repo, "checkout", "-q", "claude/147-work")
+        self.git(repo, "fetch", "-q", "origin")
+        return repo
+
+    def check(self, repo: Path, mode: str, **extra: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(self.script), mode],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            env={**self.env, **extra},
+        )
+
+
+@pytest.fixture
+def linear_history(tmp_path: Path, base_answers: dict[str, str]) -> LinearHistory:
+    dst_path = render_answers(tmp_path, base_answers, "linear-history-hooks")
+    script = dst_path / "scripts" / "check-linear-history.sh"
+    assert script.stat().st_mode & 0o111, "hook script must be executable"
+    return LinearHistory(
+        tmp_path=tmp_path,
+        dst_path=dst_path,
+        script=script,
+        env={
+            **os.environ,
+            "GIT_AUTHOR_NAME": "t",
+            "GIT_AUTHOR_EMAIL": "t@example.test",
+            "GIT_COMMITTER_NAME": "t",
+            "GIT_COMMITTER_EMAIL": "t@example.test",
+        },
+    )
+
+
+def test_linear_history_hooks_are_registered_at_every_stage(
+    linear_history: LinearHistory,
+) -> None:
+    """One script, three prek stages and the CI job — a stage nobody
+    registered is a refusal that never fires."""
     check_file_contents(
-        dst_path / ".pre-commit-config.yaml",
+        linear_history.dst_path / ".pre-commit-config.yaml",
         [
             "default_install_hook_types: [pre-commit, commit-msg, pre-merge-commit, pre-push]",
             "id: linear-history",
@@ -79,124 +154,93 @@ def test_linear_history_hooks_refuse_a_merge_into_a_working_branch(  # noqa: PLR
         ],
     )
     check_file_contents(
-        dst_path / ".github" / "workflows" / "lint.yml",
+        linear_history.dst_path / ".github" / "workflows" / "lint.yml",
         [
             "linear-history:",
             'name: "linear history (PR commits)"',
             "git rev-list --merges",
         ],
     )
-    script = dst_path / "scripts" / "check-linear-history.sh"
-    assert script.stat().st_mode & 0o111, "hook script must be executable"
 
-    env = {
-        **os.environ,
-        "GIT_AUTHOR_NAME": "t",
-        "GIT_AUTHOR_EMAIL": "t@example.test",
-        "GIT_COMMITTER_NAME": "t",
-        "GIT_COMMITTER_EMAIL": "t@example.test",
-    }
 
-    def git(repo: Path, *args: str) -> str:
-        return subprocess.run(
-            ["git", "-C", str(repo), *args],
-            check=True,
-            capture_output=True,
-            text=True,
-            env=env,
-        ).stdout.strip()
-
-    def land(repo: Path, branch: str, msg: str) -> None:
-        git(repo, "checkout", "-q", branch)
-        with (repo / f"{branch.replace('/', '-')}.txt").open("a") as fh:
-            fh.write(msg + "\n")
-        git(repo, "add", "-A")
-        git(repo, "commit", "-q", "-m", msg)
-        git(repo, "push", "-q", "origin", branch)
-
-    def diverged(name: str) -> Path:
-        """A working branch off main, with main advanced past it on origin."""
-        origin = tmp_path / f"{name}.git"
-        subprocess.run(
-            ["git", "init", "-q", "--bare", "-b", "main", origin], check=True
-        )
-        repo = tmp_path / name
-        subprocess.run(
-            ["git", "clone", "-q", str(origin), str(repo)],
-            check=True,
-            capture_output=True,
-        )
-        git(repo, "checkout", "-q", "-b", "main")
-        (repo / "README.md").write_text("seed\n")
-        git(repo, "add", "-A")
-        git(repo, "commit", "-q", "-m", "chore: seed")
-        git(repo, "push", "-q", "-u", "origin", "main")
-        git(repo, "remote", "set-head", "origin", "main")
-        git(repo, "checkout", "-q", "-b", "claude/147-work", "main")
-        land(repo, "claude/147-work", "feat: the work")
-        land(repo, "main", "feat: a merged PR")
-        git(repo, "checkout", "-q", "claude/147-work")
-        git(repo, "fetch", "-q", "origin")
-        return repo
-
-    def check(repo: Path, mode: str, **extra: str) -> subprocess.CompletedProcess:
-        return subprocess.run(
-            [str(script), mode],
-            cwd=repo,
-            capture_output=True,
-            text=True,
-            env={**env, **extra},
-        )
-
-    # --merge: the pre-merge-commit stage, on a working branch.
-    repo = diverged("merge")
-    refused = check(repo, "--merge")
+def test_a_merge_into_a_working_branch_is_refused_as_git_merge_would_commit_it(
+    linear_history: LinearHistory,
+) -> None:
+    """A claude/* branch is rebased onto main, never merged into
+    (skills#147). The pre-merge-commit stage refuses it where the
+    reader can still abort; main is not a working branch and passes."""
+    repo = linear_history.diverged("merge")
+    refused = linear_history.check(repo, "--merge")
     assert refused.returncode != 0
     assert "git merge --abort && git rebase origin/main" in refused.stderr
-    git(repo, "checkout", "-q", "main")
-    assert check(repo, "--merge").returncode == 0, "main is not a working branch"
-
-    # --commit: a conflicted merge being finished by hand.
-    repo = diverged("commit")
-    assert check(repo, "--commit").returncode == 0, "an ordinary commit passes"
-    (repo / ".git" / "MERGE_HEAD").write_text(
-        git(repo, "rev-parse", "origin/main") + "\n"
+    linear_history.git(repo, "checkout", "-q", "main")
+    assert linear_history.check(repo, "--merge").returncode == 0, (
+        "main is not a working branch"
     )
-    refused = check(repo, "--commit")
+
+
+def test_a_conflicted_merge_finished_by_hand_is_refused_at_commit_time(
+    linear_history: LinearHistory,
+) -> None:
+    """`git merge` that stops on a conflict is finished with `git
+    commit`, which never reaches the pre-merge-commit stage — so
+    pre-commit reads MERGE_HEAD and refuses there instead."""
+    repo = linear_history.diverged("commit")
+    assert linear_history.check(repo, "--commit").returncode == 0, (
+        "an ordinary commit passes"
+    )
+    (repo / ".git" / "MERGE_HEAD").write_text(
+        linear_history.git(repo, "rev-parse", "origin/main") + "\n"
+    )
+    refused = linear_history.check(repo, "--commit")
     assert refused.returncode != 0
     assert "git merge --abort && git rebase origin/main" in refused.stderr
 
-    # --push: the backstop, fed the refs prek hands a pre-push hook.
-    repo = diverged("push")
-    git(repo, "merge", "--no-ff", "origin/main", "-m", "chore: merge main")
+
+def test_the_push_is_the_backstop_for_a_merge_that_got_past_both(
+    linear_history: LinearHistory,
+) -> None:
+    """Fed the refs prek hands a pre-push hook. A rebased branch pushes."""
+    repo = linear_history.diverged("push")
+    linear_history.git(
+        repo, "merge", "--no-ff", "origin/main", "-m", "chore: merge main"
+    )
     refs = {
         "PRE_COMMIT_LOCAL_BRANCH": "refs/heads/claude/147-work",
-        "PRE_COMMIT_TO_REF": git(repo, "rev-parse", "HEAD"),
+        "PRE_COMMIT_TO_REF": linear_history.git(repo, "rev-parse", "HEAD"),
     }
-    refused = check(repo, "--push", **refs)
+    refused = linear_history.check(repo, "--push", **refs)
     assert refused.returncode != 0
     assert "chore: merge main" in refused.stderr
     assert "git rebase origin/main" in refused.stderr
-    git(repo, "reset", "-q", "--hard", "HEAD~1")
-    git(repo, "rebase", "-q", "origin/main")
-    refs["PRE_COMMIT_TO_REF"] = git(repo, "rev-parse", "HEAD")
-    assert check(repo, "--push", **refs).returncode == 0, "a linear branch pushes"
+    linear_history.git(repo, "reset", "-q", "--hard", "HEAD~1")
+    linear_history.git(repo, "rebase", "-q", "origin/main")
+    refs["PRE_COMMIT_TO_REF"] = linear_history.git(repo, "rev-parse", "HEAD")
+    assert linear_history.check(repo, "--push", **refs).returncode == 0, (
+        "a linear branch pushes"
+    )
 
-    # A forge merge on main is not the branch's: a working branch off
-    # a merged main is linear in its own range.
-    repo = diverged("forge")
-    git(repo, "checkout", "-q", "main")
-    git(repo, "merge", "--no-ff", "claude/147-work", "-m", "Merge pull request #1")
-    git(repo, "push", "-q", "origin", "main")
-    git(repo, "checkout", "-q", "-b", "claude/148-next", "main")
+
+def test_a_forge_merge_on_main_leaves_the_next_branch_linear(
+    linear_history: LinearHistory,
+) -> None:
+    """A forge merge on main is not the branch's: a working branch off
+    a merged main is linear in its own range."""
+    repo = linear_history.diverged("forge")
+    linear_history.git(repo, "checkout", "-q", "main")
+    linear_history.git(
+        repo, "merge", "--no-ff", "claude/147-work", "-m", "Merge pull request #1"
+    )
+    linear_history.git(repo, "push", "-q", "origin", "main")
+    linear_history.git(repo, "checkout", "-q", "-b", "claude/148-next", "main")
     (repo / "next.txt").write_text("next\n")
-    git(repo, "add", "-A")
-    git(repo, "commit", "-q", "-m", "feat: next")
+    linear_history.git(repo, "add", "-A")
+    linear_history.git(repo, "commit", "-q", "-m", "feat: next")
     refs = {
         "PRE_COMMIT_LOCAL_BRANCH": "refs/heads/claude/148-next",
-        "PRE_COMMIT_TO_REF": git(repo, "rev-parse", "HEAD"),
+        "PRE_COMMIT_TO_REF": linear_history.git(repo, "rev-parse", "HEAD"),
     }
-    assert check(repo, "--push", **refs).returncode == 0
+    assert linear_history.check(repo, "--push", **refs).returncode == 0
 
 
 def test_commitlint_config_rejects_fixup_and_squash_commits(

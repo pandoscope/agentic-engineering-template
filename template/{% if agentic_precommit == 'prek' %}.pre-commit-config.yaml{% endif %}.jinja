@@ -117,16 +117,18 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-      # Source length (#239): nothing else here reads how long a file
-      # is, so files grow until a reader notices. The limit is the
-      # agentic_max_file_lines answer, so a repo widens it deliberately
-      # and its answers file records that it did. Existing overruns go
-      # on .file-length-allowlist, each with the ticket that will bring
+      # File cost cap (#239, #242): nothing else here reads what a file
+      # costs an agent to read. The cap is estimated tokens (bytes/4),
+      # from the agentic_max_file_tokens answer, so a repo widens it
+      # deliberately and its answers file records that it did. Bash
+      # files also get a code-line limit — long bash means rewrite in
+      # Python, and comments stay free there. Existing overruns go on
+      # .file-length-allowlist, each with the ticket that will bring
       # it back under — an entry without one is refused, and an entry
-      # whose file came back under the limit has to leave the list.
+      # whose file came back under every cap has to leave the list.
       - id: file-length
-        name: no source file over the line limit
-        entry: python3 scripts/check_file_length.py --max {{ agentic_max_file_lines }}
+        name: no source file over the token cap
+        entry: python3 scripts/check_file_length.py --max-tokens {{ agentic_max_file_tokens }}
         language: system
         files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash)(\.jinja)?$
       # Repo-owned hooks (#216): a repo's own language hooks live in

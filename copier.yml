@@ -80,14 +80,15 @@ agentic_precommit:
   default: prek
   when: "{{ agentic_subtemplate == 'template' }}"
 
-agentic_max_file_lines:
+agentic_max_file_tokens:
   type: int
   help: >-
-    Lines a source file may have before the file-length hook fails. A repo
-    that wants a different cap answers it here, and the answers file records
-    that it did; existing overruns go on .file-length-allowlist with the
-    ticket that will bring each one back under.
-  default: 800
+    Estimated tokens (file bytes / 4) a source file may cost before the
+    file-length hook fails — token cost is what an agent pays to read it. A
+    repo that wants a different cap answers it here, and the answers file
+    records that it did; existing overruns go on .file-length-allowlist with
+    the ticket that will bring each one back under.
+  default: 10000
   when: "{{ agentic_subtemplate == 'template' }}"
 
 agentic_actions_runner:

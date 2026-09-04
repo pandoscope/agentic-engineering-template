@@ -101,7 +101,9 @@ def test_the_hook_fails_on_an_overrun_and_passes_once_it_is_allowlisted(
     assert red.returncode == 1
     assert "big.py" in red.stderr and "40" in red.stderr
 
-    (tmp_path / ".file-length-allowlist").write_text("big.py  # pandoscope/skills#184\n")
+    (tmp_path / ".file-length-allowlist").write_text(
+        "big.py  # pandoscope/skills#184\n"
+    )
     green = run("--max", "20", "big.py", cwd=tmp_path)
     assert green.returncode == 0, green.stderr
 

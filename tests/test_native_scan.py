@@ -112,6 +112,19 @@ def test_native_scan_workflow_is_daily_self_scoped_and_checks_both_engines():
     assert "RUNNER_TEMP" in text
 
 
+def test_an_unobservable_engine_status_is_a_notice_not_a_failure():
+    """Measured on the first run: the repo token gets no
+    security_and_analysis block at all (admin scope), so 'unset' must
+    not fail every public repo daily — it says so and lets the alert
+    feed be the check. A status the token CAN see and that is not
+    'enabled' stays red."""
+    text = WORKFLOW.read_text()
+    assert '"unset"' in text
+    assert "::notice::" in text
+    assert "not visible to the repo token" in text
+    assert '"$status" != "enabled"' in text
+
+
 def test_native_scan_workflow_does_not_collide_with_the_audit_schedule():
     audit = WORKFLOW.with_name("trufflehog-audit.yml.jinja").read_text()
 

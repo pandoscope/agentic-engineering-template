@@ -306,9 +306,8 @@ def _validate_streams(
         )
 
 
-def _validate_ruling(  # noqa: C901, PLR0915 — refactor: #243
-    record: dict, prediction_option: dict | None, errors: list[str]
-) -> None:
+def _validate_chosen(record: dict, errors: list[str]) -> int | None:
+    """The picked slot and its text. Returns the slot, or None when unusable."""
     chosen_slot = record.get("chosen_slot")
     if not isinstance(chosen_slot, int) or isinstance(chosen_slot, bool):
         errors.append("chosen_slot: must be an integer")
@@ -316,33 +315,41 @@ def _validate_ruling(  # noqa: C901, PLR0915 — refactor: #243
     chosen = record.get("chosen")
     if not isinstance(chosen, str) or not chosen:
         errors.append("chosen: must be a non-empty string")
+    return chosen_slot
 
+
+def _validate_outcome(
+    record: dict,
+    prediction_option: dict | None,
+    chosen_slot: int | None,
+    errors: list[str],
+) -> None:
+    """The scored outcome, against the slot the decider actually picked."""
     outcome = record.get("outcome")
     if outcome not in OUTCOMES:
         errors.append(f"outcome: {outcome!r} not in {sorted(OUTCOMES)}")
-    elif (
-        outcome != "near-tie"
-        and prediction_option is not None
-        and chosen_slot is not None
-    ):
-        # Scored outcomes must match the slots. Near-ties are exempt by
-        # design (never scored as misses); 'refined' requires a slot
-        # MISMATCH like miss — the chosen answer CONTAINS the
-        # prediction plus an extension, distinguished from miss only by
-        # that containment judgment (same slot would be a plain hit).
-        hit = chosen_slot == prediction_option.get("slot")
-        if outcome == "hit" and not hit:
-            errors.append(
-                "outcome: 'hit' but chosen_slot differs from the prediction slot"
-            )
-        if outcome in ("miss", "refined") and hit:
-            errors.append(
-                f"outcome: {outcome!r} but chosen_slot equals the "
-                "prediction slot (that is a hit)"
-            )
+        return
+    if outcome == "near-tie" or prediction_option is None or chosen_slot is None:
+        return
+    # Scored outcomes must match the slots. Near-ties are exempt by
+    # design (never scored as misses); 'refined' requires a slot
+    # MISMATCH like miss — the chosen answer CONTAINS the
+    # prediction plus an extension, distinguished from miss only by
+    # that containment judgment (same slot would be a plain hit).
+    hit = chosen_slot == prediction_option.get("slot")
+    if outcome == "hit" and not hit:
+        errors.append("outcome: 'hit' but chosen_slot differs from the prediction slot")
+    if outcome in ("miss", "refined") and hit:
+        errors.append(
+            f"outcome: {outcome!r} but chosen_slot equals the "
+            "prediction slot (that is a hit)"
+        )
 
-    # operative_reason is required when a listed non-prediction option
-    # won — unless the pick was declared silent.
+
+def _validate_operative_reason(
+    record: dict, chosen_slot: int | None, errors: list[str]
+) -> None:
+    """The reason a listed non-prediction option won, or a declared silence."""
     operative_source = record.get("operative_reason_source")
     if operative_source is not None:
         if operative_source not in OPERATIVE_REASON_SOURCES:
@@ -362,78 +369,96 @@ def _validate_ruling(  # noqa: C901, PLR0915 — refactor: #243
                 "operative_reason: must be a non-empty string when "
                 "operative_reason_source is 'stated'"
             )
-    options = record.get("options")
-    if isinstance(options, list) and chosen_slot is not None:
-        chosen_option = next(
-            (
-                o
-                for o in options
-                if isinstance(o, dict) and o.get("slot") == chosen_slot
-            ),
-            None,
-        )
-        if (
-            chosen_option is not None
-            and chosen_option.get("role") not in PREDICTION_ROLES
-            and not record.get("operative_reason")
-            and operative_source != "none"
-        ):
-            errors.append(
-                "operative_reason: required when a listed non-prediction "
-                "option is chosen (declare operative_reason_source 'none' "
-                "for a silent pick)"
-            )
 
+    options = record.get("options")
+    if not isinstance(options, list) or chosen_slot is None:
+        return
+    chosen_option = next(
+        (o for o in options if isinstance(o, dict) and o.get("slot") == chosen_slot),
+        None,
+    )
+    if (
+        chosen_option is not None
+        and chosen_option.get("role") not in PREDICTION_ROLES
+        and not record.get("operative_reason")
+        and operative_source != "none"
+    ):
+        errors.append(
+            "operative_reason: required when a listed non-prediction "
+            "option is chosen (declare operative_reason_source 'none' "
+            "for a silent pick)"
+        )
+
+
+def _validate_rejection_reason(
+    index: int, rejection: dict, status: str, errors: list[str]
+) -> None:
+    """The reason attached to one rejection, per its status."""
+    reason = rejection.get("reason")
+    source = rejection.get("reason_source")
+    if status == "operative":
+        # Operative reasons are decider-stated by definition.
+        if source not in (None, "stated"):
+            errors.append(
+                f"rejections[{index}].reason_source: {source!r} — "
+                "operative rejections are stated by definition"
+            )
+        if not isinstance(reason, str) or not reason:
+            errors.append(
+                f"rejections[{index}].reason: operative rejections "
+                "require the stated reason, verbatim"
+            )
+        return
+    # presumed-false
+    if source not in PRESUMED_REASON_SOURCES:
+        errors.append(
+            f"rejections[{index}].reason_source: {source!r} not in "
+            f"{sorted(PRESUMED_REASON_SOURCES)} (required for "
+            "presumed-false rejections)"
+        )
+    elif source == "none":
+        if reason is not None:
+            errors.append(
+                f"rejections[{index}].reason: must be null when reason_source is 'none'"
+            )
+    elif not isinstance(reason, str) or not reason:
+        errors.append(
+            f"rejections[{index}].reason: must be a non-empty "
+            f"string when reason_source is {source!r} (declare "
+            "reason_source 'none' if nothing is inferable)"
+        )
+
+
+def _validate_rejections(record: dict, errors: list[str]) -> None:
+    """Every option the decider turned down, and why."""
     rejections = record.get("rejections")
     if not isinstance(rejections, list):
         errors.append("rejections: must be a list")
-    else:
-        for i, rejection in enumerate(rejections):
-            if not isinstance(rejection, dict):
-                errors.append(f"rejections[{i}]: must be an object")
-                continue
-            if not isinstance(rejection.get("option"), str) or not rejection["option"]:
-                errors.append(f"rejections[{i}].option: must be a non-empty string")
-            status = rejection.get("status")
-            if status not in REJECTION_STATUSES:
-                errors.append(
-                    f"rejections[{i}].status: {status!r} not in "
-                    f"{sorted(REJECTION_STATUSES)}"
-                )
-                continue
-            reason = rejection.get("reason")
-            source = rejection.get("reason_source")
-            if status == "operative":
-                # Operative reasons are decider-stated by definition.
-                if source not in (None, "stated"):
-                    errors.append(
-                        f"rejections[{i}].reason_source: {source!r} — "
-                        "operative rejections are stated by definition"
-                    )
-                if not isinstance(reason, str) or not reason:
-                    errors.append(
-                        f"rejections[{i}].reason: operative rejections "
-                        "require the stated reason, verbatim"
-                    )
-            else:  # presumed-false
-                if source not in PRESUMED_REASON_SOURCES:
-                    errors.append(
-                        f"rejections[{i}].reason_source: {source!r} not in "
-                        f"{sorted(PRESUMED_REASON_SOURCES)} (required for "
-                        "presumed-false rejections)"
-                    )
-                elif source == "none":
-                    if reason is not None:
-                        errors.append(
-                            f"rejections[{i}].reason: must be null when "
-                            "reason_source is 'none'"
-                        )
-                elif not isinstance(reason, str) or not reason:
-                    errors.append(
-                        f"rejections[{i}].reason: must be a non-empty "
-                        f"string when reason_source is {source!r} (declare "
-                        "reason_source 'none' if nothing is inferable)"
-                    )
+        return
+    for i, rejection in enumerate(rejections):
+        if not isinstance(rejection, dict):
+            errors.append(f"rejections[{i}]: must be an object")
+            continue
+        if not isinstance(rejection.get("option"), str) or not rejection["option"]:
+            errors.append(f"rejections[{i}].option: must be a non-empty string")
+        status = rejection.get("status")
+        if status not in REJECTION_STATUSES:
+            errors.append(
+                f"rejections[{i}].status: {status!r} not in "
+                f"{sorted(REJECTION_STATUSES)}"
+            )
+            continue
+        _validate_rejection_reason(i, rejection, status, errors)
+
+
+def _validate_ruling(
+    record: dict, prediction_option: dict | None, errors: list[str]
+) -> None:
+    """What the decider chose, how it scored, and what it turned down."""
+    chosen_slot = _validate_chosen(record, errors)
+    _validate_outcome(record, prediction_option, chosen_slot, errors)
+    _validate_operative_reason(record, chosen_slot, errors)
+    _validate_rejections(record, errors)
 
 
 def _validate_optional_fields(record: dict, errors: list[str]) -> None:

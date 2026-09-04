@@ -7,7 +7,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import yaml
 
+
+from tests.conftest import PROJECT_ROOT as ROOT
 from tests.render_support import check_file_contents, render_answers
 
 
@@ -383,3 +386,46 @@ def test_the_weekly_run_fails_loudly_when_the_repo_is_behind(
     assert "has not been merged" in workflow
     assert "did not reach this repo" in workflow
     assert "::error::" in workflow
+
+
+def _effective_contents_permission(workflow: dict, job: dict) -> str | None:
+    """What `contents` scope a job actually gets.
+
+    A job-level `permissions:` block replaces the workflow-level one
+    outright, and either block sets every permission it does not name
+    to `none` — so the answer is one lookup in whichever block is
+    nearest, and an absent block means the default (write on a push
+    into the repo, read on a fork), which always covers checkout.
+    """
+    block = job.get("permissions", workflow.get("permissions"))
+    if block is None:
+        return "default"
+    if isinstance(block, str):  # `permissions: read-all` / `write-all`
+        return block
+    return block.get("contents")
+
+
+def test_every_workflow_that_checks_out_may_read_the_repository():
+    """`permissions:` is a replacement, not an addition — naming one
+    scope silently revokes the rest. gate-rerun.yml named only
+    `actions: write`, so `actions/checkout` met a token with no
+    `contents` scope and every run died on "Repository not found"
+    before the janitor's first line ran (#253).
+
+    The check covers the class rather than that one file: any workflow
+    that checks the repository out needs the scope to read it.
+    """
+    stamped = sorted((ROOT / ".github" / "workflows").glob("*.yml"))
+    assert stamped, "no stamped workflows found"
+
+    for path in stamped:
+        workflow = yaml.safe_load(path.read_text())
+        for name, job in workflow.get("jobs", {}).items():
+            steps = job.get("steps") or []
+            if not any("actions/checkout" in str(step.get("uses", "")) for step in steps):
+                continue
+            granted = _effective_contents_permission(workflow, job)
+            assert granted in ("read", "write", "read-all", "write-all", "default"), (
+                f"{path.name} job '{name}' checks out the repository but is "
+                f"granted contents: {granted!r}"
+            )

@@ -34,6 +34,7 @@ STORE_FILES = frozenset(
         ".github/store/render_preferences.py",
         ".github/store/replay.py",
         ".github/store/similarity.py",
+        ".github/store/similarity_measure.py",
         ".github/store/tests/store_support.py",
         ".github/store/tests/test_config.py",
         ".github/store/tests/test_extraction.py",

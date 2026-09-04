@@ -28,6 +28,7 @@ import preferences_guard as guard  # noqa: E402,F401
 import render_preferences  # noqa: E402,F401
 import replay  # noqa: E402,F401
 import similarity  # noqa: E402,F401
+import similarity_measure  # noqa: E402,F401
 
 
 def make_record(record_id, chosen_slot, stream="cold", options=None):

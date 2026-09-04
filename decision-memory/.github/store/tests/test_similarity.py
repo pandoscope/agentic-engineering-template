@@ -18,6 +18,7 @@ import unittest
 from store_support import (
     make_record,
     similarity,
+    similarity_measure,
     store_config,
 )
 
@@ -46,7 +47,7 @@ class SimilarityGateTests(unittest.TestCase):
         right = self._draft(
             "20260716T143205Z-b", "Which wrapping style for prose files?", "y"
         )
-        self.assertLess(similarity.similarity(left, right), 0.35)
+        self.assertLess(similarity_measure.similarity(left, right), 0.35)
 
     def test_reworded_same_ruling_is_a_duplicate(self):
         """Two extraction runs over one session, different wording."""
@@ -63,8 +64,10 @@ class SimilarityGateTests(unittest.TestCase):
             "declared provenance enum",
             preference_set=commit,
         )
-        self.assertGreaterEqual(similarity.similarity(left, right), 0.35)
-        self.assertEqual(similarity.classify(left, right), similarity.DUPLICATE)
+        self.assertGreaterEqual(similarity_measure.similarity(left, right), 0.35)
+        self.assertEqual(
+            similarity_measure.classify(left, right), similarity_measure.DUPLICATE
+        )
 
     def test_distinct_provenance_is_a_re_decision(self):
         left = self._draft(
@@ -79,7 +82,9 @@ class SimilarityGateTests(unittest.TestCase):
             "thin stubs",
             preference_set={"commit": "bbb"},
         )
-        self.assertEqual(similarity.classify(left, right), similarity.RE_DECISION)
+        self.assertEqual(
+            similarity_measure.classify(left, right), similarity_measure.RE_DECISION
+        )
 
     def test_an_existing_link_outranks_every_other_verdict(self):
         left = self._draft(
@@ -95,30 +100,34 @@ class SimilarityGateTests(unittest.TestCase):
             preference_set={"commit": "bbb"},
             supersedes="20260715T143205Z-a",
         )
-        self.assertEqual(similarity.classify(left, right), similarity.LINKED)
+        self.assertEqual(
+            similarity_measure.classify(left, right), similarity_measure.LINKED
+        )
 
     def test_missing_provenance_with_different_answers_is_uncertain(self):
         """Chat drafts carry null provenance by design — absence is not
         evidence of distinctness, so this needs a human."""
         left = self._draft("20260715T143205Z-a", "Same question?", "one", session=None)
         right = self._draft("20260715T143206Z-b", "Same question?", "two", session=None)
-        self.assertEqual(similarity.classify(left, right), similarity.UNCERTAIN)
+        self.assertEqual(
+            similarity_measure.classify(left, right), similarity_measure.UNCERTAIN
+        )
 
     def test_artifact_corroboration_lifts_a_borderline_pair(self):
         ref = {"repo": "r", "path": "docs/conventions.md", "commit": None}
         left = self._draft("20260715T143205Z-a", "How is wrapping handled?", "sembr")
         right = self._draft("20260716T143205Z-b", "How is wrapping decided?", "sembr")
-        bare = similarity.similarity(left, right)
+        bare = similarity_measure.similarity(left, right)
         left["artifact_ref"] = dict(ref)
         right["artifact_ref"] = dict(ref)
-        self.assertGreater(similarity.similarity(left, right), bare)
+        self.assertGreater(similarity_measure.similarity(left, right), bare)
 
     def test_a_differing_artifact_does_not_corroborate(self):
         left = self._draft("20260715T143205Z-a", "q", "x")
         right = self._draft("20260716T143205Z-b", "q", "x")
         left["artifact_ref"] = {"repo": "r", "path": "a.md"}
         right["artifact_ref"] = {"repo": "r", "path": "b.md"}
-        self.assertFalse(similarity.artifact_corroborates(left, right))
+        self.assertFalse(similarity_measure.artifact_corroborates(left, right))
 
     def test_a_reworded_answer_still_reads_as_agreement(self):
         """Two extractions of one ruling reword freely; exact equality
@@ -134,7 +143,7 @@ class SimilarityGateTests(unittest.TestCase):
             "start only with skills that have mechanical oracles",
         )
         right["chosen"] = "mechanical-oracle artifacts first; the logger is the seed"
-        self.assertTrue(similarity.answers_agree(left, right))
+        self.assertTrue(similarity_measure.answers_agree(left, right))
 
     def test_the_chosen_slot_number_is_never_compared(self):
         """Two runs ordering the options differently give one ruling
@@ -152,7 +161,7 @@ class SimilarityGateTests(unittest.TestCase):
             {"slot": 2, "label": "at compaction"},
             {"slot": 3, "label": answer},
         ]
-        self.assertTrue(similarity.answers_agree(left, right))
+        self.assertTrue(similarity_measure.answers_agree(left, right))
 
     def test_a_label_is_never_compared_against_prose(self):
         """The cross-match must not fire.
@@ -165,7 +174,7 @@ class SimilarityGateTests(unittest.TestCase):
         left["options"] = [{"slot": 1, "label": "alpha"}]
         right = self._draft("20260715T143206Z-b", "Same question?", "gamma")
         right["options"] = [{"slot": 1, "label": "beta"}]
-        self.assertFalse(similarity.answers_agree(left, right))
+        self.assertFalse(similarity_measure.answers_agree(left, right))
 
     def test_pairs_rank_worst_first(self):
         commit = {"commit": "abc"}
@@ -186,15 +195,15 @@ class SimilarityGateTests(unittest.TestCase):
                 preference_set={"commit": "zzz"},
             ),
         ]
-        pairs = similarity.find_pairs(drafts, [])
+        pairs = similarity_measure.find_pairs(drafts, [])
         self.assertTrue(pairs)
         verdicts = [pair["verdict"] for pair in pairs]
-        self.assertEqual(verdicts[0], similarity.DUPLICATE)
+        self.assertEqual(verdicts[0], similarity_measure.DUPLICATE)
 
     def test_diffs_name_the_fields_a_human_must_adjudicate(self):
         left = self._draft("20260715T143205Z-a", "q", "one")
         right = self._draft("20260715T143206Z-b", "q", "two")
-        diffs = similarity.field_diffs(left, right)
+        diffs = similarity_measure.field_diffs(left, right)
         self.assertEqual(diffs["chosen"], ["one", "two"])
         self.assertNotIn("question", diffs)
 
@@ -235,7 +244,7 @@ class SimilarityGateTests(unittest.TestCase):
             "no, vendor it instead of taking the dependency",
             prediction_stream="cold",
         )
-        self.assertGreater(len(similarity.record_tokens(record)), 20)
+        self.assertGreater(len(similarity_measure.record_tokens(record)), 20)
         self.assertTrue(similarity.false_cold_candidates(record, preferences))
 
     def test_a_preference_driven_record_is_never_false_cold(self):
@@ -247,17 +256,18 @@ class SimilarityGateTests(unittest.TestCase):
 
     def test_ref_tiers(self):
         self.assertEqual(
-            similarity.ref_tier(
+            similarity_measure.ref_tier(
                 {"artifact_ref": {"repo": "r", "path": "p", "commit": "c"}}
             ),
-            similarity.REF_COMPLETE,
+            similarity_measure.REF_COMPLETE,
         )
         self.assertEqual(
-            similarity.ref_tier({"artifact_ref": {"repo": "r", "path": "p"}}),
-            similarity.REF_PARTIAL,
+            similarity_measure.ref_tier({"artifact_ref": {"repo": "r", "path": "p"}}),
+            similarity_measure.REF_PARTIAL,
         )
         self.assertEqual(
-            similarity.ref_tier({"artifact_ref": None}), similarity.REF_NULL
+            similarity_measure.ref_tier({"artifact_ref": None}),
+            similarity_measure.REF_NULL,
         )
 
     def test_report_is_read_only_and_complete(self):
@@ -335,7 +345,7 @@ class MeasureInvariantTests(unittest.TestCase):
                 self.assertTrue(
                     matches,
                     f"a verbatim rule went unflagged in a "
-                    f"{len(similarity.record_tokens(record))}-token record",
+                    f"{len(similarity_measure.record_tokens(record))}-token record",
                 )
 
     def test_the_fixtures_reach_the_real_corpus_maximum(self):
@@ -348,7 +358,7 @@ class MeasureInvariantTests(unittest.TestCase):
         """
         longest = self._record_quoting_the_rule(len(self.FILLER))
         self.assertGreaterEqual(
-            len(similarity.record_tokens(longest)),
+            len(similarity_measure.record_tokens(longest)),
             REAL_TOKEN_LENGTHS["max"],
             "fixtures no longer span the real corpus — re-measure "
             "REAL_TOKEN_LENGTHS and lengthen FILLER",
@@ -434,14 +444,14 @@ class CalibrationTests(unittest.TestCase):
         # containment: raising one alone leaves the other free to
         # surface the pair, which would make this test pass for a
         # reason that has nothing to do with the override working.
-        loose = similarity.tuning(
+        loose = similarity_measure.tuning(
             {"similarity_threshold": 0.01, "containment_threshold": 0.01}
         )
-        strict = similarity.tuning(
+        strict = similarity_measure.tuning(
             {"similarity_threshold": 0.99, "containment_threshold": 0.99}
         )
-        self.assertTrue(similarity.find_pairs([left, right], [], None, loose))
-        self.assertFalse(similarity.find_pairs([left, right], [], None, strict))
+        self.assertTrue(similarity_measure.find_pairs([left, right], [], None, loose))
+        self.assertFalse(similarity_measure.find_pairs([left, right], [], None, strict))
 
     def test_an_unmeasured_threshold_says_so(self):
         """Never-measured is not a mild version of outgrown."""

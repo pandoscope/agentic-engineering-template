@@ -422,7 +422,9 @@ def test_every_workflow_that_checks_out_may_read_the_repository():
         workflow = yaml.safe_load(path.read_text())
         for name, job in workflow.get("jobs", {}).items():
             steps = job.get("steps") or []
-            if not any("actions/checkout" in str(step.get("uses", "")) for step in steps):
+            if not any(
+                "actions/checkout" in str(step.get("uses", "")) for step in steps
+            ):
                 continue
             granted = _effective_contents_permission(workflow, job)
             assert granted in ("read", "write", "read-all", "write-all", "default"), (

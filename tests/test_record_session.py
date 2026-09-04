@@ -60,8 +60,11 @@ def parked_store(tmp_path: Path) -> Path:
     (store / ".gitignore").write_text(
         (PROJECT_ROOT / "decision-memory" / ".gitignore").read_text()
     )
+    # The whole recorder, not just its entry: it is three modules that
+    # import each other by bare name from the directory they sit in.
     (store / "tools").mkdir()
-    (store / "tools" / "record.py").write_text(RECORDER.read_text())
+    for module in RECORDER.parent.glob("*.py"):
+        (store / "tools" / module.name).write_text(module.read_text())
     # The recorder validates against the store's vendored copy, so the
     # fixture has to be a real store, guard included.
     guards = store / ".github" / "guards"

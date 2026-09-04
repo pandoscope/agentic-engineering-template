@@ -76,6 +76,8 @@ STORE_FILES = frozenset(
         "preferences.txt",
         "store.config.json",
         "tools/record.py",
+        "tools/record_confirm.py",
+        "tools/record_store.py",
         "tools/record_core.py",
     }
 )

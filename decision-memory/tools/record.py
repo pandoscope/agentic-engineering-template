@@ -56,7 +56,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import importlib.util
 import json
 import os
 import re
@@ -68,6 +67,29 @@ from pathlib import Path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import record_core  # noqa: E402  (path bootstrap above)
+
+from record_confirm import (  # noqa: E402
+    bump_preference_counter,
+    build_pr_body,
+    confirmations_for,
+    session_hit_rates,
+)
+from record_store import (  # noqa: E402
+    STATE_FILE,
+    check_store_checkout,
+    commit_record,
+    covered_closures,
+    default_branch,
+    fail,
+    github_slug,
+    list_closed_unmerged_prs,
+    load_corpus,
+    load_state,
+    load_validator,
+    push_session,
+    read_drafts,
+    run_git,
+)
 
 # ======================= store record policy ========================
 # The universal contract — envelope grammar, ID minting, field
@@ -162,41 +184,6 @@ def draft_to_record(
 # forge-specific piece: a hosting supersession (or a managed
 # environment without gh) swaps/skips this function, never the core.
 
-STATE_FILE = ".recorder-session.json"
-VALIDATOR_RELPATH = Path(".github") / "guards" / "decision_validator.py"
-GITHUB_URL_RE = re.compile(
-    r"github\.com[:/](?P<owner>[^/]+)/(?P<repo>[^/]+?)(?:\.git)?/?$"
-)
-
-
-def repo_url_tail(url: str) -> str:
-    """Normalize a git URL to its trailing owner/repo pair (lowercase).
-
-    Managed environments rewrite remotes through local proxies, so two
-    URLs for the same repo rarely match textually — the owner/repo
-    tail is the stable identity across https/ssh/proxy forms.
-    """
-    path = url.rstrip("/")
-    if path.endswith(".git"):
-        path = path[: -len(".git")]
-    parts = [p for p in path.replace(":", "/").split("/") if p]
-    return "/".join(parts[-2:]).lower()
-
-
-def fail(message: str) -> "SystemExit":
-    return SystemExit(f"record.py: error: {message}")
-
-
-def run_git(repo_dir: Path, *args: str) -> str:
-    result = subprocess.run(
-        ["git", "-C", str(repo_dir), *args],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise fail(f"git {' '.join(args)} failed in {repo_dir}:\n{result.stderr}")
-    return result.stdout
-
 
 def store_root() -> Path:
     """The store checkout this recorder lives in.
@@ -217,168 +204,6 @@ def store_root() -> Path:
             "file (clone the store first: git clone $DECISION_MEMORY_URL)"
         )
     return repo_dir
-
-
-def load_state(repo_dir: Path) -> dict:
-    state_path = repo_dir / STATE_FILE
-    if not state_path.exists():
-        raise fail(
-            f"{state_path} missing — this clone was not created by `record.py open`"
-        )
-    return json.loads(state_path.read_text(encoding="utf-8"))
-
-
-def load_validator(repo_dir: Path):
-    """Import the copier-vendored validator from the data-repo clone."""
-    path = repo_dir / VALIDATOR_RELPATH
-    if not path.exists():
-        raise fail(
-            f"vendored validator missing at {path} — the data repo must "
-            "vendor the decision-memory subtemplate (copier update from the "
-            "agentic-engineering-template decision-memory subtemplate)"
-        )
-    spec = importlib.util.spec_from_file_location("decision_validator", path)
-    if spec is None or spec.loader is None:
-        raise fail(f"cannot import validator from {path}")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-def load_corpus(repo_dir: Path) -> dict[str, dict]:
-    records: dict[str, dict] = {}
-    decisions_dir = repo_dir / "decisions"
-    if decisions_dir.is_dir():
-        for path in sorted(decisions_dir.glob("*.json")):
-            try:
-                record = json.loads(path.read_text(encoding="utf-8"))
-            except (OSError, json.JSONDecodeError):
-                continue
-            if isinstance(record, dict) and isinstance(record.get("id"), str):
-                records[record["id"]] = record
-    return records
-
-
-def read_drafts(args: argparse.Namespace) -> list[dict]:
-    if getattr(args, "from_file", None):
-        text = Path(args.from_file).read_text(encoding="utf-8")
-    else:
-        text = sys.stdin.read()
-    try:
-        data = json.loads(text)
-    except json.JSONDecodeError as exc:
-        raise fail(f"input is not valid JSON: {exc}")
-    drafts = data if isinstance(data, list) else [data]
-    if not all(isinstance(d, dict) for d in drafts):
-        raise fail("input must be a JSON object or an array of objects")
-    return drafts
-
-
-def github_slug(url: str) -> str | None:
-    match = GITHUB_URL_RE.search(url)
-    return f"{match['owner']}/{match['repo']}" if match else None
-
-
-def list_closed_unmerged_prs(url: str) -> list[int] | None:
-    """Best-effort PR listing via gh. None = unavailable (handoff)."""
-    slug = github_slug(url)
-    if slug is None or shutil.which("gh") is None:
-        return None
-    result = subprocess.run(
-        [
-            "gh",
-            "pr",
-            "list",
-            "--repo",
-            slug,
-            "--state",
-            "closed",
-            "--json",
-            "number,mergedAt",
-            "--limit",
-            "500",
-        ],
-        capture_output=True,
-        text=True,
-    )
-    # DECISION: any gh failure falls through to the handoff path —
-    # managed environments sabotage gh, so failure is an expected mode,
-    # not an error.
-    if result.returncode != 0:
-        return None
-    try:
-        prs = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return None
-    return [
-        pr["number"] for pr in prs if isinstance(pr, dict) and not pr.get("mergedAt")
-    ]
-
-
-def covered_closures(records: dict[str, dict]) -> set[int]:
-    return {
-        record["closure_of"]
-        for record in records.values()
-        if isinstance(record.get("closure_of"), int)
-    }
-
-
-def check_store_checkout(repo_dir: Path, url: str) -> None:
-    """Confirm this checkout is the store, and is safe to record into.
-
-    Raises SystemExit when origin does not match DECISION_MEMORY_URL or
-    the worktree is dirty.
-    """
-    origin = run_git(repo_dir, "config", "--get", "remote.origin.url").strip()
-    # DECISION: matched by owner/repo tail, not textually — managed
-    # environments rewrite remotes through a local proxy, so a
-    # proxy-rewritten origin never equals the configured URL.
-    if repo_url_tail(origin) != repo_url_tail(url):
-        raise fail(
-            f"{repo_dir}: origin {origin!r} is not the store repo "
-            f"(DECISION_MEMORY_URL points at {repo_url_tail(url)!r})"
-        )
-    if run_git(repo_dir, "status", "--porcelain").strip():
-        raise fail(
-            f"{repo_dir}: worktree is dirty — commit or stash before "
-            "opening a recording session in it"
-        )
-
-
-def default_branch(repo_dir: Path) -> str:
-    """The store's default branch, as origin advertises it.
-
-    Returns the short name (e.g. "main"). Asks the remote once when the
-    clone has no origin/HEAD recorded. Raises SystemExit when origin
-    advertises no default branch at all.
-    """
-    for refresh in (False, True):
-        if refresh:
-            # Harmless when origin/HEAD is already set; needed for
-            # clones made before the remote had any branches.
-            subprocess.run(
-                ["git", "-C", str(repo_dir), "remote", "set-head", "origin", "--auto"],
-                capture_output=True,
-                text=True,
-            )
-        result = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(repo_dir),
-                "symbolic-ref",
-                "--short",
-                "refs/remotes/origin/HEAD",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode == 0:
-            return result.stdout.strip().split("/", 1)[1]
-    raise fail(
-        f"{repo_dir}: origin advertises no default branch — cannot pick a "
-        "base for the session branch"
-    )
 
 
 def cmd_open(args: argparse.Namespace) -> int:
@@ -453,52 +278,6 @@ def cmd_open(args: argparse.Namespace) -> int:
         "the session context now, if not already injected."
     )
     return 0
-
-
-def commit_record(repo_dir: Path, record: dict, directory: str = "decisions") -> None:
-    record_id = record["id"]
-    path = repo_dir / directory / f"{record_id}.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    if path.exists():
-        raise fail(f"{path} already exists — records are immutable")
-    path.write_text(serialize_record(record), encoding="utf-8")
-    slug = record_id.split("Z-", 1)[1]
-    chosen = " ".join(str(record.get("chosen", "")).split())
-    if len(chosen) > 100:
-        chosen = chosen[:99] + "…"
-    # Subject grammar authority: the store's docs/conventions.md
-    # (§ Commit types); the vendored guard lints what this composes.
-    kind = "decision" if directory == "decisions" else "prediction"
-    subject = f"{kind}({record['project']}): {slug} — {chosen}"
-    run_git(repo_dir, "add", str(path))
-    run_git(repo_dir, "commit", "--quiet", "-m", subject)
-    push_session(repo_dir)
-    print(f"Recorded {record_id} ({subject})")
-
-
-def push_session(repo_dir: Path) -> None:
-    """Publish the session branch as it stands.
-
-    DECISION: every record is pushed the moment it is committed, so the
-    clone holds nothing the remote does not. Sessions run in ephemeral
-    clones — that is what makes the clone disposable and its location
-    irrelevant, instead of a durability question.
-
-    Raises SystemExit when the push fails: a silently unpushed record
-    is exactly the loss this is here to prevent.
-    """
-    branch = run_git(repo_dir, "rev-parse", "--abbrev-ref", "HEAD").strip()
-    result = subprocess.run(
-        ["git", "-C", str(repo_dir), "push", "--quiet", "-u", "origin", branch],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise fail(
-            f"pushing {branch} to origin failed:\n{result.stderr}\n"
-            "The record is committed locally but not published — retry, or "
-            "push manually before this clone goes away."
-        )
 
 
 def cmd_record(args: argparse.Namespace) -> int:
@@ -618,181 +397,6 @@ def cmd_check(args: argparse.Namespace) -> int:
     if not errors:
         print(f"check: {len(records)} record(s) valid, budget OK.")
     return 1 if errors else 0
-
-
-def _normalize(text: str) -> str:
-    return " ".join(text.lower().split())
-
-
-def bump_preference_counter(
-    data: dict,
-    rule: str,
-    today: str,
-    validator,
-    *,
-    independent: bool = False,
-) -> int | None:
-    """Bump the confirmation counter of the rule matching ``rule``,
-    in the parsed `preferences.json` data, in place.
-
-    ``validator`` is the data repo's vendored decision_validator — the
-    single source of the preference-set schema, shared with the CI
-    guard, so writer and guard cannot disagree about the format.
-
-    ``independent`` also raises the `independent` count. It is true only
-    when the confirmation was NOT the rule crediting itself: the rule
-    was cited on an option, and the decider chose that option, but it
-    was not the slot the rule was written into. The two are counted
-    apart because `confirmed` alone also rises when a rule predicts the
-    slot it authored, which reads as evidence without being any.
-
-    Returns the new count, or None when no rule matches. Matching is by
-    normalized containment, so a cited fragment finds its rule.
-    """
-    wanted = _normalize(rule)
-    for entry in data.get("rules", []):
-        if wanted not in _normalize(entry["rule"]):
-            continue
-        entry[validator.COUNTER_KEY] += 1
-        entry[validator.DATE_KEY] = today
-        if independent:
-            entry[validator.INDEPENDENT_KEY] += 1
-        return entry[validator.COUNTER_KEY]
-    return None
-
-
-def session_hit_rates(records: list[dict]) -> dict[str, dict[str, int]]:
-    streams: dict[str, dict[str, int]] = {
-        "preference-driven": {"hit": 0, "miss": 0, "near-tie": 0, "refined": 0},
-        "cold": {"hit": 0, "miss": 0, "near-tie": 0, "refined": 0},
-    }
-    for record in records:
-        stream = record.get("prediction_stream")
-        outcome = record.get("outcome")
-        if stream in streams and outcome in streams[stream]:
-            streams[stream][outcome] += 1
-    return streams
-
-
-def prediction_rules(record: dict) -> list[str]:
-    for option in record.get("options", []):
-        if isinstance(option, dict) and option.get("role") in (
-            "prediction",
-            "prediction+recommendation",
-        ):
-            rules = option.get("rules_cited")
-            return [r for r in rules if isinstance(r, str)] if rules else []
-    return []
-
-
-def independent_rules(record: dict) -> list[str]:
-    """Rules confirmed by the decider WITHOUT the rule picking the slot.
-
-    `prediction_rules` returns the rules cited on the prediction slot,
-    and a `hit` means that slot was chosen — so every confirmation it
-    yields is the rule agreeing with the option it authored. That is
-    worth counting, but it is not evidence the rule tracks the decider.
-
-    This is the other case: a rule cited on some non-prediction option
-    that the decider chose anyway. The rule did not put the option in
-    front of them, and they took it regardless.
-    """
-    chosen_slot = record.get("chosen_slot")
-    if chosen_slot is None:
-        return []
-    for option in record.get("options", []):
-        if not isinstance(option, dict) or option.get("slot") != chosen_slot:
-            continue
-        if option.get("role") in ("prediction", "prediction+recommendation"):
-            return []
-        rules = option.get("rules_cited") or []
-        return [rule for rule in rules if isinstance(rule, str)]
-    return []
-
-
-def confirmations_for(
-    record: dict,
-) -> tuple[list[tuple[str, bool]], list[tuple[str, str]]]:
-    """The counter bumps a record earns, and the citations it withholds.
-
-    Returns `(confirmations, skipped)`: `confirmations` is a list of
-    `(rule, independent)` pairs to bump, `skipped` a list of
-    `(rule, reason)` pairs that were cited but earn nothing.
-
-    Two ways a rule earns a confirmation, counted apart. A `hit`
-    credits the rules cited on the slot that won — the rule agreeing
-    with itself. Anything else can still confirm a rule, if the decider
-    chose an option that cited it without that rule having proposed it;
-    that one is independent.
-
-    Two ways a citation earns nothing (AET#227). A rule listed in
-    `rules_disconfirmed` was set aside by the decider: neither win nor
-    loss. A record with `correction: true` had its reason replaced, so
-    the rules it cites did not drive the ruling and none auto-bumps;
-    the decider promotes by hand if one did.
-    """
-    if record.get("outcome") == "hit":
-        candidates = [(rule, False) for rule in prediction_rules(record)]
-    else:
-        candidates = [(rule, True) for rule in independent_rules(record)]
-    disconfirmed = {
-        rule for rule in record.get("rules_disconfirmed") or [] if isinstance(rule, str)
-    }
-    confirmations: list[tuple[str, bool]] = []
-    skipped: list[tuple[str, str]] = []
-    for rule, independent in candidates:
-        if rule in disconfirmed:
-            skipped.append((rule, "disconfirmed"))
-        elif record.get("correction") is True:
-            skipped.append((rule, "correction"))
-        else:
-            confirmations.append((rule, independent))
-    return confirmations, skipped
-
-
-def build_pr_body(records: list[dict], streams: dict[str, dict[str, int]]) -> str:
-    def rate(stream: str) -> str:
-        counts = streams[stream]
-        scored = counts["hit"] + counts["miss"]
-        shown = f"{counts['hit']}/{scored} hits" if scored else "no scored"
-        extras = [
-            f"{counts[bucket]} {bucket}"
-            for bucket in ("refined", "near-tie")
-            if counts[bucket]
-        ]
-        if extras:
-            shown += f" ({', '.join(extras)})"
-        return shown
-
-    lines = [
-        f"Decision session PR: {len(records)} record(s).",
-        "",
-        "Prediction hit rates (two streams):",
-        f"- preference-driven: {rate('preference-driven')}",
-        f"- cold (control): {rate('cold')}",
-    ]
-    supersedes = [
-        (record["id"], record["supersedes"])
-        for record in records
-        if record.get("supersedes")
-    ]
-    if supersedes:
-        lines += ["", "Supersedes claims — review explicitly:"]
-        lines += [
-            f"- {record_id} supersedes {target}" for record_id, target in supersedes
-        ]
-    closures = [
-        (record["id"], record["closure_of"])
-        for record in records
-        if record.get("closure_of")
-    ]
-    if closures:
-        lines += ["", "Closure records (closed-unmerged PR sweep):"]
-        lines += [
-            f"- {record_id} explains the closure of PR #{number}"
-            for record_id, number in closures
-        ]
-    return "\n".join(lines) + "\n"
 
 
 def cmd_submit(args: argparse.Namespace) -> int:

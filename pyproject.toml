@@ -19,6 +19,15 @@ package = false
 [tool.ruff]
 target-version = "py310"
 
+# Complexity, measured independently of the file token cap (#242): the
+# cliff the research located sits near cyclomatic 20 and ~100-line
+# functions. Grandfathered offenders carry a noqa naming #243.
+[tool.ruff.lint]
+extend-select = ["C901", "PLR0915"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
 [tool.pytest.ini_options]
 addopts = ["-v", "-Wdefault"]
 minversion = "9.0"

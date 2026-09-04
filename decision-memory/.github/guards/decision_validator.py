@@ -306,7 +306,7 @@ def _validate_streams(
         )
 
 
-def _validate_ruling(
+def _validate_ruling(  # noqa: C901, PLR0915 — refactor: #243
     record: dict, prediction_option: dict | None, errors: list[str]
 ) -> None:
     chosen_slot = record.get("chosen_slot")

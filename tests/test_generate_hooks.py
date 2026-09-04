@@ -56,7 +56,7 @@ def test_branch_name_hook_guards_the_pattern(
     assert run_on("claude/anything", keywords=False).returncode == 0
 
 
-def test_linear_history_hooks_refuse_a_merge_into_a_working_branch(
+def test_linear_history_hooks_refuse_a_merge_into_a_working_branch(  # noqa: PLR0915 — refactor: #243
     tmp_path: Path,
     base_answers: dict[str, str],
 ) -> None:

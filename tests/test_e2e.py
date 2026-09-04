@@ -32,6 +32,7 @@ COMMON_FILES = frozenset(
         "scripts/agent-shims/gh",
         "scripts/agent-shims/tea",
         "scripts/doctor.sh",
+        "scripts/lib/doctor-install.sh",
         # Shared glossary terms, stamped into every generated repo (#52).
         "docs/glossary/decision-memory.md",
         "docs/glossary/reinset.md",

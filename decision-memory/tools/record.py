@@ -399,7 +399,7 @@ def cmd_check(args: argparse.Namespace) -> int:
     return 1 if errors else 0
 
 
-def cmd_submit(args: argparse.Namespace) -> int:
+def cmd_submit(args: argparse.Namespace) -> int:  # noqa: PLR0915 — refactor: #243
     repo_dir = store_root()
     state = load_state(repo_dir)
     validator = load_validator(repo_dir)

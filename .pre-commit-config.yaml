@@ -48,7 +48,8 @@ repos:
         name: no source file over the token cap
         entry: python3 scripts/check_file_length.py --max-tokens 10000
         language: system
-        files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash)(\.jinja)?$
+        files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash|md|yml|yaml|toml|json|html|css)(\.jinja)?$
+        exclude: (^|/)([^/]*lock[^/]*\.(json|yml|yaml|toml)|[^/]*\.min\.(js|css))$
       # The self-application route, checked where the information still
       # exists (#130). A root file with a `template/` counterpart is
       # render output, so a commit edits the source or the stamp, never

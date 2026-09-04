@@ -655,9 +655,12 @@ def test_diff_surface_is_the_added_side_only():
     assert "nobody@example.org" in surface
     assert "alice" not in surface
     assert "+++" not in surface
-    assert gate.leak_violations(
-        [("diff of tests/test_x.py", surface)], gate.parse_blocklist("alice")
-    ) == []
+    assert (
+        gate.leak_violations(
+            [("diff of tests/test_x.py", surface)], gate.parse_blocklist("alice")
+        )
+        == []
+    )
 
 
 def test_diff_surface_survives_a_missing_patch():

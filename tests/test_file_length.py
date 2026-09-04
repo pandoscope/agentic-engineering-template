@@ -62,11 +62,11 @@ def test_an_entry_without_a_ticket_is_refused():
 def test_tokens_are_estimated_from_bytes(tmp_path: Path):
     """bytes / 4, rounded up: dependency-free, monotone, and measuring
     the whole file — comments cost a reader tokens too."""
-    path = tmp_path / "a.py"
+    path = tmp_path / "a.md"
     path.write_bytes(b"x" * 41)
-    tokens, code = checker.measure(str(path))
+    tokens, code, kind = checker.measure(str(path))
     assert tokens == 11
-    assert code is None
+    assert code is None and kind is None
 
 
 def test_bash_files_also_get_a_code_line_count(tmp_path: Path):
@@ -81,9 +81,23 @@ def test_bash_files_also_get_a_code_line_count(tmp_path: Path):
         "  \n"
         'echo "two"  # trailing comments do not make a line free\n'
     )
-    tokens, code = checker.measure(str(path))
-    assert code == 2
+    tokens, code, kind = checker.measure(str(path))
+    assert code == 2 and kind == "sh"
     assert tokens > 0
+
+
+def test_python_and_js_files_get_code_line_counts_too(tmp_path: Path):
+    """Code lines are the split signal for every code language; the
+    comment heuristic is line-based, which is all a hard limit needs."""
+    py = tmp_path / "a.py"
+    py.write_text("# comment\n\nx = 1\ny = 2\n")
+    assert checker.measure(str(py))[1:] == (2, "code")
+    mjs = tmp_path / "a.mjs"
+    mjs.write_text("// c\n/* block\n * c\n */\nlet x = 1\n\nlet y = 2\n")
+    assert checker.measure(str(mjs))[1:] == (2, "code")
+    jinja = tmp_path / "b.py.jinja"
+    jinja.write_text("x = 1\n")
+    assert checker.measure(str(jinja))[2] == "code"
 
 
 def test_a_file_it_cannot_read_as_text_is_not_measured(tmp_path: Path):
@@ -96,52 +110,54 @@ def test_a_file_it_cannot_read_as_text_is_not_measured(tmp_path: Path):
 
 
 def test_a_file_over_the_token_cap_is_named_with_its_estimate():
-    problems = checker.review({"a.py": (10001, None)}, 10000, 150, {}, set())
+    problems = checker.review({"a.md": (10001, None, None)}, 10000, 150, 500, {}, set())
     assert len(problems) == 1
-    assert "a.py" in problems[0] and "10001" in problems[0]
+    assert "a.md" in problems[0] and "10001" in problems[0]
     assert "token" in problems[0]
 
 
 def test_a_file_at_the_token_cap_passes():
-    assert checker.review({"a.py": (10000, None)}, 10000, 150, {}, set()) == []
+    assert (
+        checker.review({"a.md": (10000, None, None)}, 10000, 150, 500, {}, set()) == []
+    )
 
 
 def test_a_bash_file_over_the_code_line_limit_points_at_python():
     """Within the token cap but over the code-line limit: the fix for
     long bash is not splitting it."""
-    problems = checker.review({"x.sh": (500, 151)}, 10000, 150, {}, set())
+    problems = checker.review({"x.sh": (500, 151, "sh")}, 10000, 150, 500, {}, set())
     assert len(problems) == 1
     assert "x.sh" in problems[0] and "151" in problems[0]
     assert "Python" in problems[0]
 
 
 def test_a_bash_file_at_the_code_line_limit_passes():
-    assert checker.review({"x.sh": (500, 150)}, 10000, 150, {}, set()) == []
+    assert checker.review({"x.sh": (500, 150, "sh")}, 10000, 150, 500, {}, set()) == []
 
 
 def test_an_allowlisted_overrun_passes():
-    measures = {"a.py": (12000, None), "x.sh": (500, 200)}
+    measures = {"a.py": (12000, 300, "code"), "x.sh": (500, 200, "sh")}
     allowlist = {"a.py": "#184", "x.sh": "#185"}
-    assert checker.review(measures, 10000, 150, allowlist, set()) == []
+    assert checker.review(measures, 10000, 150, 500, allowlist, set()) == []
 
 
 def test_an_allowlisted_file_back_under_every_limit_must_leave_the_list():
     """The mechanism that makes the list shrink: the commit that brings
     a file under the caps is the one that has to drop its line."""
     problems = checker.review(
-        {"a.py": (400, None)}, 10000, 150, {"a.py": "#184"}, set()
+        {"a.py": (400, 90, "code")}, 10000, 150, 500, {"a.py": "#184"}, set()
     )
     assert len(problems) == 1
     assert "a.py" in problems[0] and "remove" in problems[0]
 
 
 def test_an_allowlisted_bash_file_still_over_one_limit_keeps_its_line():
-    measures = {"x.sh": (500, 200)}
-    assert checker.review(measures, 10000, 150, {"x.sh": "#185"}, set()) == []
+    measures = {"x.sh": (500, 200, "sh")}
+    assert checker.review(measures, 10000, 150, 500, {"x.sh": "#185"}, set()) == []
 
 
 def test_an_allowlist_entry_for_a_file_that_is_gone_must_leave_the_list():
-    problems = checker.review({}, 10000, 150, {"old.py": "#184"}, {"old.py"})
+    problems = checker.review({}, 10000, 150, 500, {"old.py": "#184"}, {"old.py"})
     assert len(problems) == 1
     assert "old.py" in problems[0] and "remove" in problems[0]
 
@@ -149,7 +165,19 @@ def test_an_allowlist_entry_for_a_file_that_is_gone_must_leave_the_list():
 def test_a_file_not_in_this_run_is_not_judged():
     """The hook sees the files a commit touches; an untouched overrun is
     the next commit's problem, not a reason this one cannot land."""
-    assert checker.review({}, 10000, 150, {}, set()) == []
+    assert checker.review({}, 10000, 150, 500, {}, set()) == []
+
+
+def test_a_code_file_over_the_code_line_limit_is_told_to_split():
+    problems = checker.review({"a.py": (500, 501, "code")}, 10000, 150, 500, {}, set())
+    assert len(problems) == 1
+    assert "a.py" in problems[0] and "501" in problems[0] and "split" in problems[0]
+
+
+def test_a_code_file_at_the_code_line_limit_passes():
+    assert (
+        checker.review({"a.py": (500, 500, "code")}, 10000, 150, 500, {}, set()) == []
+    )
 
 
 # ------------------------------------------------------------ end to end
@@ -177,6 +205,14 @@ def test_the_bash_limit_counts_code_not_comments(tmp_path: Path):
     red = run("--max-sh-code-lines", "2", "x.sh", cwd=tmp_path)
     assert red.returncode == 1 and "x.sh" in red.stderr
     green = run("--max-sh-code-lines", "3", "x.sh", cwd=tmp_path)
+    assert green.returncode == 0, green.stderr
+
+
+def test_the_code_line_limit_counts_code_not_comments(tmp_path: Path):
+    (tmp_path / "a.py").write_text("# c\n" * 40 + "x = 1\ny = 2\nz = 3\n")
+    red = run("--max-code-lines", "2", "a.py", cwd=tmp_path)
+    assert red.returncode == 1 and "a.py" in red.stderr
+    green = run("--max-code-lines", "3", "a.py", cwd=tmp_path)
     assert green.returncode == 0, green.stderr
 
 
@@ -214,6 +250,22 @@ def test_the_hook_reads_the_languages_the_repo_already_lints(
     files = hook[hook.index("files:") : hook.index("\n", hook.index("files:"))]
     for suffix in ("py", "mjs", "js", "ts", "sh"):
         assert suffix in files
+
+
+def test_the_hook_reads_everything_else_a_model_reads(
+    tmp_path: Path, base_answers: dict[str, str]
+):
+    """The token cap is about read cost, which Markdown, YAML and JSON
+    incur like any source file; generated lockfiles and minified assets
+    are excluded — nobody reads them whole."""
+    dst_path = render_answers(tmp_path, base_answers, "read-cost")
+    config = (dst_path / ".pre-commit-config.yaml").read_text()
+    hook = config[config.index("id: file-length") :]
+    block = hook[: hook.index("- id:", 5)]
+    for suffix in ("md", "yml", "yaml", "toml", "json", "html", "css"):
+        assert suffix in block
+    assert "exclude:" in block
+    assert "lock" in block and "min" in block
 
 
 def test_the_allowlist_is_seeded_once_and_never_stamped_again(

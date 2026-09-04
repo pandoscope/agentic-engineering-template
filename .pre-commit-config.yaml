@@ -39,13 +39,14 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
-      # Source length (#239), the same hook the template ships. The
-      # limit is this repo's own answer to agentic_max_file_lines; the
-      # allowlist beside it is empty, and an entry needs the ticket
-      # that will bring its file back under.
+      # File cost cap (#239, #242), the same hook the template ships.
+      # The cap is this repo's own answer to agentic_max_file_tokens;
+      # bash files also get a code-line limit. The allowlist beside it
+      # is empty, and an entry needs the ticket that will bring its
+      # file back under.
       - id: file-length
-        name: no source file over the line limit
-        entry: python3 scripts/check_file_length.py --max 800
+        name: no source file over the token cap
+        entry: python3 scripts/check_file_length.py --max-tokens 10000
         language: system
         files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash)(\.jinja)?$
       # The self-application route, checked where the information still

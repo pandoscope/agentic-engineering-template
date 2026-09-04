@@ -52,6 +52,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/pandoscope-template.md",
         "scripts/check-branch-name.sh",
         "scripts/check-linear-history.sh",
+        "scripts/check_file_length.py",
         "scripts/enable-agent-shims.sh",
         "skills-lock.json",
         # The uniform gate's judge (#137) renders on every forge; only
@@ -118,6 +119,9 @@ EXPECTED_WITH_PREK = (
         # Seeded once (#216): a home for the repo's own hooks that the
         # template never stamps again and the drift check never judges.
         ".pre-commit-config.local.yaml",
+        # Seeded once (#239): the repo's own record of which overruns it
+        # tolerates and the ticket closing each one.
+        ".file-length-allowlist",
         "scripts/ensure-prek.sh",
     }
 )

@@ -37,7 +37,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/decision-memory.md",
         "docs/glossary/reinset.md",
         "docs/glossary/decision-record.md",
-        "docs/glossary/pando-cell.md",
+        "docs/glossary/pando-worker.md",
         "docs/glossary/evidence-memory.md",
         "docs/glossary/org-genome.md",
         "docs/glossary/grilling.md",

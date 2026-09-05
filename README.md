@@ -169,7 +169,7 @@ what makes them lintable here.
 - [memory repo](docs/glossary/memory-repo.md)
 - [org](docs/glossary/org.md)
 - [pando](docs/glossary/pando.md)
-- [pando cell](docs/glossary/pando-cell.md)
+- [pando worker](docs/glossary/pando-worker.md)
 - [preference set](docs/glossary/preference-set.md)
 - [principal](docs/glossary/principal.md)
 - [record contract](docs/glossary/record-contract.md)

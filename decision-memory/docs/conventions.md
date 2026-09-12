@@ -253,11 +253,18 @@ Storage and priming are two concerns, so the set is a pair:
   absence stays observable, never ambiguous. The render never emits
   it; consumers that display a rule (e.g. the grilling skill's lineage
   panel) link the doc from here instead of guessing.
-- `rule` is one plain single-spaced line; the render never wraps. It
-  may hold a joined qualifier sentence under the one counter — "one
-  line, one preference" counts preferences, not sentences: a qualifier
-  the decider reads as part of the rule belongs to it, not to a second
-  entry.
+- `rule` is one plain single-spaced line stating **one preference, in
+  the plainest words that survive a cold read** — a line the reader
+  has to ask about has failed. The render never wraps. "One line, one
+  preference" counts preferences, not sentences: a qualifier the
+  decider reads as part of the rule joins it on the same line, under
+  the one counter. A line holding two preferences is split instead,
+  and the counter follows the evidence — whichever split line the
+  records actually support inherits it, the others start at zero.
+  (Ruled 2026-08-10/11, records `preference-lines-are-fundamental`,
+  `preference-lines-never-wrap` and `decompose-and-residue-one-line`:
+  seven compound lines became twelve plain ones and the file got
+  cheaper.)
 - Rule text is unique within the set (bumps match by text).
 
 Counter semantics:

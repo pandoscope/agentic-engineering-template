@@ -113,7 +113,10 @@ agentic_merge_approval_gate:
     allowlisted approver passes without a review — the author cannot
     approve their own PR, and authorship is approval by the same party.
   default: true
-  when: "{{ agentic_subtemplate == 'template' }}"
+  # The stores take the gate too (#252): a bot that merges on green must
+  # never merge a store PR no human approved. session-memory takes direct
+  # pushes by design and is not asked.
+  when: "{{ agentic_subtemplate in ('template', 'decision-memory', 'evidence-memory') }}"
 
 agentic_merge_approvers:
   type: str
@@ -123,8 +126,8 @@ agentic_merge_approvers:
     .github/merge-approvers.json. The repo owner may be an org, so this
     cannot be defaulted from it.
   default: ""
-  validator: "{% if agentic_subtemplate == 'template' and agentic_merge_approval_gate and not agentic_merge_approvers %}Required while agentic_merge_approval_gate is true — name at least one human login{% endif %}"
-  when: "{{ agentic_subtemplate == 'template' and agentic_merge_approval_gate }}"
+  validator: "{% if agentic_subtemplate in ('template', 'decision-memory', 'evidence-memory') and agentic_merge_approval_gate and not agentic_merge_approvers %}Required while agentic_merge_approval_gate is true — name at least one human login{% endif %}"
+  when: "{{ agentic_subtemplate in ('template', 'decision-memory', 'evidence-memory') and agentic_merge_approval_gate }}"
 
 agentic_tracker_cli:
   type: str

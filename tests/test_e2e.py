@@ -65,6 +65,9 @@ COMMON_FILES = frozenset(
         "scripts/ci/gate_api.py",
         "scripts/ci/gate_approval.py",
         "scripts/ci/gate_leaks.py",
+        # The merge bot's judge (#260): inert unless the repo is private
+        # and BOT_MERGE_ENABLED is set; renders everywhere like the rest.
+        "scripts/ci/gate_merge.py",
         "scripts/ci/gate_payload.py",
         "scripts/ci/gate_rerun.py",
         "scripts/ci/gate_reviews.py",
@@ -113,6 +116,9 @@ GITHUB_ONLY_FILES = frozenset(
         # The stale-red janitor (#190): re-runs superseded red gate
         # runs in place so they stop blocking merge.
         ".github/workflows/gate-rerun.yml",
+        # The merge bot (#260): private repos merge through the release
+        # bot once ci-ok is green; public repos see one line.
+        ".github/workflows/bot-merge.yml",
     }
 )
 

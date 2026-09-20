@@ -2,7 +2,8 @@
 {%- set caps = refkw.allowed | dictsort | map(attribute='0') | join('/') -%}
 # The uniform CI gate (agentic-engineering-template#137, #143) — store
 # variant: stores are not ticketed, so the ticket job is absent by design;
-# the aggregate and the review-answers gate are identical to the template's.
+# the aggregate, the review-answers gate and the merge-approval job (#252)
+# are identical to the template's.
 #
 # `ci-ok` is the ONE context branch protection requires, everywhere,
 # forever: it discovers every pull_request-triggered workflow on this
@@ -91,7 +92,25 @@ jobs:
           PUSH_BLOCKLIST: {% raw %}${{ secrets.PUSH_BLOCKLIST }}{% endraw %}
         run: python3 scripts/ci/check_gate.py leaks
 
-  ci-ok:
+{% if agentic_merge_approval_gate %}  approval:
+    name: "merge approval"
+    runs-on: {{ agentic_actions_runner }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      # An allowlisted human's latest review must APPROVE the current
+      # head commit (stale approvals name the commit gap), or the PR is
+      # authored by an approver — authorship is approval by the same
+      # party, since GitHub forbids approving one's own PR. The
+      # `automated`-label + bot-author escape matches the ticket gate,
+      # so release and template-update PRs do not wait on a click (#187).
+      - name: A current human approval covers this head
+        env:
+          GH_TOKEN: {% raw %}${{ github.token }}{% endraw %}
+          MERGE_APPROVERS: .github/merge-approvers.json
+        run: python3 scripts/ci/check_gate.py approval
+
+{% endif %}  ci-ok:
     name: "ci-ok"
     runs-on: {{ agentic_actions_runner }}
     steps:

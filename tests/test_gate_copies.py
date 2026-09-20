@@ -59,6 +59,35 @@ def test_store_keyword_files_are_byte_identical_to_the_template():
         assert copy.read_bytes() == source, f"{copy} drifted from the template copy"
 
 
+def test_merge_approvers_template_is_pinned_across_stores():
+    """The approvers file follows the gate into the stores (#252): one
+    jinja source, byte-identical copies, so an allowlist change reaches
+    every subtemplate in the same PR."""
+    github = "{% if agentic_forge == 'github' %}.github{% endif %}"
+    source = (ROOT / "template" / github / "merge-approvers.json.jinja").read_bytes()
+    for store in ("decision-memory", "evidence-memory"):
+        copy = ROOT / store / ".github" / "merge-approvers.json.jinja"
+        assert copy.exists(), f"{copy} is missing"
+        assert copy.read_bytes() == source, f"{copy} drifted from the template copy"
+
+
+def test_store_gate_workflows_carry_the_approval_job():
+    """#252: a store's green ci-ok meant less than a template repo's,
+    because no approval job existed under any condition. The job block
+    is the template's, verbatim, behind the same answer."""
+    github = "{% if agentic_forge == 'github' %}.github{% endif %}"
+    template = (
+        ROOT / "template" / github / "workflows" / "ci-ok.yml.jinja"
+    ).read_text()
+    block = template[
+        template.index("{% if agentic_merge_approval_gate %}  approval:") :
+    ]
+    block = block[: block.index("{% endif %}  ci-ok:") + len("{% endif %}  ci-ok:")]
+    for store in ("decision-memory", "evidence-memory"):
+        text = (ROOT / store / ".github" / "workflows" / "ci-ok.yml.jinja").read_text()
+        assert block in text, f"{store}: approval job block differs from the template's"
+
+
 def test_store_gate_workflows_are_identical_and_unticketed():
     dm = (
         ROOT / "decision-memory" / ".github" / "workflows" / "ci-ok.yml.jinja"

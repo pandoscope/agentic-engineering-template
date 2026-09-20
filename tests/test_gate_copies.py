@@ -22,6 +22,7 @@ def test_gate_script_copies_are_byte_identical_template_first():
         "gate_api.py",
         "gate_approval.py",
         "gate_leaks.py",
+        "gate_merge.py",
         "gate_payload.py",
         "gate_rerun.py",
         "gate_reviews.py",

@@ -26,6 +26,7 @@ import gate_aggregate  # noqa: E402
 import gate_api  # noqa: E402
 import gate_approval  # noqa: E402
 import gate_leaks  # noqa: E402
+import gate_merge  # noqa: E402
 import gate_payload  # noqa: E402
 import gate_rerun  # noqa: E402
 import gate_reviews  # noqa: E402
@@ -48,6 +49,7 @@ __all__ = [
     "gate_api",
     "gate_approval",
     "gate_leaks",
+    "gate_merge",
     "gate_payload",
     "gate_rerun",
     "gate_reviews",

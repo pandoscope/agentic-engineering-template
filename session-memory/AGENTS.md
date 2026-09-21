@@ -32,6 +32,15 @@ drift from one schema.
   transition through.
 - Never write this repo's URL into a public artifact.
 
+## Merge approval
+
+This store has no merge-approval gate, by ruling (template ticket
+252): the ledger takes direct pushes from every session by design,
+so a human Approve review in front of each push would gate nothing.
+The org-wide audit (meta ticket 132) exempts session-memory by name,
+not by silence; decision-memory and evidence-memory do carry the
+gate, because the release bot merges their pull requests.
+
 ## What a transcript export may contain
 
 User and assistant message text only. Tool results are never exported

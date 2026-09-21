@@ -1,0 +1,35 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#261",
+  "head": "517125a2e3ede3ed8a4972dde6103ec63ea598f2",
+  "pass": "spec-fidelity",
+  "tier": "opus",
+  "findings": [
+    {
+      "file": "copier.yml",
+      "line": 113,
+      "rule": "If it does not: say so in the subtemplate's own conventions, so the absence reads as a ruling and the org-wide audit in pandoscope/meta#132 can exempt them by name rather than by silence.",
+      "input": "copier copy --data agentic_subtemplate=session-memory: the rendered store carries AGENTS.md, README.md, repo-codes.json, scripts/ and .github/workflows/ and no docs/conventions.md; grep -ri 'approval' over session-memory/ at this head returns nothing. The ruling that the gate does not belong there lives only in copier.yml's new comment and in the pull request body, neither of which is delivered into a stamped session-memory repo.",
+      "tier": "hard",
+      "confidence": 90,
+      "finding": "The pull request takes the ticket's \"does not belong\" branch for session-memory but records the exemption in the template's copier.yml comment instead of the subtemplate's own conventions, so a session-memory repo and the meta#132 audit still read the absence as silence."
+    },
+    {
+      "file": "evidence-memory/.github/workflows/ci-ok.yml.jinja",
+      "line": 95,
+      "rule": "The stores are data repos, and their write path is deliberately not a human one: records land through the recorder, sessions push per record, and the ledger takes direct pushes by design.",
+      "input": "A tier-1 evidence record PR opened by a session account (login without the `[bot]` suffix, no `automated` label): gate_approval's escape requires both, so ci-ok cannot go green until an allowlisted human clicks Approve. The same render still ships evidence-memory/README.md:40 (\"evidence PRs auto-merge on green - so the guard *is* the review\"), AGENTS.md:84, .github/workflows/guards.yml.jinja:8, docs/conventions.md:108 and the `needs-human-review` label, whose description claims it is the one PR kind that \"Never auto-merges: a human approves the capsule before its ticket is filed\".",
+      "tier": "judgment",
+      "confidence": 80,
+      "finding": "Extending the gate to evidence-memory puts a human click in front of every evidence PR, which contradicts the store's own rendered documents and collapses the tier-1/tier-2 distinction its labels encode, and neither the ticket nor the pull request body states that consequence."
+    },
+    {
+      "file": "copier.yml",
+      "line": 124,
+      "rule": "Their next template update refuses by name (\"Required while agentic_merge_approval_gate is true\") until the answer is supplied once, for example with `copier update --data agentic_merge_approvers=«login»`.",
+      "input": "Running that command verbatim in a decision-memory or evidence-memory clone: copier's --answers-file defaults to .copier-answers.yml while these stores are keyed by .copier-answers.agentic.yml (copier.yml `_answers_file`), and the template's Jinja extensions need --trust. The repo's own README.md:57 documents `copier update --answers-file .copier-answers.agentic.yml --trust`, and each store's template-update.yml.jinja passes --answers-file, --trust and --skip-tasks.",
+      "tier": "judgment",
+      "confidence": 70,
+      "finding": "The remedy the body offers for the answer it makes mandatory does not run as written in the two stores it names, because it omits the answers-file and trust flags those stores require."
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#262",
+  "head": "b0bc7333b436ecad24d4efad50f3187bd4ead925",
+  "pass": "spec-fidelity",
+  "tier": "opus",
+  "findings": [
+    {
+      "file": "scripts/ci/gate_merge.py",
+      "line": 89,
+      "rule": "The workflow re-judges live data and never fabricates green; a PR the gate rejects stays open.",
+      "input": "A decision-memory or evidence-memory PR whose last push left the `merge approval` job red in the `pull_request`-event CI gate run, approved by a human afterwards. The approval re-runs CI gate under `pull_request_review` and that run is green, but the listing here is filtered to `event=pull_request`, so the newest run the bot can see for `.github/workflows/ci-ok.yml` is the superseded red one; `aggregate_verdict` reports `job 'merge approval' concluded failure` and `run_merge` returns 0 without merging. Neither store subtemplate renders `gate-rerun.yml` (decision-memory/.github/workflows/ and evidence-memory/.github/workflows/ contain no such file, and neither STORE_FILES set lists it), so nothing ever re-runs the stale run in place and no later event changes the answer.",
+      "tier": "hard",
+      "confidence": 88,
+      "finding": "On the private stores this workflow is built for, a PR approved after its last push is never merged, because the bot judges the recorded verdict of the stale `event=pull_request` gate run instead of the live one the approval produced."
+    },
+    {
+      "file": "scripts/ci/gate_merge.py",
+      "line": 111,
+      "rule": "A missing permission is the first thing the merge step's failure names.",
+      "input": "The release-bot installation without `pull_requests: write` on the repository: `PUT /repos/{repo}/pulls/{number}/merge` answers 403, `gate_api.put_json` calls `urllib.request.urlopen` with no handler, and the step dies on a traceback whose last line is `urllib.error.HTTPError: HTTP Error 403: Forbidden`.",
+      "tier": "hard",
+      "confidence": 72,
+      "finding": "Nothing in the merge path names a permission on failure — a missing `contents: write` or `pull_requests: write` surfaces only as an unannotated HTTP 403 traceback."
+    },
+    {
+      "file": "tests/test_gate_merge.py",
+      "line": 71,
+      "rule": "- [ ] fixture: private repo, switch on, `merge approval` red → not merged, run log names the red job",
+      "input": "The red branch of `test_run_merges_only_a_green_head` sets `jobs[0][\"conclusion\"] = \"failure\"` on a job named `test`, not `merge approval`, and asserts only `merged == []`; no test in the diff captures stdout, so no fixture asserts that the run log names the red job.",
+      "tier": "judgment",
+      "confidence": 66,
+      "finding": "The acceptance criterion's fixture is only half present: the red-head case neither uses the `merge approval` job the criterion names nor asserts that the run log names it."
+    },
+    {
+      "file": "scripts/ci/gate_merge.py",
+      "line": 78,
+      "rule": "Judgement reuses `check_gate.py aggregate` against the head: every job of every PR workflow succeeded, `merge approval` included.",
+      "input": "A PR that deletes a `pull_request`-triggered workflow, say `.github/workflows/payload-scan.yml`. Reached through the `workflow_run` trigger the checkout is the default branch, so `os.listdir('.github/workflows')` still yields the deleted file and `expected` awaits a run that the head can never produce: `aggregate_verdict` reports `no run for this head SHA yet` forever and the loop exits at the timeout warning without merging. The same PR reached through `pull_request_review` checks out the merge ref, where the file is gone, and does not await it.",
+      "tier": "judgment",
+      "confidence": 60,
+      "finding": "The set of awaited workflows is read from whatever ref the trigger checked out rather than from the head under judgement, so the two triggers disagree and a PR that removes a PR workflow is never merged."
+    }
+  ]
+}

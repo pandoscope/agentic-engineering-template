@@ -2,6 +2,9 @@
 bot; a public repo, an unset switch, a draft or a red head is not (#260).
 """
 
+import base64
+import urllib.error
+
 from tests.gate_support import gate_merge
 
 
@@ -28,12 +31,19 @@ def test_candidates_are_open_non_draft_prs_at_this_head_oldest_first():
     assert [p["number"] for p in gate_merge.merge_candidates(pulls, "abc")] == [3, 7]
 
 
-def test_run_merges_only_a_green_head(monkeypatch, tmp_path):
-    """The verdict is the aggregate's own: a red job anywhere holds the
-    merge, a green board merges every candidate once, by head SHA."""
-    workflows = tmp_path / ".github" / "workflows"
-    workflows.mkdir(parents=True)
-    (workflows / "ci.yml").write_text("on:\n  pull_request:\njobs: {}\n")
+def contents(path):
+    """The head's `.github/workflows` as the contents API serves it."""
+    return {
+        "name": "ci.yml",
+        "path": ".github/workflows/ci.yml",
+        "content": base64.b64encode(b"on:\n  pull_request:\njobs: {}\n").decode(),
+        "encoding": "base64",
+    }
+
+
+def wire(monkeypatch, tmp_path, runs, jobs, merged, files=None):
+    """A private, switched-on repo whose head carries `files` (default:
+    one PR workflow) and whose runs and jobs the API answers with."""
     monkeypatch.chdir(tmp_path)
     for key, value in {
         "GH_TOKEN": "t",
@@ -44,13 +54,19 @@ def test_run_merges_only_a_green_head(monkeypatch, tmp_path):
         "BOT_MERGE_TIMEOUT": "0",
     }.items():
         monkeypatch.setenv(key, value)
+    files = [contents(".github/workflows/ci.yml")] if files is None else files
 
-    runs = [{"id": 1, "path": ".github/workflows/ci.yml", "status": "completed"}]
-    jobs = [{"name": "test", "status": "completed", "conclusion": "success"}]
-    merged = []
-    monkeypatch.setattr(
-        gate_merge, "fetch", lambda path, token: [pr(3), pr(4, draft=True)]
-    )
+    def fetch(path, token):
+        if "/commits/abc/pulls" in path:
+            return [pr(3), pr(4, draft=True)]
+        if path.endswith("/contents/.github/workflows?ref=abc"):
+            return [{k: f[k] for k in ("name", "path")} for f in files]
+        for f in files:
+            if path == f"/repos/o/r/contents/{f['path']}?ref=abc":
+                return f
+        raise AssertionError(f"unexpected fetch {path}")
+
+    monkeypatch.setattr(gate_merge, "fetch", fetch)
     monkeypatch.setattr(
         gate_merge,
         "paginate",
@@ -62,6 +78,16 @@ def test_run_merges_only_a_green_head(monkeypatch, tmp_path):
         lambda path, body, token: merged.append((path, body)) or 200,
     )
 
+
+def test_run_merges_only_a_green_head(monkeypatch, tmp_path, capsys):
+    """The verdict is the aggregate's own: a red `merge approval` holds
+    the merge and the log names it; a green board merges every
+    candidate once, by head SHA."""
+    runs = [{"id": 1, "path": ".github/workflows/ci.yml", "status": "completed"}]
+    jobs = [{"name": "merge approval", "status": "completed", "conclusion": "success"}]
+    merged = []
+    wire(monkeypatch, tmp_path, runs, jobs, merged)
+
     assert gate_merge.run_merge() == 0
     assert merged == [
         ("/repos/o/r/pulls/3/merge", {"merge_method": "merge", "sha": "abc"})
@@ -71,6 +97,78 @@ def test_run_merges_only_a_green_head(monkeypatch, tmp_path):
     jobs[0]["conclusion"] = "failure"
     assert gate_merge.run_merge() == 0
     assert merged == []
+    assert "merge approval" in capsys.readouterr().out
+
+
+def test_the_newest_run_per_workflow_is_judged_whatever_its_event(
+    monkeypatch, tmp_path
+):
+    """An approval re-runs the gate under pull_request_review; the run
+    the push produced stays red forever. The bot judges the live run,
+    so a PR approved after its last push is merged."""
+    runs = [
+        {
+            "id": 1,
+            "path": ".github/workflows/ci.yml",
+            "status": "completed",
+            "event": "pull_request",
+        },
+        {
+            "id": 2,
+            "path": ".github/workflows/ci.yml",
+            "status": "completed",
+            "event": "pull_request_review",
+        },
+    ]
+    jobs_by_run = {
+        1: [{"name": "merge approval", "conclusion": "failure"}],
+        2: [{"name": "merge approval", "conclusion": "success"}],
+    }
+    merged = []
+    wire(monkeypatch, tmp_path, runs, [], merged)
+    monkeypatch.setattr(
+        gate_merge,
+        "paginate",
+        lambda path, token, key=None: (
+            runs
+            if "actions/runs?" in path
+            else jobs_by_run[int(path.split("/runs/")[1].split("/")[0])]
+        ),
+    )
+    assert gate_merge.run_merge() == 0
+    assert [p for p, _ in merged] == ["/repos/o/r/pulls/3/merge"]
+
+
+def test_expected_workflows_come_from_the_head_not_the_checkout(monkeypatch, tmp_path):
+    """workflow_run checks out the default branch. A workflow the head
+    removed must not be awaited, and one it added must be."""
+    checkout = tmp_path / ".github" / "workflows"
+    checkout.mkdir(parents=True)
+    (checkout / "gone.yml").write_text("on:\n  pull_request:\njobs: {}\n")
+    runs = [{"id": 1, "path": ".github/workflows/ci.yml", "status": "completed"}]
+    jobs = [{"name": "test", "conclusion": "success"}]
+    merged = []
+    wire(monkeypatch, tmp_path, runs, jobs, merged)
+    assert gate_merge.run_merge() == 0
+    assert len(merged) == 1
+
+
+def test_a_refused_merge_names_the_missing_permission(monkeypatch, tmp_path, capsys):
+    """The bot's token lacking contents:write or pull_requests:write is
+    an HTTP 403 on the merge; the failure names the permission first."""
+    runs = [{"id": 1, "path": ".github/workflows/ci.yml", "status": "completed"}]
+    jobs = [{"name": "test", "conclusion": "success"}]
+    wire(monkeypatch, tmp_path, runs, jobs, [])
+
+    def refused(path, body, token):
+        raise urllib.error.HTTPError(path, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(gate_merge, "put_json", refused)
+    assert gate_merge.run_merge() == 1
+    out = capsys.readouterr().out
+    assert "contents: write" in out
+    assert "pull_requests: write" in out
+    assert out.index("permission") < out.index("403")
 
 
 def test_run_is_inert_on_a_public_repo(monkeypatch):

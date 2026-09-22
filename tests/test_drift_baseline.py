@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.render_support import PROJECT_ROOT
+from tests.render_support import PROJECT_ROOT, render_answers
 from tests.test_prune_glossary import _git, _pin
 
 SCRIPT = PROJECT_ROOT / "template" / "scripts" / "ci" / "drift_baseline.sh"
@@ -75,3 +75,19 @@ def test_an_existing_baseline_is_left_alone(tmp_path: Path) -> None:
 
     assert result.returncode == 0, result.stderr
     assert (repo / BASELINE).read_text() == sentinel
+
+
+@pytest.mark.xfail(strict=True, reason="red: the seed still ships executable")
+def test_the_stamped_seed_is_not_executable(
+    tmp_path: Path, base_answers: dict[str, str]
+) -> None:
+    """Same rule as #249: `copier update` writes a new file 100644 whatever
+    mode the template committed, so a 100755 source makes every
+    consumer's drift check see a mode flip. The task and the update
+    workflow run the seed through `bash`, so the bit does nothing.
+    """
+    dst_path = render_answers(tmp_path, base_answers, "seed-mode")
+    seed = dst_path / "scripts" / "ci" / "drift_baseline.sh"
+    assert not seed.stat().st_mode & 0o111, (
+        "drift_baseline.sh must not be executable — copier update cannot carry the bit"
+    )

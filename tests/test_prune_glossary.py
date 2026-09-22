@@ -50,9 +50,9 @@ def _git(repo: Path, *args: str) -> None:
 def _repo(tmp_path: Path, *, answers: bool) -> Path:
     """A committed repo with the root's own linking documents and glossary.
 
-    `answers=True` makes it a stamped consumer (pin from the answers
-    file); `answers=False` makes it the template root (pin from
-    copier.yml's default).
+    `answers=True` makes it a stamped consumer (pin from the rendered
+    scripts/ci/disambiguate-version); `answers=False` makes it the
+    template root (pin from copier.yml's default).
     """
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -62,9 +62,8 @@ def _repo(tmp_path: Path, *, answers: bool) -> Path:
     (repo / "scripts" / "ci").mkdir(parents=True)
     shutil.copy2(SCRIPT, repo / "scripts" / "ci" / SCRIPT.name)
     if answers:
-        (repo / ANSWERS).write_text(
-            f'_commit: v0\nagentic_disambiguate_version: "{_pin()}"\n'
-        )
+        (repo / ANSWERS).write_text("_commit: v0\n")
+        (repo / "scripts" / "ci" / "disambiguate-version").write_text(f"{_pin()}\n")
     else:
         shutil.copy2(PROJECT_ROOT / "copier.yml", repo / "copier.yml")
     _git(repo, "init", "-q")
@@ -143,7 +142,7 @@ def test_fail_on_removal_names_and_restores_the_term(tmp_path: Path) -> None:
     assert "reinset.md" in _terms(repo), "a tracked term the prune removed is put back"
 
 
-def test_the_answers_file_pin_wins_over_a_copier_yml(tmp_path: Path) -> None:
+def test_the_rendered_pin_file_wins_over_a_copier_yml(tmp_path: Path) -> None:
     """A stamped repo that is itself a template reads its own stamp's pin."""
     repo = _repo(tmp_path, answers=True)
     (repo / "copier.yml").write_text(
@@ -155,9 +154,6 @@ def test_the_answers_file_pin_wins_over_a_copier_yml(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.xfail(
-    strict=True, reason="red: the prune still reads the answers file (#269)"
-)
 def test_the_rendered_pin_file_wins_over_a_stale_answers_key(tmp_path: Path) -> None:
     """A consumer reads scripts/ci/disambiguate-version, never the answers file.
 

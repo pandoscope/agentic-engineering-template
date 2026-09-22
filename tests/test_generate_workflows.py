@@ -5,7 +5,6 @@ job and its drift check, and the org plumbing (labels, board, tickets).
 from __future__ import annotations
 
 import json
-import pytest
 from pathlib import Path
 
 import yaml
@@ -53,9 +52,6 @@ def test_github_forge_ships_template_update_workflow(
     )
 
 
-@pytest.mark.xfail(
-    strict=True, reason="red: the update never seeds the baseline (#269)"
-)
 def test_template_update_seeds_the_drift_baseline_after_the_prune(
     tmp_path: Path,
     base_answers: dict[str, str],

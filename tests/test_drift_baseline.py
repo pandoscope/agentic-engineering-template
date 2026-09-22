@@ -53,7 +53,6 @@ def _needs_uvx() -> None:
         pytest.skip("the seed runs disambiguate through uvx")
 
 
-@pytest.mark.xfail(strict=True, reason="red: no seed script yet (#269)")
 def test_a_missing_baseline_is_written_from_the_current_findings(
     tmp_path: Path,
 ) -> None:
@@ -67,7 +66,6 @@ def test_a_missing_baseline_is_written_from_the_current_findings(
     assert isinstance(baseline["findings"], list)
 
 
-@pytest.mark.xfail(strict=True, reason="red: no seed script yet (#269)")
 def test_an_existing_baseline_is_left_alone(tmp_path: Path) -> None:
     repo = _repo(tmp_path)
     sentinel = '{"version": 1, "findings": ["README.md:unlinked-term:sentinel"]}\n'

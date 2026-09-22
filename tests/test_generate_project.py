@@ -11,7 +11,6 @@ import subprocess
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
@@ -455,7 +454,6 @@ def test_disambiguate_drift_hook_renders_with_pin_and_roots(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="red: the pin is still a stored answer (#269)")
 def test_disambiguate_pin_is_template_managed_not_a_stored_answer(
     tmp_path: Path,
     base_answers: dict[str, str],
@@ -487,18 +485,18 @@ def test_drift_baseline_is_repo_owned_and_seeded_by_a_task() -> None:
     """`.drift-baseline.json` is never rendered and never overwritten (#267).
 
     The file lists a repo's grandfathered findings, so `_skip_if_exists`
-    keeps an update from resetting it, and a post-stamp task writes it
-    only when missing. The task is advisory like the prune task: a
-    non-zero task would roll the whole render back.
+    keeps an update from resetting it, and the post-stamp task runs
+    scripts/ci/drift_baseline.sh, which writes it only when missing. The
+    task is advisory like the prune task: a non-zero task would roll the
+    whole render back.
     """
     copier_yml = (PROJECT_ROOT / "copier.yml").read_text()
     assert ".drift-baseline.json" in yaml.safe_load(copier_yml)["_skip_if_exists"]
     assert not (PROJECT_ROOT / "template" / ".drift-baseline.json").exists()
 
     tasks = yaml.safe_load(copier_yml)["_tasks"]
-    baseline = [task for task in tasks if "--write-baseline" in task]
+    baseline = [task for task in tasks if "drift_baseline.sh" in task]
     assert len(baseline) == 1, f"one baseline task expected: {tasks}"
-    assert "[ -f .drift-baseline.json ] ||" in baseline[0]
     assert "|| true" in baseline[0]
 
 

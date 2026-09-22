@@ -58,13 +58,13 @@ agentic_language:
 agentic_disambiguate_version:
   type: str
   help: "Pinned disambiguate version (pre-alpha — breaking changes between releases; hook, docs commands and the post-stamp prune use this pin)."
-  default: "0.3.0"
+  default: "0.4.0"
   when: "{{ agentic_subtemplate == 'template' }}"
 
 agentic_disambiguate_roots:
   type: str
   help: >-
-    Extra arguments appended to the `disambiguate --lint` hook entry
+    Extra arguments appended to the `disambiguate --lint` and `--drift` hook entries
     (e.g. "docs/glossary/ --roots docs/conventions.md 'docs/notes/*.md'").
     Empty keeps disambiguate's default roots. Kept as answer data so repos
     never patch the template-owned .pre-commit-config.yaml.
@@ -197,6 +197,10 @@ _skip_if_exists:
   # repo for owning its own architecture.
   - "{% if agentic_subtemplate == 'template' and agentic_project_kind == 'code' %}docs/architecture.md{% endif %}"
   - "{% if agentic_subtemplate == 'template' %}docs/glossary/{{ agentic_project_slug }}.md{% endif %}"
+  # The drift baseline is a repo's own list of grandfathered findings
+  # (#267). The template never renders it; the post-stamp task below
+  # writes it once, and only a committed `--write-baseline` shrinks it.
+  - .drift-baseline.json
   # Repo-owned hooks (language formatters, type checkers) live here; the
   # stamped .pre-commit-config.yaml delegates to it, so they run on every
   # commit while the drift check has no template-owned file to judge.
@@ -241,4 +245,12 @@ _tasks:
   # unconverged glossary is a lint finding, not a reason to lose the stamp.
   - >-
     {% if agentic_subtemplate == 'template' %}bash scripts/ci/prune_glossary.sh
+    || true{% else %}true{% endif %}
+  # Seed the drift baseline once (#267): a repo that adopts the drift
+  # hook grandfathers the findings it carries, and only new ones fail.
+  # Guarded on the file so an update never rewrites a repo's list;
+  # advisory for the same reason as the tasks above.
+  - >-
+    {% if agentic_subtemplate == 'template' %}[ -f .drift-baseline.json ]
+    || uvx disambiguate=={{ agentic_disambiguate_version }} --drift --write-baseline{% if agentic_disambiguate_roots %} {{ agentic_disambiguate_roots }}{% endif %}
     || true{% else %}true{% endif %}

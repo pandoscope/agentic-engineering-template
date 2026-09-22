@@ -11,7 +11,6 @@ import subprocess
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
@@ -388,16 +387,19 @@ def test_disambiguate_roots_default_renders_bare_lint(
     tmp_path: Path,
     base_answers: dict[str, str],
 ) -> None:
-    """Empty roots answer (default): hook entry stays bare `--lint`."""
+    """Empty roots answer (default): hook entries stay bare `--lint` and `--drift`."""
     dst_path = render_answers(tmp_path, base_answers, "disambiguate-roots-default")
 
     precommit = (dst_path / ".pre-commit-config.yaml").read_text()
     entry_lines = [
         line for line in precommit.splitlines() if "entry: uvx disambiguate" in line
     ]
-    assert len(entry_lines) == 1, f"Expected one disambiguate entry: {entry_lines}"
+    assert len(entry_lines) == 2, f"Expected lint and drift entries: {entry_lines}"
     assert entry_lines[0].endswith("--lint"), (
         f"Default must render bare --lint, got: {entry_lines[0]!r}"
+    )
+    assert entry_lines[1].endswith("--drift"), (
+        f"Default must render bare --drift, got: {entry_lines[1]!r}"
     )
 
 
@@ -421,7 +423,6 @@ def test_disambiguate_roots_answer_appends_lint_args(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="red: drift hook not stamped yet (#267)")
 def test_disambiguate_drift_hook_renders_with_pin_and_roots(
     tmp_path: Path,
     base_answers: dict[str, str],
@@ -453,7 +454,6 @@ def test_disambiguate_drift_hook_renders_with_pin_and_roots(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="red: baseline task not declared yet (#267)")
 def test_drift_baseline_is_repo_owned_and_seeded_by_a_task() -> None:
     """`.drift-baseline.json` is never rendered and never overwritten (#267).
 

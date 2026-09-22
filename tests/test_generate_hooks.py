@@ -299,7 +299,6 @@ def test_repo_owned_hooks_pass_while_the_seeded_config_is_hookless(
     assert result.returncode == 0, result.stderr
 
 
-@pytest.mark.xfail(strict=True, reason="red: repo-hooks runs serially (#263)")
 def test_repo_owned_hooks_run_once_per_invocation(
     tmp_path: Path,
     base_answers: dict[str, str],

@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
@@ -451,6 +452,34 @@ def test_disambiguate_drift_hook_renders_with_pin_and_roots(
     check_file_contents(
         dst_path / "AGENTS.md",
         ["uvx disambiguate==0.9.9 --drift", ".drift-baseline.json"],
+    )
+
+
+@pytest.mark.xfail(strict=True, reason="red: the pin is still a stored answer (#269)")
+def test_disambiguate_pin_is_template_managed_not_a_stored_answer(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The pin is re-evaluated on every update, never stored (#269).
+
+    A stored answer survives `copier update --defaults`, so a bumped
+    default never reached a consumer: v4.18.0 rendered a 0.3.0 drift
+    hook everywhere. `when: false` makes copier recompute the default
+    each run. The rendered pin file is what the scripts read.
+    """
+    question = yaml.safe_load((PROJECT_ROOT / "copier.yml").read_text())[
+        "agentic_disambiguate_version"
+    ]
+    assert question["when"] is False
+
+    answers = {**base_answers, "agentic_disambiguate_version": "0.9.9"}
+    dst_path = render_answers(tmp_path, answers, "disambiguate-pin-file")
+
+    pin_file = dst_path / "scripts" / "ci" / "disambiguate-version"
+    assert pin_file.read_text() == "0.9.9\n"
+    check_file_contents(
+        dst_path / ".copier-answers.agentic.yml",
+        unexpect_strs=["agentic_disambiguate_version"],
     )
 
 

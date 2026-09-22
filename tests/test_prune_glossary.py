@@ -155,6 +155,28 @@ def test_the_answers_file_pin_wins_over_a_copier_yml(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
 
 
+@pytest.mark.xfail(
+    strict=True, reason="red: the prune still reads the answers file (#269)"
+)
+def test_the_rendered_pin_file_wins_over_a_stale_answers_key(tmp_path: Path) -> None:
+    """A consumer reads scripts/ci/disambiguate-version, never the answers file.
+
+    The answers file keeps the key a `when: false` question left behind
+    (#269); reading it would run a pin no update can move.
+    """
+    repo = _repo(tmp_path, answers=True)
+    (repo / ANSWERS).write_text(
+        '_commit: v0\nagentic_disambiguate_version: "0.0.0-nope"\n'
+    )
+    (repo / "scripts" / "ci" / "disambiguate-version").write_text(f"{_pin()}\n")
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "stale answer, fresh pin file")
+
+    result = _prune(repo)
+
+    assert result.returncode == 0, result.stderr
+
+
 def test_a_repo_without_a_glossary_has_nothing_to_prune(tmp_path: Path) -> None:
     """The stores ship the script and no glossary; the step must not error."""
     repo = _repo(tmp_path, answers=True)

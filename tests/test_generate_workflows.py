@@ -5,6 +5,7 @@ job and its drift check, and the org plumbing (labels, board, tickets).
 from __future__ import annotations
 
 import json
+import pytest
 from pathlib import Path
 
 import yaml
@@ -50,6 +51,26 @@ def test_github_forge_ships_template_update_workflow(
             'gh pr edit "$EXISTING_PR"',
         ],
     )
+
+
+@pytest.mark.xfail(
+    strict=True, reason="red: the update never seeds the baseline (#269)"
+)
+def test_template_update_seeds_the_drift_baseline_after_the_prune(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The update workflow skips tasks, so it runs the seed itself (#269).
+
+    A consumer's first update with the drift hook then lands with its
+    baseline in the same PR instead of a red prek job.
+    """
+    dst_path = render_answers(tmp_path, base_answers, "update-seeds-baseline")
+    workflow = (dst_path / ".github" / "workflows" / "template-update.yml").read_text()
+
+    prune = workflow.index("bash scripts/ci/prune_glossary.sh || true")
+    seed = workflow.index("bash scripts/ci/drift_baseline.sh || true")
+    assert prune < seed
 
 
 def test_forgejo_forge_ships_no_github_workflow(

@@ -77,7 +77,6 @@ def test_an_existing_baseline_is_left_alone(tmp_path: Path) -> None:
     assert (repo / BASELINE).read_text() == sentinel
 
 
-@pytest.mark.xfail(strict=True, reason="red: the seed still ships executable")
 def test_the_stamped_seed_is_not_executable(
     tmp_path: Path, base_answers: dict[str, str]
 ) -> None:

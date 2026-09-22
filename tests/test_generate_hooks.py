@@ -299,6 +299,29 @@ def test_repo_owned_hooks_pass_while_the_seeded_config_is_hookless(
     assert result.returncode == 0, result.stderr
 
 
+def test_repo_owned_hooks_run_once_per_invocation(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The delegating hook is serial (#263).
+
+    With filenames passed, a whole-tree run is split into batches that
+    run concurrently, and every batch runs the repo's type checker
+    against one shared cache; mypy dies with INTERNAL ERROR in the
+    race. `require_serial` keeps it to one nested run.
+    """
+    dst_path = render_answers(tmp_path, base_answers, "repo-hooks-serial")
+
+    stamped = yaml.safe_load((dst_path / ".pre-commit-config.yaml").read_text())
+    hook = next(
+        hook
+        for repo in stamped["repos"]
+        for hook in repo.get("hooks", [])
+        if hook.get("id") == "repo-hooks"
+    )
+    assert hook.get("require_serial") is True
+
+
 def test_repo_owned_hooks_get_a_seeded_config_of_their_own(
     tmp_path: Path,
     base_answers: dict[str, str],

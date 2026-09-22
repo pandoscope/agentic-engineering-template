@@ -28,6 +28,17 @@ or for GitHub issues:
 ```
 
 to resolve all referenced terms at once.
+
+Prose that names a term without linking it, or uses an avoided spelling,
+is drift. The `disambiguate --drift` hook reports it on every commit.
+`.drift-baseline.json` lists the findings this repo carried when the hook
+arrived; a new finding fails, and a fixed one fails until
+
+```bash
+uvx disambiguate=={{ agentic_disambiguate_version }} --drift --write-baseline
+```
+
+shrinks the file and the shrink is committed.
 {%- if agentic_project_kind == 'code' %}
 
 ### Architecture

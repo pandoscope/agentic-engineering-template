@@ -11,6 +11,7 @@ import subprocess
 from pathlib import Path
 
 import copier
+import yaml
 
 from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
 
@@ -386,16 +387,19 @@ def test_disambiguate_roots_default_renders_bare_lint(
     tmp_path: Path,
     base_answers: dict[str, str],
 ) -> None:
-    """Empty roots answer (default): hook entry stays bare `--lint`."""
+    """Empty roots answer (default): hook entries stay bare `--lint` and `--drift`."""
     dst_path = render_answers(tmp_path, base_answers, "disambiguate-roots-default")
 
     precommit = (dst_path / ".pre-commit-config.yaml").read_text()
     entry_lines = [
         line for line in precommit.splitlines() if "entry: uvx disambiguate" in line
     ]
-    assert len(entry_lines) == 1, f"Expected one disambiguate entry: {entry_lines}"
+    assert len(entry_lines) == 2, f"Expected lint and drift entries: {entry_lines}"
     assert entry_lines[0].endswith("--lint"), (
         f"Default must render bare --lint, got: {entry_lines[0]!r}"
+    )
+    assert entry_lines[1].endswith("--drift"), (
+        f"Default must render bare --drift, got: {entry_lines[1]!r}"
     )
 
 
@@ -417,6 +421,56 @@ def test_disambiguate_roots_answer_appends_lint_args(
         dst_path / ".copier-answers.agentic.yml",
         ["agentic_disambiguate_roots:"],
     )
+
+
+def test_disambiguate_drift_hook_renders_with_pin_and_roots(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The prek config carries a drift hook beside the lint hook (#267).
+
+    Same pin, same roots answer appended, triggered by markdown so a
+    prose edit anywhere reachable from the roots is judged.
+    """
+    roots = "docs/glossary/ --roots docs/conventions.md"
+    answers = {
+        **base_answers,
+        "agentic_disambiguate_version": "0.9.9",
+        "agentic_disambiguate_roots": roots,
+    }
+    dst_path = render_answers(tmp_path, answers, "disambiguate-drift")
+
+    check_file_contents(
+        dst_path / ".pre-commit-config.yaml",
+        [
+            "disambiguate-drift",
+            f"entry: uvx disambiguate==0.9.9 --drift {roots}",
+            f"entry: uvx disambiguate==0.9.9 --lint {roots}",
+        ],
+    )
+    check_file_contents(
+        dst_path / "AGENTS.md",
+        ["uvx disambiguate==0.9.9 --drift", ".drift-baseline.json"],
+    )
+
+
+def test_drift_baseline_is_repo_owned_and_seeded_by_a_task() -> None:
+    """`.drift-baseline.json` is never rendered and never overwritten (#267).
+
+    The file lists a repo's grandfathered findings, so `_skip_if_exists`
+    keeps an update from resetting it, and a post-stamp task writes it
+    only when missing. The task is advisory like the prune task: a
+    non-zero task would roll the whole render back.
+    """
+    copier_yml = (PROJECT_ROOT / "copier.yml").read_text()
+    assert ".drift-baseline.json" in yaml.safe_load(copier_yml)["_skip_if_exists"]
+    assert not (PROJECT_ROOT / "template" / ".drift-baseline.json").exists()
+
+    tasks = yaml.safe_load(copier_yml)["_tasks"]
+    baseline = [task for task in tasks if "--write-baseline" in task]
+    assert len(baseline) == 1, f"one baseline task expected: {tasks}"
+    assert "[ -f .drift-baseline.json ] ||" in baseline[0]
+    assert "|| true" in baseline[0]
 
 
 def test_claude_md_states_principal_precedence(

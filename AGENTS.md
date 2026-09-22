@@ -9,7 +9,7 @@ Repo: <https://github.com/frankify-app/agentic-engineering-template>
 Ubiquitous language is defined in docs/glossary/. Use
 
 ```bash
-uvx disambiguate==0.3.0 <term>
+uvx disambiguate==0.4.0 <term>
 ```
 
 to get a topologically ordered glossary disambiguating all relevant terms
@@ -18,16 +18,27 @@ to understand the given term.
 Before working on a ticket, run:
 
 ```bash
-uvx disambiguate==0.3.0 --from <ticket-file>
+uvx disambiguate==0.4.0 --from <ticket-file>
 ```
 
 or for GitHub issues:
 
 ```bash
-ghx issue view <number> --json body -q .body | uvx disambiguate==0.3.0 --from -
+ghx issue view <number> --json body -q .body | uvx disambiguate==0.4.0 --from -
 ```
 
 to resolve all referenced terms at once.
+
+Prose that names a term without linking it, or uses an avoided spelling,
+is drift. The `disambiguate --drift` hook reports it on every commit.
+`.drift-baseline.json` lists the findings this repo carried when the hook
+arrived; a new finding fails, and a fixed one fails until
+
+```bash
+uvx disambiguate==0.4.0 --drift --write-baseline
+```
+
+shrinks the file and the shrink is committed.
 
 ### Architecture
 

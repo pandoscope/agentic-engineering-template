@@ -55,11 +55,16 @@ agentic_language:
   default: en
   when: "{{ agentic_subtemplate == 'template' }}"
 
+# Template-managed, never asked and never stored (#269): a stored answer
+# survives `copier update --defaults`, so a bumped default reached only
+# fresh stamps. `when: false` makes copier recompute the default on
+# every update; the pin lands in scripts/ci/disambiguate-version, which
+# the prune and the drift seed read. `--data` still overrides it.
 agentic_disambiguate_version:
   type: str
-  help: "Pinned disambiguate version (pre-alpha — breaking changes between releases; hook, docs commands and the post-stamp prune use this pin)."
+  help: "Pinned disambiguate version (pre-alpha — breaking changes between releases; hook, docs commands, prune and drift seed use this pin)."
   default: "0.4.0"
-  when: "{{ agentic_subtemplate == 'template' }}"
+  when: false
 
 agentic_disambiguate_roots:
   type: str
@@ -246,11 +251,10 @@ _tasks:
   - >-
     {% if agentic_subtemplate == 'template' %}bash scripts/ci/prune_glossary.sh
     || true{% else %}true{% endif %}
-  # Seed the drift baseline once (#267): a repo that adopts the drift
-  # hook grandfathers the findings it carries, and only new ones fail.
-  # Guarded on the file so an update never rewrites a repo's list;
-  # advisory for the same reason as the tasks above.
+  # Seed the drift baseline once (#267, #269): a repo that adopts the
+  # drift hook grandfathers the findings it carries, and only new ones
+  # fail. The script writes the file only when missing, so an update
+  # never rewrites a repo's list; advisory like the tasks above.
   - >-
-    {% if agentic_subtemplate == 'template' %}[ -f .drift-baseline.json ]
-    || uvx disambiguate=={{ agentic_disambiguate_version }} --drift --write-baseline{% if agentic_disambiguate_roots %} {{ agentic_disambiguate_roots }}{% endif %}
+    {% if agentic_subtemplate == 'template' %}bash scripts/ci/drift_baseline.sh
     || true{% else %}true{% endif %}

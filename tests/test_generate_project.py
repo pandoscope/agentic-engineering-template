@@ -454,22 +454,49 @@ def test_disambiguate_drift_hook_renders_with_pin_and_roots(
     )
 
 
+def test_disambiguate_pin_is_template_managed_not_a_stored_answer(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The pin is re-evaluated on every update, never stored (#269).
+
+    A stored answer survives `copier update --defaults`, so a bumped
+    default never reached a consumer: v4.18.0 rendered a 0.3.0 drift
+    hook everywhere. `when: false` makes copier recompute the default
+    each run. The rendered pin file is what the scripts read.
+    """
+    question = yaml.safe_load((PROJECT_ROOT / "copier.yml").read_text())[
+        "agentic_disambiguate_version"
+    ]
+    assert question["when"] is False
+
+    answers = {**base_answers, "agentic_disambiguate_version": "0.9.9"}
+    dst_path = render_answers(tmp_path, answers, "disambiguate-pin-file")
+
+    pin_file = dst_path / "scripts" / "ci" / "disambiguate-version"
+    assert pin_file.read_text() == "0.9.9\n"
+    check_file_contents(
+        dst_path / ".copier-answers.agentic.yml",
+        unexpect_strs=["agentic_disambiguate_version"],
+    )
+
+
 def test_drift_baseline_is_repo_owned_and_seeded_by_a_task() -> None:
     """`.drift-baseline.json` is never rendered and never overwritten (#267).
 
     The file lists a repo's grandfathered findings, so `_skip_if_exists`
-    keeps an update from resetting it, and a post-stamp task writes it
-    only when missing. The task is advisory like the prune task: a
-    non-zero task would roll the whole render back.
+    keeps an update from resetting it, and the post-stamp task runs
+    scripts/ci/drift_baseline.sh, which writes it only when missing. The
+    task is advisory like the prune task: a non-zero task would roll the
+    whole render back.
     """
     copier_yml = (PROJECT_ROOT / "copier.yml").read_text()
     assert ".drift-baseline.json" in yaml.safe_load(copier_yml)["_skip_if_exists"]
     assert not (PROJECT_ROOT / "template" / ".drift-baseline.json").exists()
 
     tasks = yaml.safe_load(copier_yml)["_tasks"]
-    baseline = [task for task in tasks if "--write-baseline" in task]
+    baseline = [task for task in tasks if "drift_baseline.sh" in task]
     assert len(baseline) == 1, f"one baseline task expected: {tasks}"
-    assert "[ -f .drift-baseline.json ] ||" in baseline[0]
     assert "|| true" in baseline[0]
 
 

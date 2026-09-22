@@ -70,6 +70,8 @@ COMMON_FILES = frozenset(
         # The glossary prune (#67, #203, #210): task, update workflow,
         # drift job and the template root all run this one script.
         "scripts/ci/prune_glossary.sh",
+        "scripts/ci/disambiguate-version",
+        "scripts/ci/drift_baseline.sh",
         "scripts/ci/template-update-body.sh",
         # The daily self-audit's denylist bridges (#189): value-silent
         # bash on both ends of the trufflehog scan.

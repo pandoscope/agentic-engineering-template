@@ -454,9 +454,10 @@ def test_github_forge_ships_the_merge_bot(
     tmp_path: Path,
     base_answers: dict[str, str],
 ) -> None:
-    """#260: fires on the gate completing or a review landing, judges
-    with the aggregate, merges as the release bot; the repo-private and
-    switch conditions travel as env so a run that does nothing says why."""
+    """#260: the bot fires when the gate completes or a review lands,
+    judges with the aggregate, and merges as the release bot. The
+    repo-private and switch conditions travel as env, so a run that
+    does nothing says why."""
     dst_path = render_answers(tmp_path, base_answers, "merge-bot")
     check_file_contents(
         dst_path / ".github" / "workflows" / "bot-merge.yml",

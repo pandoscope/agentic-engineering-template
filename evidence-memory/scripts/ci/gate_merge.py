@@ -1,13 +1,13 @@
 """The `merge` subcommand (bot-merge.yml, agentic-engineering-template#260):
-a private repo's PR is merged by the release bot once every job of every
-PR workflow on its head succeeded. Not one of ci-ok.yml's jobs.
+the release bot merges a private repo's PR once every job of every PR
+workflow on its head succeeded. Not one of ci-ok.yml's jobs.
 
-Ruled on pandoscope/meta#132: GitHub Free enforces no rulesets on
-private repos, so ci-ok is advisory there and the merge button works on
-red. Repository permissions are the control the plan still honours, so
-humans hold no write to main and this job, acting as the bot, is the one
-path in. It re-judges live data with the aggregate's own verdict and
-never fabricates green: a PR the gate rejects stays open.
+Ruled on pandoscope/meta#132. GitHub Free enforces no rulesets on a
+private repo. There ci-ok is advisory and the merge button works on
+red. Repository permissions still hold, so the plan uses them: no human
+holds write to main, and this job, acting as the bot, is the one path
+in. The job re-judges live data with the aggregate's own verdict. It
+never fabricates green: a PR that the gate rejects stays open.
 """
 
 import base64
@@ -24,14 +24,15 @@ PERMISSIONS = "contents: write and pull_requests: write"
 
 
 def eligibility(repo_private, switch):
-    """Why this repository is not one the bot merges in, or None.
+    """Why the bot does not merge in this repository, or None.
 
-    Two conditions, both stated so a run that does nothing says which
-    one held it back: the repository is private (a public repo keeps
-    its rulesets, and this job must never double as a second gate
-    there), and the org variable BOT_MERGE_ENABLED is "true" (meta's
-    credential sync sets it on exactly the private repos that need
-    branch protection; session-memory is excluded there by name).
+    Two conditions hold the bot back, and each names itself, so a run
+    that does nothing says which one held it. First, the repository
+    must be private: a public repo keeps its rulesets, and this job
+    must never double as a second gate there. Second, the org variable
+    BOT_MERGE_ENABLED must be "true": meta's credential sync sets it on
+    exactly the private repos that need branch protection, and excludes
+    session-memory there by name.
     """
     if str(repo_private).lower() != "true":
         return "repository is public — rulesets gate it, the bot does not merge here"
@@ -43,8 +44,9 @@ def eligibility(repo_private, switch):
 def merge_candidates(pulls, head_sha):
     """The open, non-draft PRs whose head is `head_sha`, oldest first.
 
-    A draft is the author saying "not yet", which no green overrides. A
-    PR whose head moved on is judged by its next event, not this one.
+    A draft means the author said "not yet", and no green overrides
+    that. A PR whose head moved on waits for its next event; this one
+    does not judge it.
     """
     return sorted(
         (
@@ -61,10 +63,11 @@ def merge_candidates(pulls, head_sha):
 def expected_workflows(repo, sha, token):
     """The PR workflows of the head under judgement, read from the head.
 
-    A workflow_run fires on the default branch and checks that out, so
-    the files on disk are not the head's: a workflow the head removed
-    would be awaited forever and one it added never. The contents API at
-    the head SHA is the head.
+    A workflow_run fires on the default branch and checks that branch
+    out, so the files on disk are not the head's. From those files the
+    bot would await forever a workflow that the head removed, and never
+    await one that the head added. The contents API at the head SHA
+    serves the head itself.
     """
     expected = []
     for entry in fetch(f"/repos/{repo}/contents/{WORKFLOWS}?ref={sha}", token):
@@ -78,9 +81,9 @@ def expected_workflows(repo, sha, token):
 
 
 def run_merge():
-    """Merge each candidate PR once its head is green; exit 0 on every
-    orderly path. A red head is the gate's verdict, not this job's
-    failure, and a still-pending head is left for the next event."""
+    """Merge each candidate PR once its head is green. Exit 0 on every
+    orderly path: a red head is the gate's verdict, not this job's
+    failure, and a still-pending head waits for the next event."""
     token = os.environ["GH_TOKEN"]
     repo = os.environ["GITHUB_REPOSITORY"]
     sha = os.environ["HEAD_SHA"]
@@ -102,10 +105,10 @@ def run_merge():
         return paginate(f"/repos/{repo}/actions/runs/{run_id}/jobs", token, "jobs")
 
     while True:
-        # Every run at this head, whatever event produced it: the push's
-        # run has `merge approval` red for good, and the approval's own
-        # pull_request_review run is the live verdict. Newest per
-        # workflow wins.
+        # List every run at this head, whatever event produced it. The
+        # push's run keeps `merge approval` red for good; the approval's
+        # own pull_request_review run holds the live verdict. Per
+        # workflow, the newest run wins.
         listed = paginate(
             f"/repos/{repo}/actions/runs?head_sha={sha}", token, "workflow_runs"
         )
@@ -136,7 +139,7 @@ def run_merge():
         except urllib.error.HTTPError as error:
             # A refused merge is the bot's own failure, not the gate's
             # verdict: the token lacks a permission, or the PR changed
-            # under us. The permission is named first (#260).
+            # under us. The message names the permission first (#260).
             print(
                 f"::error::Merge of #{number} refused — a missing permission: the "
                 f"release bot needs {PERMISSIONS} on this repository "

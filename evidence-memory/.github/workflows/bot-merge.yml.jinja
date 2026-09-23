@@ -1,17 +1,19 @@
 # The merge bot (agentic-engineering-template#260, ruled on
 # pandoscope/meta#132).
 #
-# GitHub Free enforces no rulesets on private repos: ci-ok is advisory
-# there and the merge button works on red. Repository permissions are
-# the control the plan still honours, so on a private repo that needs
-# branch protection humans hold no write to main and THIS job, acting
-# as the release bot, is the one path in. It fires when the CI gate
-# completes or a review lands, re-judges the head with the aggregate's
-# own verdict (every job of every PR workflow succeeded, `merge
-# approval` included) and merges with a merge commit. It never
-# fabricates green: a PR the gate rejects stays open, a draft is never
-# merged, and a public repo or an unset BOT_MERGE_ENABLED makes it say
-# so in one line and do nothing. session-memory does not render it.
+# GitHub Free enforces no rulesets on a private repo. There ci-ok is
+# advisory and the merge button works on red. Repository permissions
+# still hold, so the plan uses them: on a private repo that needs
+# branch protection, no human holds write to main. THIS job, acting as
+# the release bot, is the one path in.
+#
+# The job fires when the CI gate completes or a review lands. It
+# re-judges the head with the aggregate's own verdict: every job of
+# every PR workflow succeeded, `merge approval` included. It then
+# merges with a merge commit. It never fabricates green. A PR that the
+# gate rejects stays open. The job never merges a draft. On a public
+# repo, or with BOT_MERGE_ENABLED unset, the job says so in one line
+# and does nothing. session-memory does not render it.
 name: Merge bot
 
 on:
@@ -21,8 +23,9 @@ on:
   pull_request_review:
     types: [submitted]
 
-# The merge goes through the release-bot token minted below, so it is
-# attributed to the bot and CI on main runs. The default token reads.
+# The job merges with the release-bot token minted below. GitHub then
+# attributes the merge to the bot, and CI runs on main. The default
+# token only reads.
 permissions:
   contents: read
   actions: read

@@ -1,5 +1,6 @@
-"""The `merge` subcommand: a private repo's green PR is merged by the
-bot; a public repo, an unset switch, a draft or a red head is not (#260).
+"""The `merge` subcommand (#260): the bot merges a private repo's green
+PR. It merges nothing on a public repo, with the switch unset, for a
+draft, or at a red head.
 """
 
 import base64
@@ -42,8 +43,9 @@ def contents(path):
 
 
 def wire(monkeypatch, tmp_path, runs, jobs, merged, files=None):
-    """A private, switched-on repo whose head carries `files` (default:
-    one PR workflow) and whose runs and jobs the API answers with."""
+    """Wire up a private, switched-on repo. Its head carries `files`
+    (default: one PR workflow), and the API answers with `runs` and
+    `jobs`."""
     monkeypatch.chdir(tmp_path)
     for key, value in {
         "GH_TOKEN": "t",
@@ -80,8 +82,8 @@ def wire(monkeypatch, tmp_path, runs, jobs, merged, files=None):
 
 
 def test_run_merges_only_a_green_head(monkeypatch, tmp_path, capsys):
-    """The verdict is the aggregate's own: a red `merge approval` holds
-    the merge and the log names it; a green board merges every
+    """The bot takes the aggregate's own verdict. A red `merge approval`
+    holds the merge, and the log names it. A green board merges every
     candidate once, by head SHA."""
     runs = [{"id": 1, "path": ".github/workflows/ci.yml", "status": "completed"}]
     jobs = [{"name": "merge approval", "status": "completed", "conclusion": "success"}]
@@ -103,9 +105,9 @@ def test_run_merges_only_a_green_head(monkeypatch, tmp_path, capsys):
 def test_the_newest_run_per_workflow_is_judged_whatever_its_event(
     monkeypatch, tmp_path
 ):
-    """An approval re-runs the gate under pull_request_review; the run
-    the push produced stays red forever. The bot judges the live run,
-    so a PR approved after its last push is merged."""
+    """An approval re-runs the gate under pull_request_review, and the
+    push's run stays red forever. The bot judges the live run, so it
+    merges a PR approved after its last push."""
     runs = [
         {
             "id": 1,
@@ -140,8 +142,9 @@ def test_the_newest_run_per_workflow_is_judged_whatever_its_event(
 
 
 def test_expected_workflows_come_from_the_head_not_the_checkout(monkeypatch, tmp_path):
-    """workflow_run checks out the default branch. A workflow the head
-    removed must not be awaited, and one it added must be."""
+    """workflow_run checks out the default branch. The bot must not
+    await a workflow that the head removed, and must await one that the
+    head added."""
     checkout = tmp_path / ".github" / "workflows"
     checkout.mkdir(parents=True)
     (checkout / "gone.yml").write_text("on:\n  pull_request:\njobs: {}\n")
@@ -154,8 +157,9 @@ def test_expected_workflows_come_from_the_head_not_the_checkout(monkeypatch, tmp
 
 
 def test_a_refused_merge_names_the_missing_permission(monkeypatch, tmp_path, capsys):
-    """The bot's token lacking contents:write or pull_requests:write is
-    an HTTP 403 on the merge; the failure names the permission first."""
+    """The bot's token may lack contents:write or pull_requests:write.
+    GitHub then answers the merge with HTTP 403. The failure names the
+    permission first."""
     runs = [{"id": 1, "path": ".github/workflows/ci.yml", "status": "completed"}]
     jobs = [{"name": "test", "conclusion": "success"}]
     wire(monkeypatch, tmp_path, runs, jobs, [])

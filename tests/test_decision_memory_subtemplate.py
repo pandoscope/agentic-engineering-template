@@ -48,6 +48,8 @@ STORE_FILES = frozenset(
         ".github/workflows/guards.yml",
         ".github/workflows/ci-ok.yml",
         ".github/reference-keywords.json",
+        # The approval gate reaches the stores (#252).
+        ".github/merge-approvers.json",
         "scripts/ci/check_gate.py",
         "scripts/ci/gate_aggregate.py",
         "scripts/ci/gate_api.py",
@@ -91,7 +93,10 @@ def _render_store(tmp_path: Path) -> Path:
     copier.run_copy(
         src_path=str(PROJECT_ROOT),
         dst_path=dst_path,
-        data={"agentic_subtemplate": "decision-memory"},
+        data={
+            "agentic_subtemplate": "decision-memory",
+            "agentic_merge_approvers": "actions-user",
+        },
         defaults=True,
         unsafe=True,
         skip_tasks=True,
@@ -154,7 +159,10 @@ def test_store_docs_are_vendored_and_preferences_seeded(
     copier.run_copy(
         src_path=str(PROJECT_ROOT),
         dst_path=dst_path,
-        data={"agentic_subtemplate": "decision-memory"},
+        data={
+            "agentic_subtemplate": "decision-memory",
+            "agentic_merge_approvers": "actions-user",
+        },
         defaults=True,
         unsafe=True,
         skip_tasks=True,
@@ -190,7 +198,10 @@ def test_store_config_survives_a_re_render(tmp_path: Path) -> None:
     copier.run_copy(
         src_path=str(PROJECT_ROOT),
         dst_path=dst_path,
-        data={"agentic_subtemplate": "decision-memory"},
+        data={
+            "agentic_subtemplate": "decision-memory",
+            "agentic_merge_approvers": "actions-user",
+        },
         defaults=True,
         unsafe=True,
         skip_tasks=True,
@@ -241,3 +252,17 @@ def test_a_predictions_only_pr_needs_no_extraction_pass(tmp_path) -> None:
         "extraction must not know about predictions/ at all — the "
         "exclusion is structural, not a filter someone must remember"
     )
+
+
+def test_store_ci_ok_requires_a_current_human_approval(tmp_path: Path) -> None:
+    """#252: copier renders the merge-approval job into the store's ci-ok
+    and writes the answered login into the approvers file. A store PR
+    therefore waits on the same human click as a template repo's PR."""
+    dst_path = _render_store(tmp_path)
+    workflow = (dst_path / ".github" / "workflows" / "ci-ok.yml").read_text()
+    assert 'name: "merge approval"' in workflow
+    assert "check_gate.py approval" in workflow
+    approvers = (dst_path / ".github" / "merge-approvers.json").read_text()
+    assert '"actions-user"' in approvers
+    answers = (dst_path / ".copier-answers.agentic.yml").read_text()
+    assert "agentic_merge_approvers: actions-user" in answers

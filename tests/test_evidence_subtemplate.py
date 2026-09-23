@@ -34,6 +34,8 @@ STORE_FILES = frozenset(
         ".github/workflows/guards.yml",
         ".github/workflows/ci-ok.yml",
         ".github/reference-keywords.json",
+        # The approval gate reaches the stores (#252).
+        ".github/merge-approvers.json",
         "scripts/ci/check_gate.py",
         "scripts/ci/gate_aggregate.py",
         "scripts/ci/gate_api.py",
@@ -102,7 +104,10 @@ def _render_store(tmp_path: Path) -> Path:
     copier.run_copy(
         src_path=str(PROJECT_ROOT),
         dst_path=dst_path,
-        data={"agentic_subtemplate": "evidence-memory"},
+        data={
+            "agentic_subtemplate": "evidence-memory",
+            "agentic_merge_approvers": "actions-user",
+        },
         defaults=True,
         unsafe=True,
         skip_tasks=True,
@@ -391,3 +396,17 @@ def test_the_store_updater_matches_the_one_consumers_get() -> None:
         SUBTEMPLATE / ".github" / "workflows" / "template-update.yml.jinja"
     ).read_bytes()
     assert store == consumer
+
+
+def test_store_ci_ok_requires_a_current_human_approval(tmp_path: Path) -> None:
+    """#252: copier renders the merge-approval job into the store's ci-ok
+    and writes the answered login into the approvers file. A store PR
+    therefore waits on the same human click as a template repo's PR."""
+    dst_path = _render_store(tmp_path)
+    workflow = (dst_path / ".github" / "workflows" / "ci-ok.yml").read_text()
+    assert 'name: "merge approval"' in workflow
+    assert "check_gate.py approval" in workflow
+    approvers = (dst_path / ".github" / "merge-approvers.json").read_text()
+    assert '"actions-user"' in approvers
+    answers = (dst_path / ".copier-answers.agentic.yml").read_text()
+    assert "agentic_merge_approvers: actions-user" in answers

@@ -40,6 +40,9 @@ SHARED_TERMS = frozenset(
         "session-memory",
         "record-contract",
         "agent-session",
+        "agent",
+        "harness",
+        "model",
         "template-stamp",
         "pandoscope-template",
     }

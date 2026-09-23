@@ -161,13 +161,16 @@ Terms this template defines. The shared set under
 generated repo; the copies below are this repo's own stamped output, which is
 what makes them lintable here.
 
+- [agent](docs/glossary/agent.md)
 - [agentic-engineering-template](docs/glossary/agentic-engineering-template.md)
 - [decision-memory](docs/glossary/decision-memory.md)
 - [decision record](docs/glossary/decision-record.md)
 - [evidence-memory](docs/glossary/evidence-memory.md)
 - [org genome](docs/glossary/org-genome.md)
 - [grilling](docs/glossary/grilling.md)
+- [harness](docs/glossary/harness.md)
 - [memory repo](docs/glossary/memory-repo.md)
+- [model](docs/glossary/model.md)
 - [org](docs/glossary/org.md)
 - [pando](docs/glossary/pando.md)
 - [pando worker](docs/glossary/pando-worker.md)

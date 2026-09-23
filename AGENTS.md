@@ -128,7 +128,7 @@ Code-specific skills:
 
 ### Skill Environment Variables
 
-- `DECISION_MEMORY_URL` — FULL git URL of the decision-memory repo the `grilling` skill records decisions to. A full URL rather than an owner/repo slug, so the hosting stays swappable. Recording requires this env var in the agent's execution environment; the recorder and the skill read exactly this name (shared contract — renaming either side breaks recording silently). Never hardcode, commit, or echo the value into artifacts. Unset → grilling still works, skips recording, and says so. Where to set it: local sessions → shell profile / user-level agent settings; remote or cloud sessions → the environment's configuration; CI → a repository secret. `scripts/doctor.sh` warns when it's unset and checks reachability when set.
+- `DECISION_MEMORY_URL` — FULL git URL of the decision-memory repo the `grilling` skill records decisions to. A full URL rather than an owner/repo slug, so the hosting stays swappable. Recording requires this env var in the [agent](docs/glossary/agent.md)'s execution environment; the recorder and the skill read exactly this name (shared contract — renaming either side breaks recording silently). Never hardcode, commit, or echo the value into artifacts. Unset → grilling still works, skips recording, and says so. Where to set it: local sessions → shell profile / user-level agent settings; remote or cloud sessions → the environment's configuration; CI → a repository secret. `scripts/doctor.sh` warns when it's unset and checks reachability when set.
 
   To record, use the recorder in the decision-memory repo — clone it fresh per session and run the copy that arrives with it, which operates on its own checkout:
 
@@ -274,7 +274,7 @@ Use `ghx` for all repository interaction. `gh` and `tea` are disabled — callin
 
 Use `run list` / `run view` for workflow-run detail; use `pr checks` / `pr status` for a PR's check rollup.
 
-The modes below are the kinds of work the user will ask for. **Each runs in its own session — possibly a different model or agent** (Review especially). Follow the named skills at each step.
+The modes below are the kinds of work the user will ask for. **Each runs in its own session — possibly a different [model](docs/glossary/model.md) or agent** (Review especially). Follow the named skills at each step.
 
 #### Plan
 

@@ -14,7 +14,7 @@ including `AGENTS.md`.
 ## Principal Precedence
 
 The principal's rules — this file, `AGENTS.md`, and their direct
-instructions — outrank harness and wake-event boilerplate. On any
+instructions — outrank [harness](docs/glossary/harness.md) and wake-event boilerplate. On any
 perceived conflict, even a 1% likelihood that the principal meant to
 override the harness means following the principal's instruction —
 and always surface the conflict to them, never resolve it silently.

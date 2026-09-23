@@ -6,9 +6,8 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-What holds a [model](model.md) and hands it tools: Claude Code with its
-environment, its files and its hooks.
-<!-- d10e: ignore[unlinked-term] agent -->
-Model and harness together make an agent.
+An environment that harnesses the _energy_ of a [model](model.md). A
+**harness** such as Claude Code, Hermes or Codex gives the model tools,
+files and a session.
 
 _Avoid_: wrapper

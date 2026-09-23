@@ -12,4 +12,4 @@ is machine-fixable, the reinset repairs and reports rather than merely
 rejecting — it supplies the auto-formatters. A rein enters the reinset
 only on evidence — an incident that showed the need, cited beside it.
 
-_Avoid_: Gauntlet, guardrail set, harness
+_Avoid_: Gauntlet, guardrail set

@@ -214,6 +214,10 @@ _skip_if_exists:
   # tolerates and the ticket closing each one cannot survive being
   # stamped over on every update.
   - "{% if agentic_subtemplate == 'template' and agentic_precommit == 'prek' %}.file-length-allowlist{% endif %}"
+  # The repo's own SessionStart bootstrap (#220): the stamped
+  # .claude/settings.json is template-owned and runs this script last, so a
+  # repo's session tooling lives here instead of drifting the settings file.
+  - "{% if agentic_subtemplate == 'template' %}scripts/session-start.local.sh{% endif %}"
   # The store's preference set (source + render) and its config knobs are
   # seeded once and owned by the store; everything else in the decision-memory
   # subtemplate is vendored (overwritten on copier update). Clobbering any of

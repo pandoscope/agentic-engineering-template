@@ -19,7 +19,7 @@ def test_every_project_carries_the_shared_pandoscope_entry(
     glossary = dst_path / "docs" / "glossary"
     entry = (glossary / "pandoscope.md").read_text()
     assert entry.startswith("## Pandoscope\n")
-    assert "reinset" in entry
+    assert "command line" in entry
     assert (glossary / f"{base_answers['agentic_project_slug']}.md").exists()
 
 
@@ -38,5 +38,5 @@ def test_the_pandoscope_repo_gets_the_shared_entry_not_a_seed(
     }
     dst_path = render_answers(tmp_path, answers, "pandoscope")
     entry = (dst_path / "docs" / "glossary" / "pandoscope.md").read_text()
-    assert "reinset" in entry
+    assert "command line" in entry
     assert "SEEDED PROJECT DESCRIPTION" not in entry

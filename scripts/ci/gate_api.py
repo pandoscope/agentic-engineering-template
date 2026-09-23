@@ -94,10 +94,10 @@ def post(path, token):
 def put_json(path, body, token):
     """PUT one JSON body — the merge bot's write door (#260).
 
-    The one endpoint behind it is `PUT /pulls/{n}/merge`, reached only
-    after the aggregate's verdict on the head is green; everything the
-    gate JUDGES stays behind the read doors above. Same scheme guard;
-    returns the HTTP status.
+    Only `PUT /pulls/{n}/merge` goes through this door. The bot reaches
+    it only after the aggregate judged the head green. Everything that
+    the gate JUDGES comes through the read doors above. The scheme guard
+    is the same. Returns the HTTP status.
     """
     req = urllib.request.Request(  # noqa: S310 — api_url rejects every other scheme
         api_url(path),

@@ -171,6 +171,7 @@ what makes them lintable here.
 - [org](docs/glossary/org.md)
 - [pando](docs/glossary/pando.md)
 - [pando worker](docs/glossary/pando-worker.md)
+- [Pandoscope](docs/glossary/pandoscope.md)
 - [preference set](docs/glossary/preference-set.md)
 - [principal](docs/glossary/principal.md)
 - [record contract](docs/glossary/record-contract.md)

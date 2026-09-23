@@ -6,6 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
+<!-- d10e: ignore[unlinked-term] pandoscope --><!-- d10e: ignore[term-case] pandoscope -->
 A forge organization holding exactly one Pandoscope project. Every repo
 under it is [stamped](template-stamp.md) from the same [genome](org-genome.md) and feeds the
 project's [memory](memory-repo.md); org-level state (variables, app

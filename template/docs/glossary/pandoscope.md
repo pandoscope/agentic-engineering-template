@@ -6,11 +6,9 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The product that builds an [org](org.md). Pandoscope delivers the
-[reinset](reinset.md), the [genome](org-genome.md) and the
-[template](pandoscope-template.md), and its command line runs them for
-any [agent](agent.md). The pandoscope org is itself an org built with Pandoscope:
-an incident there that shows a rein is needed improves the reinset
-every org receives.
+**Pandoscope** is the product that lets [agents](agent.md) build and
+maintain software on their own. Its command line stamps a project's
+repositories from the template, composes each session's instructions
+from its role, and checks the orders that start review sessions.
 
 _Avoid_: the framework

@@ -47,6 +47,7 @@ STORE_FILES = frozenset(
         ".github/workflows/preferences-guard.yml",
         ".github/workflows/guards.yml",
         ".github/workflows/ci-ok.yml",
+        ".github/workflows/bot-merge.yml",
         ".github/reference-keywords.json",
         # The approval gate reaches the stores (#252).
         ".github/merge-approvers.json",
@@ -55,6 +56,7 @@ STORE_FILES = frozenset(
         "scripts/ci/gate_api.py",
         "scripts/ci/gate_approval.py",
         "scripts/ci/gate_leaks.py",
+        "scripts/ci/gate_merge.py",
         "scripts/ci/gate_payload.py",
         "scripts/ci/gate_rerun.py",
         "scripts/ci/gate_reviews.py",

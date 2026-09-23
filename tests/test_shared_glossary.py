@@ -194,7 +194,13 @@ def test_a_stamped_repo_keeps_only_the_shared_terms_it_links(
     glossary = dst_path / "docs" / "glossary"
     survivors = {path.stem for path in glossary.glob("*.md")}
 
-    assert not (survivors & SHARED_TERMS), "unlinked shared terms must be pruned"
+    # AGENTS.md and CLAUDE.md link these three in every stamped repo, so
+    # they never go (skills#201); every other shared term the README
+    # does not link is pruned.
+    always_linked = {"agent", "harness", "model"}
+    assert survivors & SHARED_TERMS == always_linked, (
+        "unlinked shared terms must be pruned"
+    )
     assert base_answers["agentic_project_slug"] in survivors, (
         "the repo's own seed term never consented and must survive"
     )

@@ -6,7 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-A [model](model.md) inside a [harness](harness.md). The harness gives
-the model tools, files and a session.
+An **agent** is the combination of a [model](model.md) and a
+[harness](harness.md).
 
 _Avoid_: assistant

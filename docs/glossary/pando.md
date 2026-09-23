@@ -6,6 +6,6 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The orchestrator agent — the [principal](principal.md)'s single interface
+The orchestrator [agent](agent.md) — the [principal](principal.md)'s single interface
 (like a ship's First Mate) to an [org](org.md). The principal may run
 concurrent Pando [sessions](agent-session.md).

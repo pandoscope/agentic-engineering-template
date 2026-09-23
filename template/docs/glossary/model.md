@@ -6,8 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-<!-- d10e: ignore[unlinked-term] agent -->
-The LLM: the raw power an agent harnesses. A model reasons and writes,
-but it has no tools and no memory of its own.
+A large language **model** (LLM) without any tools or memory of its
+own.
 
 _Avoid_: engine

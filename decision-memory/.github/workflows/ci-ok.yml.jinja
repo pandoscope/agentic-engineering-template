@@ -1,9 +1,9 @@
 {%- set refkw = reference_keywords() -%}
 {%- set caps = refkw.allowed | dictsort | map(attribute='0') | join('/') -%}
 # The uniform CI gate (agentic-engineering-template#137, #143) — store
-# variant: stores are not ticketed, so the ticket job is absent by design;
-# the aggregate, the review-answers gate and the merge-approval job (#252)
-# are identical to the template's.
+# variant: stores are not ticketed, so the ticket job is absent by design.
+# The aggregate, the review-answers gate and the merge-approval job (#252)
+# are the template's, verbatim.
 #
 # `ci-ok` is the ONE context branch protection requires, everywhere,
 # forever: it discovers every pull_request-triggered workflow on this

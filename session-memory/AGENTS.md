@@ -34,12 +34,12 @@ drift from one schema.
 
 ## Merge approval
 
-This store has no merge-approval gate, by ruling (template ticket
-252): the ledger takes direct pushes from every session by design,
-so a human Approve review in front of each push would gate nothing.
+This store has no merge-approval gate. Template ticket 252 ruled so.
+Every session pushes to the ledger directly, by design. A human
+Approve review in front of each push would gate nothing.
 The org-wide audit (meta ticket 132) exempts session-memory by name,
-not by silence; decision-memory and evidence-memory do carry the
-gate, because the release bot merges their pull requests.
+not by silence. decision-memory and evidence-memory carry the gate,
+because the release bot merges their pull requests.
 
 ## What a transcript export may contain
 

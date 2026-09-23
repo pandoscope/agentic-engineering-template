@@ -255,9 +255,9 @@ def test_a_predictions_only_pr_needs_no_extraction_pass(tmp_path) -> None:
 
 
 def test_store_ci_ok_requires_a_current_human_approval(tmp_path: Path) -> None:
-    """#252: the merge-approval job renders in the store's ci-ok, and the
-    approvers file names the answered login, so a store PR waits on the
-    same human click as a template repo's."""
+    """#252: copier renders the merge-approval job into the store's ci-ok
+    and writes the answered login into the approvers file. A store PR
+    therefore waits on the same human click as a template repo's PR."""
     dst_path = _render_store(tmp_path)
     workflow = (dst_path / ".github" / "workflows" / "ci-ok.yml").read_text()
     assert 'name: "merge approval"' in workflow

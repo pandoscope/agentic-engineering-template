@@ -60,9 +60,9 @@ def test_store_keyword_files_are_byte_identical_to_the_template():
 
 
 def test_merge_approvers_template_is_pinned_across_stores():
-    """The approvers file follows the gate into the stores (#252): one
-    jinja source, byte-identical copies, so an allowlist change reaches
-    every subtemplate in the same PR."""
+    """#252: the stores carry the approvers file too. Each store copy
+    matches the template source byte for byte. One PR therefore changes
+    the allowlist for every subtemplate."""
     github = "{% if agentic_forge == 'github' %}.github{% endif %}"
     source = (ROOT / "template" / github / "merge-approvers.json.jinja").read_bytes()
     for store in ("decision-memory", "evidence-memory"):
@@ -72,9 +72,10 @@ def test_merge_approvers_template_is_pinned_across_stores():
 
 
 def test_store_gate_workflows_carry_the_approval_job():
-    """#252: a store's green ci-ok meant less than a template repo's,
-    because no approval job existed under any condition. The job block
-    is the template's, verbatim, behind the same answer."""
+    """#252: a store's ci-ok once went green with no approval job under
+    any condition, so its green meant less than a template repo's. Each
+    store now carries the template's job block verbatim, behind the same
+    answer."""
     github = "{% if agentic_forge == 'github' %}.github{% endif %}"
     template = (
         ROOT / "template" / github / "workflows" / "ci-ok.yml.jinja"

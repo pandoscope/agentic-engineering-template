@@ -113,9 +113,9 @@ agentic_merge_approval_gate:
     allowlisted approver passes without a review — the author cannot
     approve their own PR, and authorship is approval by the same party.
   default: true
-  # The stores take the gate too (#252): a bot that merges on green must
-  # never merge a store PR no human approved. session-memory takes direct
-  # pushes by design and is not asked.
+  # The stores take the gate too (#252). A bot merges on green. It must
+  # never merge a store PR that no human approved. session-memory takes
+  # direct pushes by design, so copier skips the question there.
   when: "{{ agentic_subtemplate in ('template', 'decision-memory', 'evidence-memory') }}"
 
 agentic_merge_approvers:

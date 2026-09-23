@@ -204,7 +204,10 @@ _skip_if_exists:
   # reset that on every update, and the drift check would then judge a
   # repo for owning its own architecture.
   - "{% if agentic_subtemplate == 'template' and agentic_project_kind == 'code' %}docs/architecture.md{% endif %}"
-  - "{% if agentic_subtemplate == 'template' %}docs/glossary/{{ agentic_project_slug }}.md{% endif %}"
+  # The pandoscope repo's slug is the product's name, so its project
+  # entry would land on the shared Pandoscope entry: no seed there, and
+  # the shared entry keeps updating (skills#201).
+  - "{% if agentic_subtemplate == 'template' and agentic_project_slug != 'pandoscope' %}docs/glossary/{{ agentic_project_slug }}.md{% endif %}"
   # The drift baseline is a repo's own list of grandfathered findings
   # (#267). The template never renders it; the post-stamp task below
   # writes it once, and only a committed `--write-baseline` shrinks it.

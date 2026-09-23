@@ -40,6 +40,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/reinset.md",
         "docs/glossary/decision-record.md",
         "docs/glossary/pando-worker.md",
+        "docs/glossary/pandoscope.md",
         "docs/glossary/evidence-memory.md",
         "docs/glossary/org-genome.md",
         "docs/glossary/grilling.md",

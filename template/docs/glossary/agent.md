@@ -7,7 +7,6 @@
      from a repo that never links it. -->
 
 A [model](model.md) inside a [harness](harness.md). The harness gives
-the model tools, files and a session. One conversation of an agent is
-an [agent session](agent-session.md).
+the model tools, files and a session.
 
 _Avoid_: assistant

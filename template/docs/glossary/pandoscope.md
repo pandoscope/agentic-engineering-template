@@ -9,8 +9,8 @@
 The product that builds an [org](org.md). Pandoscope delivers the
 [reinset](reinset.md), the [genome](org-genome.md) and the
 [template](pandoscope-template.md), and its command line runs them for
-any agent. The pandoscope org is itself an org built with Pandoscope:
+any [agent](agent.md). The pandoscope org is itself an org built with Pandoscope:
 an incident there that shows a rein is needed improves the reinset
 every org receives.
 
-_Avoid_: the framework, the platform
+_Avoid_: the framework

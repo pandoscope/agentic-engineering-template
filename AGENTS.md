@@ -240,17 +240,17 @@ Repairing violations (applies to all rules above):
 Fixed-column wrapping of prose makes diffs explode:
 inserting a few words into a wrapped paragraph reflows every following line,
 so a one-word change renders as a whole-paragraph diff.
-These rules cover prose in repo FILES (Markdown files, code comments) only;
-tracker-posted content follows "Tracker Content Formatting" above.
+These rules cover prose in every repo file: Markdown, skill files, code comments and help text.
+Tracker-posted content follows "Tracker Content Formatting" above.
 
-- **Semantic line breaks for Markdown prose:** in repo `.md` files,
-  break lines at sentence or clause boundaries
-  (one sentence or clause per line, per the sembr convention)
-  instead of wrapping at a fixed column.
-  Single newlines collapse when rendered, so output is identical;
-  diffs stay localized to the sentence actually edited.
-  Applies to NEW or REWRITTEN prose —
-  do not mass-reformat existing files just to comply.
+- **Semantic line breaks:** break new or rewritten prose at sentence or clause boundaries,
+  one sentence or clause per line (the sembr convention), never at a fixed column.
+  Markdown collapses single newlines when rendered, so the output is identical.
+  In a code comment, every line keeps its comment marker.
+  Diffs stay localized to the edited sentence.
+  Do not mass-reformat existing text to comply.
+- **Long sentences:** split a sentence too long to break at a clause, or keep it on one line.
+  Never break it at a fixed width.
 - **Never reflow untouched lines:** when editing an existing wrapped
   paragraph (Markdown or code comments), change only the lines the edit
   actually touches, even if the block ends up ragged.
@@ -341,3 +341,5 @@ When something fails that automation or an instruction could have prevented — 
 Repo-specific rules live in [docs/conventions.md](docs/conventions.md). Copier seeds that file once and never overwrites it — put rich local conventions there, not in this template-owned file.
 
 Repo-specific session bootstrap — tools a fresh session needs that the template does not install — lives in `scripts/session-start.local.sh`, seeded the same way. The stamped `.claude/settings.json` runs it after its own SessionStart hooks; that settings file is template-owned and never edited locally.
+
+Repo-specific host checks live in `scripts/doctor.local.sh`, which the template does not seed. `scripts/doctor.sh` runs it when present, and fails when it fails.

@@ -185,3 +185,21 @@ def test_run_is_inert_on_a_public_repo(monkeypatch):
     monkeypatch.setattr(gate_merge, "fetch", lambda *a: calls.append(a))
     assert gate_merge.run_merge() == 0
     assert calls == []
+
+
+def test_a_refused_run_listing_names_the_missing_permission(
+    monkeypatch, tmp_path, capsys
+):
+    """Listing the runs at the head needs actions: read on the app
+    token. Without it GitHub answers 403, and the bot died on an
+    unnamed traceback (#280). The failure names the permission first."""
+    wire(monkeypatch, tmp_path, [], [], [])
+
+    def refused(path, token, key=None):
+        raise urllib.error.HTTPError(path, 403, "Forbidden", {}, None)
+
+    monkeypatch.setattr(gate_merge, "paginate", refused)
+    assert gate_merge.run_merge() == 1
+    out = capsys.readouterr().out
+    assert "actions: read" in out
+    assert out.index("permission") < out.index("403")

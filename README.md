@@ -120,7 +120,7 @@ What it does:
 
 The workflow authenticates with a GitHub App installation token (same pattern as a semantic-release bot) instead of the default `GITHUB_TOKEN` — PRs opened with `GITHUB_TOKEN` trigger no CI, which would defeat the conflict-surfacing strategy. Each consuming repo needs:
 
-1. A GitHub App (e.g. your release bot) installed on the repository with **contents: read/write** and **pull requests: read/write** permissions.
+1. A GitHub App (e.g. your release bot) installed on the repository with **contents: read/write** and **pull requests: read/write** permissions, plus **actions: read** where the merge bot runs (private repos with `BOT_MERGE_ENABLED`): it lists the workflow runs and jobs at a PR head.
 2. A repository (or org) **variable** `RELEASE_BOT_CLIENT_ID` set to the app's client ID.
 3. A repository (or org) **secret** `RELEASE_BOT_PRIVATE_KEY` containing an app private key.
 

@@ -1,0 +1,14 @@
+# {{ agentic_project_name }}
+
+{{ agentic_project_description }}
+
+## Glossary
+
+Terms this repository uses, defined in [`docs/glossary/`](docs/glossary/).
+The shared set arrives with every template stamp and is pruned to what
+this repository links; the first entry is this project's own term.
+
+- [{{ agentic_project_name }}](docs/glossary/{{ agentic_project_slug }}.md)
+{%- for slug, name in shared_glossary_terms() %}
+- [{{ name }}](docs/glossary/{{ slug }}.md)
+{%- endfor %}

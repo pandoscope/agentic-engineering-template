@@ -24,6 +24,9 @@ COMMON_FILES = frozenset(
         ".yamllint.yaml",
         "AGENTS.md",
         "CLAUDE.md",
+        # Seeded once (#256): a fresh repo has no README, and the prune
+        # walks from it, so the stamp provides one with a glossary index.
+        "README.md",
         "commitlint.config.mjs",
         "docs/architecture.md",
         "docs/conventions.md",

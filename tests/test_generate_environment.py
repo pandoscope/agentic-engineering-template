@@ -17,16 +17,16 @@ from tests.conftest import load_module
 from tests.render_support import PROJECT_ROOT, check_file_contents, render_answers
 
 
-def test_grilling_pinned_to_frankify_derivation(
+def test_grilling_pinned_to_the_org_derivation(
     tmp_path: Path,
     base_answers: dict[str, str],
 ) -> None:
-    """`grilling` pins the frankify-app/skills derivation, not upstream."""
+    """`grilling` pins the pandoscope/skills derivation, not upstream."""
     dst_path = render_answers(tmp_path, base_answers, "grilling-pin")
 
     lock = json.loads((dst_path / "skills-lock.json").read_text())
     grilling = lock["skills"]["grilling"]
-    assert grilling["source"] == "frankify-app/skills"
+    assert grilling["source"] == "pandoscope/skills"
     assert grilling["skillPath"] == "derived/grilling/SKILL.md"
 
 

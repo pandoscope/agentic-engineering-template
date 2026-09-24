@@ -1,6 +1,6 @@
 # Agentic Engineering Template — Agent Guidelines
 
-Repo: <https://github.com/frankify-app/agentic-engineering-template>
+Repo: <https://github.com/pandoscope/agentic-engineering-template>
 
 ## Project Specifics
 

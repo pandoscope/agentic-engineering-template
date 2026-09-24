@@ -266,6 +266,7 @@ def test_project_kind_docs_omits_code_artifacts(
             "docs/conventions.md",
             "| `documenting-decisions` ",
             "| `to-spec` ",
+            "| `writing-prose` ",
         ],
         unexpect_strs=[
             "docs/architecture.md",
@@ -291,6 +292,7 @@ def test_project_kind_docs_omits_code_artifacts(
         "grilling",
         "to-spec",
         "writing-adrs",
+        "writing-prose",
     }
 
 

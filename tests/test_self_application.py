@@ -64,7 +64,7 @@ def test_repo_root_matches_the_rendered_template(tmp_path: Path) -> None:
                 "Copier template for agentic engineering scaffolding"
             ),
             "agentic_project_slug": "agentic-engineering-template",
-            "agentic_repo_owner": "frankify-app",
+            "agentic_repo_owner": "pandoscope",
             "agentic_merge_approvers": "pando-genet",
         },
         defaults=True,

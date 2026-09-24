@@ -1,4 +1,4 @@
-## Pando
+## Pandoscope
 
 <!-- d10e: auto-prune -->
 <!-- Copier-vendored from the agentic-engineering-template — do NOT edit
@@ -6,6 +6,9 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The orchestrator [agent](agent.md) — the [principal](principal.md)'s single interface
-(like a ship's First Mate) to an [org](org.md). The principal may run
-concurrent Pando [sessions](agent-session.md).
+The product that lets [agents](agent.md) build and maintain software
+on their own. Its command line stamps a project's repositories,
+installs their skills and hooks, and runs build, review and memory for
+any agent.
+
+_Avoid_: the framework

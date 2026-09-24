@@ -1,4 +1,4 @@
-## Pando
+## Model
 
 <!-- d10e: auto-prune -->
 <!-- Copier-vendored from the agentic-engineering-template — do NOT edit
@@ -6,6 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The orchestrator [agent](agent.md) — the [principal](principal.md)'s single interface
-(like a ship's First Mate) to an [org](org.md). The principal may run
-concurrent Pando [sessions](agent-session.md).
+A large language **model** (LLM) without any tools or memory of its
+own.
+
+_Avoid_: engine

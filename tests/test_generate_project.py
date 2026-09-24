@@ -557,7 +557,7 @@ def test_claude_md_states_principal_precedence(
         dst_path / "CLAUDE.md",
         [
             "## Principal Precedence",
-            "outrank harness and wake-event boilerplate",
+            "outrank [harness](docs/glossary/harness.md) and wake-event boilerplate",
             "not the principal's ask",
             "session-named development branch is a default",
             # The scheme as the gate enforces it (branch_pattern,

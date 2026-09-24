@@ -56,6 +56,7 @@ COMMON_FILES = frozenset(
         "scripts/check-branch-name.sh",
         "scripts/check-linear-history.sh",
         "scripts/check_file_length.py",
+        "scripts/check_prose_diff.py",
         "scripts/enable-agent-shims.sh",
         "skills-lock.json",
         # The uniform gate's judge (#137) renders on every forge; only

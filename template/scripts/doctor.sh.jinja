@@ -101,11 +101,26 @@ else
     decision_memory_failed=true
 fi
 
+# Repo-owned checks (#273): scripts/doctor.local.sh is the repo's own seam,
+# as scripts/session-start.local.sh is for SessionStart.
+local_failed=false
+local_doctor="$(dirname "$0")/doctor.local.sh"
+if [[ -f "$local_doctor" ]]; then
+    if bash "$local_doctor"; then
+        echo "✓ doctor.local.sh"
+        pass=$((pass + 1))
+    else
+        echo "✗ doctor.local.sh — the repo's own checks failed"
+        fail=$((fail + 1))
+        local_failed=true
+    fi
+fi
+
 echo
 echo "Summary: $pass ok, $fail failed"
 
 if [[ ${#missing[@]} -eq 0 ]]; then
-    if [[ "$decision_memory_failed" == true ]]; then
+    if [[ "$decision_memory_failed" == true || "$local_failed" == true ]]; then
         exit 1
     fi
     exit 0

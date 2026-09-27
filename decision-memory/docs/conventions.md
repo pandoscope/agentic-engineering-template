@@ -258,9 +258,12 @@ Storage and priming are two concerns, so the set is a pair:
   has to ask about has failed. The render never wraps. "One line, one
   preference" counts preferences, not sentences: a qualifier the
   decider reads as part of the rule joins it on the same line, under
-  the one counter. A line holding two preferences is split instead,
-  and the counter follows the evidence — whichever split line the
-  records actually support inherits it, the others start at zero.
+  the one set of counters. A line holding two preferences is split
+  instead, and the counters follow the evidence: whichever split line
+  the records actually support inherits `confirmed` and `independent`,
+  the others start at zero. A split rewrites an existing rule, so it
+  takes the carve-out label and a replay report like any other edit
+  to the active set.
   (Ruled 2026-08-10/11, records `preference-lines-are-fundamental`,
   `preference-lines-never-wrap` and `decompose-and-residue-one-line`:
   seven compound lines became twelve plain ones and the file got

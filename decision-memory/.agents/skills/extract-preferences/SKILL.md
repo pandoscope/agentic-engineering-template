@@ -138,8 +138,8 @@ and a way to be wrong.
 State the candidate as a **fundamental**: one preference, in the
 plainest words that survive a cold read. A rule that needs a
 corollary is two rules — write two files. Decomposing at proposal
-time is cheaper than decomposing at promotion, when a counter has to
-be divided along with the words.
+time is cheaper than decomposing at promotion, when the counters have
+to be divided along with the words.
 
 ```text
 pref-proposal: prefers the simplest solution that solves the actual problem

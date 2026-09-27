@@ -138,6 +138,20 @@ jobs:
           echo "$merges" | xargs git log --no-walk --format='%h %s'
           echo "::error::The PR carries merge commit(s). A working branch is rebased onto main, never merged into (skills#147): git rebase origin/main, then push with --force-with-lease."
           exit 1
+
+  prose-diff:
+    name: "prose diff (PR commits)"
+    if: {% raw %}${{ github.event_name == 'pull_request' }}{% endraw %}
+    runs-on: {{ agentic_actions_runner }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      # The reflow guard and the guillemet hook, per commit (#275).
+      # A commit pushed with --no-verify never met them.
+      - name: No reflow outside style commits, no guillemet in code
+        run: python3 scripts/check_prose_diff.py --range {% raw %}${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}{% endraw %}
 {%- if agentic_precommit == 'prek' %}
 
   prek:

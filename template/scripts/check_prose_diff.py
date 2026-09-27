@@ -34,6 +34,8 @@ VENDORED = re.compile(
     r"CHANGELOG\.md|\.copier-answers\.agentic\.yml|\.all-contributorsrc|\.agents/skills|\.claude/skills|scripts/ci/"
 )
 MARKDOWN = re.compile(r"\.md(\.jinja)?$")
+# Escaped, so the script passes its own check when a template update ships it.
+GUILLEMETS = re.compile("[\u00ab\u00bb]")
 # Leading comment markers, so a rewrapped comment compares by its words.
 MARKER = re.compile(r"^\s*(#+|//+|/?\*+/?|--|;+|>)\s?")
 
@@ -95,7 +97,7 @@ def guillemets(diff: str) -> list[str]:
     return [
         f"{h.path}:{h.line}: guillemet in code; use <name> placeholders"
         for h in hunks(diff)
-        if not MARKDOWN.search(h.path) and any("«" in a or "»" in a for a in h.added)
+        if not MARKDOWN.search(h.path) and any(GUILLEMETS.search(a) for a in h.added)
     ]
 
 

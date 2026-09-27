@@ -184,3 +184,18 @@ def test_guillemet_already_on_main_passes(script: Path, tmp_path: Path) -> None:
         text=True,
     )
     assert result.returncode == 0, result.stderr
+
+
+def test_script_passes_its_own_guillemet_check(script: Path, tmp_path: Path) -> None:
+    # The template update that ships the script must not fail on it.
+    name = "scripts/check_prose_diff.py"
+    repo = repo_with(tmp_path, "README.md", PARAGRAPH)
+    (repo / "scripts").mkdir()
+    stage(repo, name, script.read_text())
+    result = subprocess.run(
+        ["python3", str(script), "guillemets", name],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr

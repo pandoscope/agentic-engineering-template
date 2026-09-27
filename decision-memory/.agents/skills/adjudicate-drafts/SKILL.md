@@ -20,8 +20,10 @@ Two moments, and every record-adding PR hits at least the second:
    the end. A session that recorded natively through the recorder
    never had drafts and starts there.
 
-`decisions/` is append-only with no carve-out: after ingestion a
-duplicate cannot be withdrawn and a missing link cannot be added.
+`decisions/` is append-only with no carve-out. Once a record merges,
+a duplicate cannot be withdrawn and a missing link cannot be added.
+Until then, the guard counts a record this branch adds as an addition
+however often the branch amends it.
 
 A duplicate is not just a wasted file. Extraction reads cross-record
 repetition as evidence that a pattern is a principle, so one ruling
@@ -30,7 +32,9 @@ scores the case twice.
 
 ## Rules
 
-- Never edit `decisions/`. Everything here happens in the drafts.
+- Never edit a record that is already on the base branch. Sections
+  1-5 work in the drafts; the pre-merge pass touches only records
+  this branch adds.
 - Never delete a draft. Discards move to `discarded-drafts.json`.
 - Never leave a cluster unresolved. "Genuinely independent" is a
   resolution; silence is not.

@@ -288,7 +288,7 @@ python .github/store/similarity.py            # store against itself
 
 Everything it checks shares one deadline: **drafts are mutable and
 records are not.** `decisions/` is append-only with no carve-out, so
-whatever is not fixed at ingestion is frozen permanently. That is what
+whatever is not fixed by merge is frozen permanently. That is what
 separates this gate from the analysis passes, which read immutable
 history and can run whenever.
 
@@ -298,9 +298,10 @@ Three checks, one run:
   ruling twice, worded differently. Ingesting both mints two immutable
   records for one decision.
 - **Re-decision links.** A `related`/`supersedes` edge cannot be added
-  after ingestion without violating append-only, so ingestion is the
-  only moment an edge can be written. An unlinked re-decision is a
-  permanently disconnected node.
+  to a merged record without violating append-only, so an edge is
+  written at ingestion or, for records the branch adds, in the
+  pre-merge link pass (`adjudicate-drafts`). An unlinked re-decision
+  that merges is a permanently disconnected node.
 - **False cold + ref completeness.** A record claiming `cold` while a
   matching rule was active permanently understates that rule's
   evidence — and the replay gate's stream split reads exactly that

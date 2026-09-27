@@ -342,4 +342,4 @@ Repo-specific rules live in [docs/conventions.md](docs/conventions.md). Copier s
 
 Repo-specific session bootstrap — tools a fresh session needs that the template does not install — lives in `scripts/session-start.local.sh`, seeded the same way. The stamped `.claude/settings.json` runs it after its own SessionStart hooks; that settings file is template-owned and never edited locally.
 
-Repo-specific host checks live in `scripts/doctor.local.sh`, which the template does not seed. `scripts/doctor.sh` runs it when present, and fails when it fails.
+Repo-specific host checks live in `scripts/doctor.local.sh`, which the template does not seed. `scripts/doctor.sh` runs it when present, and a failing local check fails the doctor.

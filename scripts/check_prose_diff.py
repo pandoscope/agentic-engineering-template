@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Diff-scoped prose checks (#275).
 
-A hunk whose removed and added lines hold the same word sequence
-with different line breaks is a reflow.
-A reflow outside a `style:` commit pollutes the diff and the blame,
+A reflow is a hunk whose removed and added lines hold the same
+word sequence with different line breaks.
+Outside a `style:` commit, a reflow pollutes the diff and the blame,
 so it is a finding.
 A guillemet placeholder in code is a finding;
 Markdown keeps them for tracker-bound templates.
@@ -16,7 +16,7 @@ Modes:
   --range A..B         CI: each commit in the range, judged by its own
                        subject, for both checks
 
-A commit that changes the copier answers file is a template update.
+A template update is a commit that changes the copier answers file.
 It carries the upstream's reflows, so the reflow check skips it.
 """
 

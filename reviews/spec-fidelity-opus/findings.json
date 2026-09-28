@@ -1,0 +1,44 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#276",
+  "head": "a9a1938c3040b37fac22d7174676732ed3197a58",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/lint.yml.jinja",
+      "line": 142,
+      "rule": "A `style:` commit that reflows must be listed in the blame-ignore file; CI checks that after merge.",
+      "input": "A PR whose commit `style: rewrap` reflows README.md and is not listed in .git-blame-ignore-revs, merged to main",
+      "finding_basis": "decided",
+      "confidence": 95,
+      "finding": "No CI job checks after merge that a reflowing `style:` commit is listed in `.git-blame-ignore-revs`, so the unlisted commit lands with no finding. The PR body declares this gap."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/lint.yml.jinja",
+      "line": 154,
+      "rule": "Both hooks ship in the rendered template and run in the prek CI job.",
+      "input": "A rendered repo's prek CI job (`uvx prek run --all-files`) on a PR commit that reflows README.md under a `docs:` subject",
+      "finding_basis": "decided",
+      "confidence": 90,
+      "finding": "Neither hook runs in the prek CI job: reflow-guard is a commit-msg-stage hook, and guillemets-in-code sees no staged diff under `--all-files`. The check moves to a separate prose-diff job instead. The PR body declares this departure."
+    },
+    {
+      "file": "template/scripts/check_prose_diff.py",
+      "line": 62,
+      "rule": "Guillemet hook: fails on a `.py`, `.mjs` or `.sh` file with a guillemet; passes on `.md` files.",
+      "input": "The PR-range CI job (`--range base..head`) over a commit that adds `x «name»` to `docs/meeting notes.md` (a Markdown path containing a space)",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "For a path containing a space, git ends the `+++ b/<path>` header with a tab. The path the script keeps then ends in a tab, the `\\.md(\\.jinja)?$` exemption does not match, and range mode reports a guillemet in a Markdown file."
+    },
+    {
+      "file": "template/scripts/check_prose_diff.py",
+      "line": 34,
+      "rule": "A guillemet in a source file, code comment or help text is a finding.",
+      "input": "A PR commit that adds `echo \"«name»\"` to `scripts/ci/run.sh`, checked by the PR-range CI job",
+      "finding_basis": "judged",
+      "confidence": 35,
+      "finding": "The VENDORED pattern drops every hunk under `scripts/ci/` (and CHANGELOG.md, .all-contributorsrc) before the guillemet check runs, so a guillemet added to a shell source file there passes."
+    }
+  ]
+}

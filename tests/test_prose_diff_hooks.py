@@ -174,6 +174,24 @@ def test_guillemet_in_markdown_passes(script: Path, tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
 
 
+def test_guillemet_in_markdown_path_with_space_passes(
+    script: Path, tmp_path: Path
+) -> None:
+    # Git ends the +++ header of a path with a space in a tab.
+    name = "meeting notes.md"
+    repo = repo_with(tmp_path, name, "text\n")
+    base = git(repo, "rev-parse", "HEAD").strip()
+    stage(repo, name, "text\nx \u00abname\u00bb\n")
+    git(repo, "commit", "-q", "--no-verify", "-m", "docs: add notes")
+    result = subprocess.run(
+        ["python3", str(script), "--range", f"{base}..HEAD"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr
+
+
 def test_guillemet_already_on_main_passes(script: Path, tmp_path: Path) -> None:
     repo = repo_with(tmp_path, "tool.py", "# old «name»\n")
     stage(repo, "tool.py", "# old «name»\nx = 1\n")

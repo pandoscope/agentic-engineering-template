@@ -59,7 +59,7 @@ def hunks(diff: str) -> list[Hunk]:
     path = ""
     for line in diff.splitlines():
         if line.startswith("+++ "):
-            path = line[6:] if line.startswith("+++ b/") else ""
+            path = line[6:].rstrip("\t") if line.startswith("+++ b/") else ""
         elif line.startswith("@@") and path:
             start = int(re.search(r"\+(\d+)", line).group(1))
             found.append(Hunk(path, start))

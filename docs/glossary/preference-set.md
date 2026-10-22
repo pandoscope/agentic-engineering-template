@@ -8,5 +8,5 @@
 
 The active preference rules of the decision store: `preferences.json` is the
 machine-owned source of truth, `preferences.txt` its render and the only file
-injected into agent sessions, kept under a hard token budget. Confirmation
+injected into [agent](agent.md) sessions, kept under a hard token budget. Confirmation
 counters are the one sanctioned edit; promotion of new rules is human-only.

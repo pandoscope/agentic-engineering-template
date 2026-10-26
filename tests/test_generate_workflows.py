@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 import yaml
 
 
@@ -311,6 +312,28 @@ def test_github_forge_ships_board_auto_add_workflow(
             "pull_request_target",
         ],
     )
+
+
+@pytest.mark.xfail(strict=True, reason="#305: the board still needs a PAT")
+def test_board_items_go_through_the_release_bots_token(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """A personal access token expires and has to be renewed by hand in
+    every org; the release bot mints a fresh installation token per run.
+    The job skips until the bot is set up, instead of failing on an
+    empty app ID (#301), and the template's own copy is the render."""
+    dst_path = render_answers(tmp_path, base_answers, "board-bot")
+    rendered = (dst_path / ".github" / "workflows" / "add-to-project.yml").read_text()
+
+    assert "actions/create-github-app-token" in rendered
+    assert "app-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}" in rendered
+    assert "private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}" in rendered
+    assert "permission-organization-projects: write" in rendered
+    assert "github-token: ${{ steps.app-token.outputs.token }}" in rendered
+    assert "vars.RELEASE_BOT_CLIENT_ID != ''" in rendered
+    assert "PROJECT_BOARD_TOKEN" not in rendered
+    assert (ROOT / ".github" / "workflows" / "add-to-project.yml").read_text() == rendered
 
 
 def test_github_forge_ships_ticket_close_dispatch(

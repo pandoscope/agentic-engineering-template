@@ -303,8 +303,8 @@ def test_github_forge_ships_board_auto_add_workflow(
         [
             "actions/add-to-project",
             # The default GITHUB_TOKEN is repo-scoped and cannot write to
-            # an ORG-level project.
-            "PROJECT_BOARD_TOKEN",
+            # an ORG-level project; the release bot's token can (#305).
+            "steps.app-token.outputs.token",
             "vars.PROJECT_BOARD_URL",
             # Fork PRs carry no secrets under `pull_request`; the base-context
             # event is what makes the token reachable. Safe here only because
@@ -314,7 +314,6 @@ def test_github_forge_ships_board_auto_add_workflow(
     )
 
 
-@pytest.mark.xfail(strict=True, reason="#305: the board still needs a PAT")
 def test_board_items_go_through_the_release_bots_token(
     tmp_path: Path,
     base_answers: dict[str, str],

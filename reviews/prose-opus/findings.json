@@ -1,0 +1,179 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#306",
+  "head": "de92a472d8841bcb5a2ec384527e897442f25384",
+  "pass": "prose",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 28,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "narrowed to the board, so there is no personal access token to\n      # renew (#305).",
+      "finding_basis": "judged",
+      "confidence": 75,
+      "finding": "The step comment still mentions the personal access token this change removes, as history set against the new design, where the commit message is the home for it."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 28,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "narrowed to the board, so there is no personal access token to\n      # renew (#305).",
+      "finding_basis": "judged",
+      "confidence": 75,
+      "finding": "The template's step comment still mentions the personal access token this change removes, as history set against the new design, where the commit message is the home for it."
+    },
+    {
+      "file": "tests/test_generate_workflows.py",
+      "line": 321,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "A personal access token expires and has to be renewed by hand in\n    every org; the release bot mints a fresh installation token per run.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The new test's docstring opens on the removed personal access token instead of on the behaviour the test pins."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 28,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "The release bot mints a fresh installation token per run, ... The app needs organization Projects: write",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The step comment names the same GitHub App first \"the release bot\" and then \"The app\"."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 28,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "The release bot mints a fresh installation token per run, ... The app needs organization Projects: write",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The template's step comment names the same GitHub App first \"the release bot\" and then \"The app\"."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 28,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "without\n      # it this step fails, and that red job is the signal.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "\"the signal\" no longer points to anything: the expiring token it once signalled is gone, and no sentence names what the red job now signals."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 28,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "without\n      # it this step fails, and that red job is the signal.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "\"the signal\" no longer points to anything: the expiring token it once signalled is gone, and no sentence names what the red job now signals."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 6,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "so the bot's key would\n  # be empty",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The trigger comment says \"the bot's key\" at the top of the file, where no bot has been named yet; the release bot first appears twenty lines later."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 6,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "so the bot's key would\n  # be empty",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The trigger comment says \"the bot's key\" at the top of the file, where no bot has been named yet; the release bot first appears twenty lines later."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 28,
+      "rule": "Keep a code comment to one or two sentences that give the reason rather than the mechanism.",
+      "input": "An ORG-level project is outside the repo-scoped GITHUB_TOKEN's\n      # reach. The release bot mints a fresh installation token per run,\n      # narrowed to the board, ... The app needs organization Projects: write; without\n      # it this step fails, and that red job is the signal. Do not soften\n      # it into a warning.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The new step comment runs to four sentences and restates the mechanism the step's own inputs show (minting per run, narrowed permissions)."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 28,
+      "rule": "Keep a code comment to one or two sentences that give the reason rather than the mechanism.",
+      "input": "An ORG-level project is outside the repo-scoped GITHUB_TOKEN's\n      # reach. The release bot mints a fresh installation token per run,\n      # narrowed to the board, ... The app needs organization Projects: write; without\n      # it this step fails, and that red job is the signal. Do not soften\n      # it into a warning.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The template's new step comment runs to four sentences and restates the mechanism the step's own inputs show (minting per run, narrowed permissions)."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 28,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# reach. The release bot mints a fresh installation token per run,\n      # narrowed to the board, so there is no personal access token to\n      # renew (#305). The app needs organization Projects: write; without",
+      "finding_basis": "decided",
+      "confidence": 90,
+      "finding": "The new step comment is wrapped at a fixed width, so lines 29, 31 and 32 each carry the end of one sentence and the start of the next, and line 33 breaks mid-clause."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 28,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# reach. The release bot mints a fresh installation token per run,\n      # narrowed to the board, so there is no personal access token to\n      # renew (#305). The app needs organization Projects: write; without",
+      "finding_basis": "decided",
+      "confidence": 90,
+      "finding": "The template's new step comment is wrapped at a fixed width, so lines 29, 31 and 32 each carry the end of one sentence and the start of the next, and line 33 breaks mid-clause."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 22,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "repository, so the board is populated from here instead. Repos that\n    # set no board URL, or whose org has no release bot yet, show this job\n    # as SKIPPED rather than green or red (#301).",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The rewritten job comment keeps its fixed-width wrap, breaking the new sentence after \"Repos that\" and \"show this job\"."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 22,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "repository, so the board is populated from here instead. Repos that\n    # set no board URL, or whose org has no release bot yet, show this job\n    # as SKIPPED rather than green or red (#301).",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The template's rewritten job comment keeps its fixed-width wrap, breaking the new sentence after \"Repos that\" and \"show this job\"."
+    },
+    {
+      "file": ".github/workflows/add-to-project.yml",
+      "line": 6,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "so the bot's key would\n  # be empty exactly when a contributor opens a PR. The base-context event",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The rewritten trigger comment breaks between \"would\" and \"be empty\" and starts a new sentence mid-line."
+    },
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 6,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "so the bot's key would\n  # be empty exactly when a contributor opens a PR. The base-context event",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The template's rewritten trigger comment breaks between \"would\" and \"be empty\" and starts a new sentence mid-line."
+    },
+    {
+      "file": "tests/test_generate_workflows.py",
+      "line": 321,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "has to be renewed by hand in\n    every org; ... The job skips until the bot is set up, instead of failing on an\n    empty app ID (#301)",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The new docstring is wrapped at a fixed width, breaking mid-phrase after \"in\" and \"an\" and starting a sentence mid-line."
+    },
+    {
+      "file": "tests/test_generate_workflows.py",
+      "line": 305,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# The default GITHUB_TOKEN is repo-scoped and cannot write to\n            # an ORG-level project; the release bot's token can (#305).",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The rewritten comment keeps a break between \"write to\" and its object and puts a second clause on the same line."
+    }
+  ]
+}

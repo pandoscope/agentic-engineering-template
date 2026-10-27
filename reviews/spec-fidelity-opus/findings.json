@@ -1,0 +1,17 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#306",
+  "head": "de92a472d8841bcb5a2ec384527e897442f25384",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "template/{% if agentic_forge == 'github' %}.github{% endif %}/workflows/add-to-project.yml.jinja",
+      "line": 47,
+      "rule": "`PROJECT_BOARD_TOKEN` leaves the template; the meta credentials conf stops declaring it.",
+      "input": "pandoscope/meta scripts/actions-credentials.conf:64 after this PR merges and closes #305: it still declares \"secret|PROJECT_BOARD_TOKEN|all|PROJECT_BOARD_TOKEN\"",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The PR closes #305 (CLOSES #305) while the ticket's second half of this bullet, the meta credentials conf no longer declaring PROJECT_BOARD_TOKEN, is left undone and only deferred in the body (\"The meta credentials conf can then stop declaring\"), so the ticket closes with that proposal item open."
+    }
+  ]
+}

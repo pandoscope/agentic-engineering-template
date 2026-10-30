@@ -9,7 +9,6 @@ from pathlib import Path
 
 import yaml
 
-
 from tests.conftest import PROJECT_ROOT as ROOT
 from tests.render_support import check_file_contents, render_answers
 
@@ -301,9 +300,9 @@ def test_github_forge_ships_board_auto_add_workflow(
         dst_path / ".github" / "workflows" / "add-to-project.yml",
         [
             "actions/add-to-project",
-            # The default GITHUB_TOKEN is repo-scoped and cannot write to
-            # an ORG-level project.
-            "PROJECT_BOARD_TOKEN",
+            # The repo-scoped GITHUB_TOKEN cannot write to an org-level project;
+            # the release bot's token can (#305).
+            "steps.app-token.outputs.token",
             "vars.PROJECT_BOARD_URL",
             # Fork PRs carry no secrets under `pull_request`; the base-context
             # event is what makes the token reachable. Safe here only because
@@ -311,6 +310,25 @@ def test_github_forge_ships_board_auto_add_workflow(
             "pull_request_target",
         ],
     )
+
+
+def test_board_items_go_through_the_release_bots_token(
+    tmp_path: Path,
+    base_answers: dict[str, str],
+) -> None:
+    """The release bot's installation token adds the board items,
+    narrowed to organization Projects: write.
+    The job skips until the org has a board and a release bot (#301)."""
+    dst_path = render_answers(tmp_path, base_answers, "board-bot")
+    rendered = (dst_path / ".github" / "workflows" / "add-to-project.yml").read_text()
+
+    assert "actions/create-github-app-token" in rendered
+    assert "app-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}" in rendered
+    assert "private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}" in rendered
+    assert "permission-organization-projects: write" in rendered
+    assert "github-token: ${{ steps.app-token.outputs.token }}" in rendered
+    assert "vars.RELEASE_BOT_CLIENT_ID != ''" in rendered
+    assert "PROJECT_BOARD_TOKEN" not in rendered
 
 
 def test_github_forge_ships_ticket_close_dispatch(

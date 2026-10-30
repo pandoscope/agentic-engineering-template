@@ -1,0 +1,233 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#308",
+  "head": "29e6c0bae0e4d5e7c93e6f705546134389bb34c4",
+  "pass": "prose",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "waybill/README.md",
+      "line": 94,
+      "rule": "State each fact once within a text, and pair an effect with its cause instead of listing effects and causes apart.",
+      "input": "The file is pushed straight to `main`, like the orders' results.",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The dispositions list restates where an order's result goes, and the restatement contradicts the Lifecycle section, which has the session push its result pointer to the order branch and the pull request merged into `main`."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 53,
+      "rule": "Write an event as a verb, never as a noun.",
+      "input": "## What a fire hands the session",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The section heading turns the Routine firing into the noun \"a fire\", the shape the docs rules' own example rejects."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 59,
+      "rule": "Bring the verb within four words of its subject, with no clause between verb and complement.",
+      "input": "Every repository whose pull requests are reviewed, and every repository an order pins,\nis attached to the Routine, so the clones the order names exist.",
+      "finding_basis": "decided",
+      "confidence": 70,
+      "finding": "The paragraph's last sentence puts two relative clauses and fourteen words between its subject \"Every repository\" and its verb \"is attached\", and it hides who attaches them."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 94,
+      "rule": "Make the actor the subject, and keep config, fields and files as objects.",
+      "input": "The file is pushed straight to `main`, like the orders' results.",
+      "finding_basis": "decided",
+      "confidence": 70,
+      "finding": "The list item makes the dispositions file the subject of a passive verb and leaves out who pushes it, which the item two lines above names as the session that placed the order."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 75,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "`dispositions/<order id>.yml` holds one entry per finding of that order:",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The Dispositions section names the order's identifier `<order id>`, while the order section calls the same string `<name>` for the branch and file and `id` in the YAML."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 77,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "owner: [<owner/repo#n>]  # the pull request whose commits wrote the line",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The disposition example and the list after it use \"owner\" both for the pull request that wrote a line and for the repository owner in `<owner/repo>` placeholders, so \"Each owner fixes its entries\" reads two ways."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 36,
+      "rule": "Gloss a proper name or identifier at its first mention with what kind of thing it is.",
+      "input": "The composer reads it and fills the review task.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The field list names \"the composer\" without saying what it is, in a README written for an org that has never met Pandoscope's session machinery."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 48,
+      "rule": "Gloss a proper name or identifier at its first mention with what kind of thing it is.",
+      "input": "The driver refuses to end the session until the session has read each one.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The prose review list names \"The driver\" without a gloss, and nothing earlier in the README says what refuses to end a session."
+    },
+    {
+      "file": "waybill/AGENTS.md",
+      "line": 3,
+      "rule": "Write primed files in aggressive caveman register, with each entry cut to the bare minimum.",
+      "input": "A Routine's filter matches the branch prefix, so the name decides which Routine fires.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The rules list is written in full sentences with articles and reasons, such as the Routine-filter and short-code explanations, instead of entries cut to the bare minimum."
+    },
+    {
+      "file": "waybill/AGENTS.md",
+      "line": 8,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "The name ends in the reviewed repository's short code and the pull request's number,\n  because each repository numbers its pull requests from 1.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The order-name and one-way entries restate the README's sentences nearly word for word instead of pointing to the README's sections, so the two files can drift apart."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 64,
+      "rule": "Give parallel cases one list item each, with the effect first and its cause after it.",
+      "input": "Open: the pull request is open and a session is on it.\nDone: the session pushes its result pointer to the order branch",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The Lifecycle paragraph gives the three parallel states Open, Done and Abandoned as paragraph lines instead of one list item each."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 69,
+      "rule": "State no non-requirement unless saying it simplifies the solution.",
+      "input": "This repository takes direct pushes by design and carries no pull request gate and no merge bot.",
+      "finding_basis": "judged",
+      "confidence": 40,
+      "finding": "The Lifecycle section closes on what the repository lacks and \"by design\", which the reader decides nothing with, since the orders themselves arrive as pull requests."
+    },
+    {
+      "file": "waybill/.github/workflows/template-update.yml.jinja",
+      "line": 27,
+      "rule": "State the present, and leave history to commit messages.",
+      "input": "every path to\n  # loudness used to sit downstream of token minting, so the repos that\n  # could not authenticate — the ones most likely to be behind — died\n  # before the drift was ever named.",
+      "finding_basis": "decided",
+      "confidence": 60,
+      "finding": "The audit job's comment, copied verbatim from the session store's workflow, narrates how the workflow used to fail instead of stating what the job does now."
+    },
+    {
+      "file": "waybill/.github/workflows/template-update.yml.jinja",
+      "line": 16,
+      "rule": "Put \"only\" directly before the word it limits.",
+      "input": "The update job only acts through the release-bot app token minted",
+      "finding_basis": "decided",
+      "confidence": 55,
+      "finding": "The permissions comment puts \"only\" before \"acts\" although it limits \"through the release-bot app token\"."
+    },
+    {
+      "file": "waybill/.github/workflows/template-update.yml.jinja",
+      "line": 263,
+      "rule": "Put \"only\" directly before the word it limits.",
+      "input": "Best-effort: a missing release only degrades the PR body.",
+      "finding_basis": "decided",
+      "confidence": 50,
+      "finding": "The changelog comment puts \"only\" before \"degrades\" although it limits \"the PR body\"."
+    },
+    {
+      "file": "waybill/.github/workflows/template-update.yml.jinja",
+      "line": 4,
+      "rule": "Put the main clause first, and let at most one reason, consequence or example trail it.",
+      "input": "# Fired by the template's own release job the moment a release is cut,\n  # so an update arrives because something happened rather than because a\n  # timer caught up.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The trigger comment opens on a participle phrase with no main clause and trails a consequence that carries two contrasted reasons."
+    },
+    {
+      "file": "waybill/AGENTS.md",
+      "line": 12,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "  but no order, finding, disposition or name of this org's repositories\n  is written into a Pandoscope repository.",
+      "finding_basis": "decided",
+      "confidence": 60,
+      "finding": "The one-way entry breaks between the subject and its verb \"is written\", mid-clause."
+    },
+    {
+      "file": "waybill/.github/workflows/order-check.yml.jinja",
+      "line": 3,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# Every order on a pull request must validate against the order\n# schema before the Routine's session reads it; an order off the\n# schema turns the pull request red",
+      "finding_basis": "decided",
+      "confidence": 60,
+      "finding": "The trigger comment, rewritten from pandoscope/waybill's, wraps at a fixed width and splits \"the order schema\" and \"off the schema\" across lines."
+    },
+    {
+      "file": "copier.yml",
+      "line": 16,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "`waybill` stamps an org's ORDER repo — the orders that fire review\n    sessions, the dispositions that answer their findings, and the check",
+      "finding_basis": "decided",
+      "confidence": 55,
+      "finding": "The new `waybill` entry in the subtemplate help text wraps at a fixed width, splitting \"review sessions\" and \"the check that validates\" across lines."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 3,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Selected by `agentic_subtemplate=waybill`, it stamps an org's ORDER\nrepo: the orders whose pull requests fire review sessions, the\ndispositions that answer their findings",
+      "finding_basis": "decided",
+      "confidence": 55,
+      "finding": "The module docstring wraps at a fixed width, splitting \"ORDER repo\" and \"the dispositions\" across lines."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 41,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "# Pin HEAD: with release tags present locally, copier would\n        # otherwise render the latest RELEASE instead of this branch.",
+      "finding_basis": "decided",
+      "confidence": 50,
+      "finding": "The `vcs_ref` comment breaks between \"would\" and \"otherwise render\", mid-clause."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 59,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "\"\"\"The waybill needs nothing from the org to work: its texts speak of\n    \"this org\", so no org name is stamped in and none can go stale.\"\"\"",
+      "finding_basis": "decided",
+      "confidence": 50,
+      "finding": "The answers-file test's docstring breaks between \"speak of\" and its object, mid-clause."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 70,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "which Routine fires, and it ends in the repo's short code and the\n    pull request's number, because every repo numbers its pull requests\n    from 1. Findings are answered here, not in forge comments.",
+      "finding_basis": "decided",
+      "confidence": 50,
+      "finding": "The order-contract docstring wraps at a fixed width, splitting noun phrases across lines and putting a second sentence on the line where the first one ends."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 85,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "\"\"\"Orders may pin Pandoscope repositories read-only, but nothing of the\n    org's own work is written into a Pandoscope repository.\"\"\"",
+      "finding_basis": "decided",
+      "confidence": 50,
+      "finding": "The one-way test's docstring breaks inside \"nothing of the org's own work\"."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 103,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "\"\"\"What a waybill IS belongs to the template: an edit made in one org's\n    waybill is replaced on the next update instead of forking the contract.\"\"\"",
+      "finding_basis": "decided",
+      "confidence": 50,
+      "finding": "The vendored-README test's docstring breaks inside \"one org's waybill\", mid-clause."
+    }
+  ]
+}

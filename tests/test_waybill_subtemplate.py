@@ -11,7 +11,6 @@ from __future__ import annotations
 from pathlib import Path
 
 import copier
-import pytest
 
 PROJECT_ROOT = Path(__file__).parent.parent
 SUBTEMPLATE = PROJECT_ROOT / "waybill"
@@ -46,7 +45,6 @@ def _render_waybill(tmp_path: Path) -> Path:
     return dst_path
 
 
-@pytest.mark.xfail(strict=True, reason="#307: the waybill subtemplate is a stub")
 def test_waybill_render_produces_exactly_the_waybill_files(tmp_path: Path) -> None:
     dst_path = _render_waybill(tmp_path)
     rendered = {
@@ -68,7 +66,6 @@ def test_the_answers_file_records_only_the_subtemplate(tmp_path: Path) -> None:
     assert "agentic_project_name" not in answers
 
 
-@pytest.mark.xfail(strict=True, reason="#307: the waybill subtemplate is a stub")
 def test_the_readme_states_the_order_contract(tmp_path: Path) -> None:
     """An order is a branch, a file and a pull request; the name decides
     which Routine fires, and it ends in the repo's short code and the
@@ -84,7 +81,6 @@ def test_the_readme_states_the_order_contract(tmp_path: Path) -> None:
     assert "## One way only" in readme
 
 
-@pytest.mark.xfail(strict=True, reason="#307: the waybill subtemplate is a stub")
 def test_the_agent_rules_keep_the_waybill_one_way(tmp_path: Path) -> None:
     """Orders may pin Pandoscope repositories read-only, but nothing of the
     org's own work is written into a Pandoscope repository."""
@@ -94,7 +90,6 @@ def test_the_agent_rules_keep_the_waybill_one_way(tmp_path: Path) -> None:
     assert "Never write a token, a secret or a session transcript here." in rules
 
 
-@pytest.mark.xfail(strict=True, reason="#307: the waybill subtemplate is a stub")
 def test_every_order_is_checked_before_a_session_reads_it(tmp_path: Path) -> None:
     check = (
         _render_waybill(tmp_path) / ".github" / "workflows" / "order-check.yml"
@@ -104,7 +99,6 @@ def test_every_order_is_checked_before_a_session_reads_it(tmp_path: Path) -> Non
     assert "order check" in check
 
 
-@pytest.mark.xfail(strict=True, reason="#307: the waybill subtemplate is a stub")
 def test_the_readme_is_vendored(tmp_path: Path) -> None:
     """What a waybill IS belongs to the template: an edit made in one org's
     waybill is replaced on the next update instead of forking the contract."""

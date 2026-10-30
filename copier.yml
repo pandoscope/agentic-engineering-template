@@ -12,14 +12,18 @@ agentic_subtemplate:
     store docs;
     `session-memory` stamps a session STORE — the store's agent rules
     and the workflow that reports its ticket closes to the ledger; its
-    recorder ships with the thread-ledger skill, not from here. With
-    any store subtemplate, all project-scaffold questions are skipped,
-    keeping the store's answers file minimal.
+    recorder ships with the thread-ledger skill, not from here;
+    `waybill` stamps an org's ORDER repo — the orders that fire review
+    sessions, the dispositions that answer their findings, and the check
+    that validates every order. With any store subtemplate, all
+    project-scaffold questions are skipped, keeping the store's answers
+    file minimal.
   choices:
     - template
     - decision-memory
     - evidence-memory
     - session-memory
+    - waybill
   default: template
 
 agentic_project_name:

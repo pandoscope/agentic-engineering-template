@@ -1,0 +1,53 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#308",
+  "head": "29e6c0bae0e4d5e7c93e6f705546134389bb34c4",
+  "pass": "spec-fidelity",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 18,
+      "rule": "`dispositions/` with a README stating the format.",
+      "input": "copier copy with `agentic_subtemplate: waybill`",
+      "finding_basis": "decided",
+      "confidence": 95,
+      "finding": "The render contains no `dispositions/` directory and no README inside it; WAYBILL_FILES pins a file set without one, and the format lives only in the top-level README's Dispositions section."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 58,
+      "rule": "a test pins that the render names no organisation (as for the session store)",
+      "input": "a waybill render whose README, AGENTS.md or workflows contain an org's name (e.g. a literal `pandoscope/waybill` or another org's repository)",
+      "finding_basis": "decided",
+      "confidence": 90,
+      "finding": "No test scans the rendered files for an organisation name; the only related test checks that the answers file lacks `agentic_repo_owner` and `agentic_project_name`, so a literal org name in any rendered file would pass the suite."
+    },
+    {
+      "file": "waybill/AGENTS.md",
+      "line": 1,
+      "rule": "pandoscope/waybill's own files match the render where they are generic (a declared mirror, or adopted through the stamp)",
+      "input": "pandoscope/waybill's AGENTS.md and .github/workflows/order-check.yml against the render's",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "pandoscope/waybill's AGENTS.md still differs from the render (it lacks the order-name and one-way rules and is wrapped differently), its order-check.yml keeps the `(PANDO!26, waybill#1)` comment, and the change declares no mirror and stamps nothing there, yet the PR body says CLOSES #307."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 16,
+      "rule": "The template ships no org's codes; the waybill's README says where an org keeps them.",
+      "input": "an org with several repositories reading the rendered README to find its repositories' short codes",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The README only says a short code is the one the repository's branch names use (`claude/<code><ticket>-…`), and never says where the org keeps its list of codes."
+    },
+    {
+      "file": "waybill/{{ _copier_conf.answers_file }}.jinja",
+      "line": 2,
+      "rule": "**README.md** and **AGENTS.md** from pandoscope/waybill's, made generic: the org comes from the answers, never a literal name.",
+      "input": "copier copy with `agentic_subtemplate: waybill` for any org",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The answers file records only `agentic_subtemplate`, and the README and AGENTS.md take nothing from the answers: the org is never rendered from them but replaced by \"this org\" and an invented `my-org` example."
+    }
+  ]
+}

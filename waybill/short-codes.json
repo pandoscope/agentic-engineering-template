@@ -1,0 +1,3 @@
+{
+  "_comment": "Short codes the org's order names end in, e.g. \"my-org/my-repo\": \"mr\" for review-spec-fidelity-opus-mr4. Seeded once and owned by this waybill: the template ships no org's names and never overwrites the org's entries."
+}

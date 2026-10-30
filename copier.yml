@@ -13,9 +13,11 @@ agentic_subtemplate:
     `session-memory` stamps a session STORE — the store's agent rules
     and the workflow that reports its ticket closes to the ledger; its
     recorder ships with the thread-ledger skill, not from here;
-    `waybill` stamps an org's ORDER repo — the orders that fire review
-    sessions, the dispositions that answer their findings, and the check
-    that validates every order. With any store subtemplate, all
+    `waybill` stamps an org's ORDER repo:
+    the orders that fire review sessions,
+    the dispositions that answer their findings,
+    and the check that validates every order.
+    With any store subtemplate, all
     project-scaffold questions are skipped, keeping the store's answers
     file minimal.
   choices:
@@ -235,6 +237,8 @@ _skip_if_exists:
   # The shortcode map is the store's data — the template seeds an empty
   # scaffold and never overwrites the org's own entries.
   - "{% if agentic_subtemplate == 'session-memory' %}repo-codes.json{% endif %}"
+  # The org's short codes are the waybill's data, as the shortcode map is the session store's.
+  - "{% if agentic_subtemplate == 'waybill' %}short-codes.json{% endif %}"
 _jinja_extensions:
   - copier_template_extensions.TemplateExtensionLoader
   - extensions/agentic.py:AgenticExtension

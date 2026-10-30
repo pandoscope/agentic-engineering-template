@@ -1,0 +1,33 @@
+name: Order check
+
+# Every order on a pull request validates against the order schema before the Routine's session reads it:
+# an order off the schema turns the pull request red
+# instead of firing a session that runs unconfigured.
+on:
+  pull_request:
+    paths: ["orders/*.yml"]
+  push:
+    branches: [main]
+    paths: ["orders/*.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: order-check-{% raw %}${{ github.ref }}{% endraw %}
+  cancel-in-progress: true
+
+jobs:
+  order-check:
+    name: orders validate against the schema
+    runs-on: {{ agentic_actions_runner }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: astral-sh/setup-uv@v6
+      - name: pandoscope order check
+        run: |
+          set -eu
+          shopt -s nullglob
+          files=(orders/*.yml)
+          if [ "{% raw %}${#files[@]}{% endraw %}" -eq 0 ]; then echo "no orders"; exit 0; fi
+          uvx pandoscope==0.3.0 order check "${files[@]}"

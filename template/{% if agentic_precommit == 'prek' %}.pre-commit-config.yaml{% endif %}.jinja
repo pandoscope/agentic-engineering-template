@@ -132,6 +132,21 @@ repos:
         language: system
         files: \.(py|mjs|cjs|js|jsx|ts|tsx|sh|bash|md|yml|yaml|toml|json|html|css)(\.jinja)?$
         exclude: (^|/)([^/]*lock[^/]*\.(json|yml|yaml|toml)|[^/]*\.min\.(js|css))$
+      # Prose in diffs (#275): a rewrap of untouched lines outside a style: commit,
+      # and a guillemet placeholder in code.
+      # Both read only the diff, so no file fails on its past.
+      # The reflow guard runs at commit-msg, because the subject decides.
+      # The PR-range CI job re-checks each commit by its own subject.
+      - id: reflow-guard
+        name: no reflow outside a style commit
+        entry: python3 scripts/check_prose_diff.py reflow --msg
+        language: system
+        stages: [commit-msg]
+      - id: guillemets-in-code
+        name: no guillemet placeholder in code
+        entry: python3 scripts/check_prose_diff.py guillemets
+        language: system
+        exclude: \.md(\.jinja)?$
       # Repo-owned hooks (#216): a repo's own language hooks live in
       # `.pre-commit-config.local.yaml`, which the template seeds once
       # and never stamps again. Delegating keeps them on the same

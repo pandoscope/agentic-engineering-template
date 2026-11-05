@@ -156,9 +156,6 @@ def _assert_tree(root: Path, expected: frozenset[str]) -> None:
     assert not missing, f"Expected files missing: {sorted(missing)}"
 
 
-@pytest.mark.xfail(
-    strict=True, reason="#309: the stamp installs skills@latest, frozen under CI"
-)
 def test_the_stamp_installs_a_fixed_skills_version_without_a_frozen_lock() -> None:
     """A stamp in CI does what a stamp elsewhere does: restore every skill and refresh the lock.
     A fixed version keeps an upstream release from changing every stamp overnight."""

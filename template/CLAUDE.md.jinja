@@ -60,6 +60,13 @@ this file, tersely.
   check `git remote get-url origin` before trusting such a checkout.
 - Cloud sessions: a repository in the session's scope that is missing on disk
   can be cloned by hand into another directory.
+- A container restart drops `~/.claude/skills` and every local branch; pushed branches survive.
+  Recreate a branch from `origin/` before building on it, and reinstall a copied skill:
+  without handing-off, its PreCompact guard blocks compaction.
+- The preinstalled Chromium sits in a revision directory under `/opt/pw-browsers`;
+  point `CHROME_BIN` at the binary for a test that looks for a fixed path.
+- `disambiguate --lint` rejects links that form a cycle between glossary entries, and a term no root links:
+  link a new term from `README.md`, and link each entry only to the terms it builds on.
 
 ## Pull Requests
 

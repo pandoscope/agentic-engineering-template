@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 from collections.abc import Callable
@@ -153,6 +154,20 @@ def _assert_tree(root: Path, expected: frozenset[str]) -> None:
     missing = expected - actual
     assert not extra, f"Unexpected files rendered: {sorted(extra)}"
     assert not missing, f"Expected files missing: {sorted(missing)}"
+
+
+@pytest.mark.xfail(
+    strict=True, reason="#309: the stamp installs skills@latest, frozen under CI"
+)
+def test_the_stamp_installs_a_fixed_skills_version_without_a_frozen_lock() -> None:
+    """A stamp in CI does what a stamp elsewhere does: restore every skill and refresh the lock.
+    A fixed version keeps an upstream release from changing every stamp overnight."""
+    config = yaml.safe_load((PROJECT_ROOT / "copier.yml").read_text())
+    install = next(task for task in config["_tasks"] if "experimental_install" in task)
+
+    assert re.search(
+        r"npx skills@\d+\.\d+\.\d+ experimental_install --no-frozen-lockfile", install
+    )
 
 
 def test_e2e_copy_defaults_renders_expected_tree(

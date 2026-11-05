@@ -56,6 +56,13 @@ this file, tersely.
   run `prek run --all-files`, commit with `--no-verify`, and fold before pushing.
 - Aim a `fixup!` at the last commit that touched its lines;
   an older target conflicts on folding when later commits changed the same lines.
+- A container restart drops `~/.claude/skills` and every local branch; pushed branches survive.
+  Recreate a branch from `origin/` before building on it, and reinstall a copied skill:
+  without handing-off, its PreCompact guard blocks compaction.
+- The preinstalled Chromium sits in a revision directory under `/opt/pw-browsers`;
+  point `CHROME_BIN` at the binary for a test that looks for a fixed path.
+- `disambiguate --lint` rejects links that form a cycle between glossary entries, and a term no root links:
+  link a new term from `README.md`, and link each entry only to the terms it builds on.
 
 ## Pull Requests
 

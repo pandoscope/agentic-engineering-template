@@ -1,0 +1,44 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#310",
+  "head": "111d3c902ccb0afeee3e47cd64d25dbb91073508",
+  "pass": "prose",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "copier.yml",
+      "line": 241,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "Under CI the tool freezes the lock by default, and the lock's hashes do not pin (#57),\n  # so the flag makes a stamp in CI do what a stamp elsewhere does.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The comment block says \"the tool\" and \"the flag\", but neither the comment nor the sentence before names `skills` or `--no-frozen-lockfile`, so the reader has to work out both from the command line under it."
+    },
+    {
+      "file": "copier.yml",
+      "line": 241,
+      "rule": "Give one thing one name throughout a text, and never use that name for a second thing.",
+      "input": "an upstream release must not change every stamp overnight. ... so the flag makes a stamp in CI do what a stamp elsewhere does.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "In this comment block \"stamp\" means two things: the stamped output that an upstream release changes, and the install run in CI, while the glossary defines stamp as the verb \"to instantiate\"."
+    },
+    {
+      "file": "tests/test_e2e.py",
+      "line": 160,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "\"\"\"A stamp in CI does what a stamp elsewhere does: restore every skill and refresh the lock.\n    A fixed version keeps an upstream release from changing every stamp overnight.\"\"\"",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The docstring repeats the rationale in the copier.yml task comment almost word for word, so the two will drift apart once one of them is edited."
+    },
+    {
+      "file": "README.md",
+      "line": 12,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "a post-render step runs `npx skills@1.7.6 experimental_install --no-frozen-lockfile` to populate `.agents/skills/`",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The Skills list item copies the exact pinned version from copier.yml without naming it as a copy, and the new test accepts any version, so bumping the pin leaves the README stale and nothing catches it."
+    }
+  ]
+}

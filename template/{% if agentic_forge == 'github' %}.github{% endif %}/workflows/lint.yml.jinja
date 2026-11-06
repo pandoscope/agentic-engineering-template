@@ -150,6 +150,13 @@ jobs:
 
       # prek bootstraps hook runtimes (node for markdownlint/commitlint,
       # go for actionlint) itself; uvx provides prek.
+      # PUSH_BLOCKLIST_OFF (#313): the identity hook would fail here
+      # without the blocklist, and a fork PR gets no secret. Every
+      # surface this checkout publishes is already scanned server-side
+      # — the leaks gate on the PR, payload-scan on tracker items, the
+      # audit over history — so this job runs without the identity hook.
       - name: Run prek hooks
+        env:
+          PUSH_BLOCKLIST_OFF: "1"
         run: uvx prek run --all-files --show-diff-on-failure
 {%- endif %}

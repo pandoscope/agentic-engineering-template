@@ -195,6 +195,13 @@ Code-specific skills:
   Forcing the push or deleting the branch to escape the rule
   is the step that turns a rejected push into lost work.
 
+### Leak Prevention
+
+- `PUSH_BLOCKLIST`: the identity blocklist, `|`-separated values, each optionally `value=pb:name`. The values are identifying material: never print, log, echo or commit them, in code, tests or tracker text. A hit names the surface and the `pb:name`, never the value.
+- Where it lives: one file outside every repository, edited by the principal, that exports `PUSH_BLOCKLIST`. The shell profile sources it, so every agent shell inherits the variable. Cloud sessions take it from the environment's configuration, CI from the org secret.
+- Hooks (`scripts/check-push-blocklist.sh`): pre-commit scans the staged files, commit-msg the message, pre-push every commit about to leave (message, author and committer identity, added diff). Unset or empty variable → the hooks fail (#313). Load the file; `PUSH_BLOCKLIST_OFF=1` switches the identity check off only where a server-side gate (`leaks` job, payload-scan, trufflehog-audit) covers the same surface, and the hook announces it.
+- `scripts/doctor.sh` reports whether the blocklist is loaded, value-silent.
+
 ### Tracker Content Formatting
 
 Tracker bodies (issue bodies, PR descriptions, comments) do NOT render

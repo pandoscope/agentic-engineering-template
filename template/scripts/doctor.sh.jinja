@@ -90,6 +90,15 @@ fi
 # lives in the store, not here.
 decision_memory_failed=false
 echo
+# Value-silent on purpose: the blocklist is identifying material.
+if [[ "${PUSH_BLOCKLIST_OFF:-}" == 1 ]]; then
+    echo "⚠ PUSH_BLOCKLIST — identity check switched off (PUSH_BLOCKLIST_OFF=1); only where a server-side gate covers what you publish"
+elif [[ -z "$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d '\r\n| \t')" ]]; then
+    echo "✗ PUSH_BLOCKLIST — not loaded; every commit and push fails the identity check until this shell sources the principal's blocklist file (AGENTS.md § Leak Prevention)"
+else
+    echo "✓ PUSH_BLOCKLIST (loaded)"
+fi
+
 if [[ -z "${DECISION_MEMORY_URL:-}" ]]; then
     echo "⚠ DECISION_MEMORY_URL — unset; grilling skill skips decision recording. Set it (full git URL) in your shell profile (local), the environment config (remote sessions), or a CI secret."
 elif GIT_TERMINAL_PROMPT=0 git ls-remote "$DECISION_MEMORY_URL" >/dev/null 2>&1; then

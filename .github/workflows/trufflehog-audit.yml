@@ -6,7 +6,7 @@ name: TruffleHog audit
 # comments, plus full git history — with TruffleHog's stock credential
 # rules AND the PUSH_BLOCKLIST identity denylist as custom detectors.
 # One job per repo, responsible only for the repo it lives on: the
-# scan runs on the repo's own token (no org enumeration, no app
+# scan reads the repo unauthenticated (no org enumeration, no app
 # credential) and is free on public repos. A finding turns the run
 # red — the red run is the alert. Layers 1–2 gate what agents push;
 # this net catches what publishes without a gate (a comment posted by
@@ -54,9 +54,13 @@ jobs:
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
+          echo "private=$private" >> "$GITHUB_OUTPUT"
 
+      # Full history: the private-override scan reads this clone.
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         if: steps.visibility.outputs.skip == 'false'
+        with:
+          fetch-depth: 0
 
       # Pinned by version AND sha256 (the ci-ok gitleaks convention):
       # a moving release tag must not swap the scanner under the audit.
@@ -88,23 +92,41 @@ jobs:
       # --json so findings can be reduced to value-silent lines: the
       # raw stream carries the matched secret (Raw/RawV2), so it is
       # never printed — only detector label and location.
+      #
+      # No token (#314): trufflehog resolves the token's user before it
+      # scans, and the Actions token answers that with 403, so every
+      # authenticated run died before the scan. A public repo scans
+      # unauthenticated — history, issues, PRs and comments are all
+      # readable without one. A private repo (dispatch override) cannot
+      # be read without a token, so its scan covers the checkout's git
+      # history and says that its tracker surfaces stay unscanned.
+      #
+      # The scanner's own log goes to a file at the info level and is
+      # shown only when the scan fails: it carries no matched values
+      # (findings go to the JSON stream), and a scan failure must name
+      # its cause (#314).
       - name: Scan this repo — git history, issues, PRs, comments
         if: steps.visibility.outputs.skip == 'false'
         env:
-          GH_AUDIT_TOKEN: ${{ github.token }}
+          PRIVATE: ${{ steps.visibility.outputs.private }}
         run: |
           set -euo pipefail
-          ./trufflehog github "--repo=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
-            --issue-comments --pr-comments \
+          if [ "$PRIVATE" = "true" ]; then
+            echo "::notice::private repo — scanning git history only; issues, PRs and comments need a token this job does not have"
+            source=(git "file://$PWD")
+          else
+            source=(github "--repo=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" --issue-comments --pr-comments)
+          fi
+          ./trufflehog "${source[@]}" \
             --config "$RUNNER_TEMP/detectors.yaml" \
-            --token "$GH_AUDIT_TOKEN" \
-            --json --no-update --fail --log-level=-1 \
-            > "$RUNNER_TEMP/findings.jsonl" && rc=0 || rc=$?
+            --json --no-update --fail --log-level=0 \
+            > "$RUNNER_TEMP/findings.jsonl" 2> "$RUNNER_TEMP/trufflehog.log" && rc=0 || rc=$?
           # trufflehog --fail exits 183 on findings (the reporter turns
           # those red itself); any other nonzero exit is a scan failure
           # and must not pass silently.
           if [ "$rc" -ne 0 ] && [ "$rc" -ne 183 ]; then
-            echo "::error::trufflehog exited $rc (scan failure, not findings)"
+            tail -n 40 "$RUNNER_TEMP/trufflehog.log"
+            echo "::error::trufflehog exited $rc (scan failure, not findings) — its last log lines are above"
             exit "$rc"
           fi
           scripts/ci/trufflehog-report.sh "$RUNNER_TEMP/findings.jsonl"

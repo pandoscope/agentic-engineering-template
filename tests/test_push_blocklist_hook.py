@@ -228,6 +228,56 @@ def test_pre_push_of_a_new_branch_falls_back_to_the_unpushed_range(
     assert proc.returncode == 0
 
 
+def test_pre_push_fails_closed_when_git_cannot_read_the_range(tmp_path: Path) -> None:
+    """A git call that fails must refuse the push, never judge zero
+    commits and pass (the same class of bug as a missing list)."""
+    repo = pushed_repo(tmp_path)
+    proc = run("--push", cwd=repo, PUSH_BLOCKLIST=LIST, PRE_COMMIT_TO_REF="no-such-ref")
+    assert proc.returncode != 0
+    assert "refusing to judge the push" in proc.stderr
+    value_silent(proc)
+
+
+def test_pre_push_judges_an_annotated_tag_and_the_ref_name(tmp_path: Path) -> None:
+    repo = pushed_repo(tmp_path)
+    _git(repo, "tag", "-a", "v9", "-m", f"release by {LOGIN}", GIT_COMMITTER_NAME=NAME)
+    proc = run(
+        "--push",
+        cwd=repo,
+        PUSH_BLOCKLIST=LIST,
+        PRE_COMMIT_LOCAL_BRANCH="refs/tags/v9",
+        PRE_COMMIT_TO_REF=_git(repo, "rev-parse", "v9"),
+    )
+    assert proc.returncode == 1
+    assert (
+        "tag v9 tagger and message carries PUSH_BLOCKLIST pb:old-account" in proc.stderr
+    )
+    assert "tag v9 tagger and message carries PUSH_BLOCKLIST entry 2" in proc.stderr
+    # The tag's commits are judged too, through the peeled commit.
+    assert "added diff carries PUSH_BLOCKLIST pb:mail" in proc.stderr
+    value_silent(proc)
+    proc = run(
+        "--push",
+        cwd=repo,
+        PUSH_BLOCKLIST=LIST,
+        PRE_COMMIT_LOCAL_BRANCH=f"refs/heads/claude/1-{LOGIN}",
+        PRE_COMMIT_FROM_REF=_git(repo, "rev-parse", "HEAD"),
+        PRE_COMMIT_TO_REF="HEAD",
+    )
+    assert proc.returncode == 1
+    assert "the pushed ref name carries PUSH_BLOCKLIST pb:old-account" in proc.stderr
+    value_silent(proc)
+
+
+def test_binary_files_are_judged_too(tmp_path: Path) -> None:
+    f = tmp_path / "blob.bin"
+    f.write_bytes(b"\x00\x01PNG" + LOGIN.encode() + b"\x00\xff")
+    proc = run("--files", str(f), PUSH_BLOCKLIST=LIST)
+    assert proc.returncode == 1
+    assert "pb:old-account" in proc.stderr
+    value_silent(proc)
+
+
 def test_pre_push_without_the_list_fails_too(tmp_path: Path) -> None:
     repo = pushed_repo(tmp_path)
     proc = run("--push", cwd=repo, PUSH_BLOCKLIST=None)

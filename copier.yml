@@ -238,7 +238,11 @@ _jinja_extensions:
 # Tasks are scaffold-only: the decision-memory subtemplate stamps data-repo files
 # and must not install skills, run doctor, or register hooks there.
 _tasks:
-  - "{% if agentic_subtemplate == 'template' %}npx skills@latest experimental_install{% else %}true{% endif %}"
+  # A fixed `skills` version, so that an upstream release cannot break every render overnight.
+  # `skills` freezes the lock by default under CI;
+  # --no-frozen-lockfile lets a render in CI restore the skills as a render elsewhere does,
+  # and the conflict job reports a lock that no longer matches its sources (#57).
+  - "{% if agentic_subtemplate == 'template' %}npx skills@1.7.6 experimental_install --no-frozen-lockfile{% else %}true{% endif %}"
   # Advisory, never a gate: copier rolls the whole render back on a non-zero
   # task, so a missing host tool would lose the stamp over a report. Doctor's
   # own exit code is untouched — a direct run still fails hard.

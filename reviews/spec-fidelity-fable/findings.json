@@ -1,0 +1,44 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#308",
+  "head": "e899fe711fde39c3a70761b7af4d80800362909a",
+  "pass": "spec-fidelity",
+  "model_tier": "fable",
+  "findings": [
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 92,
+      "rule": "a test pins that the render names no organisation (as for the session store)",
+      "input": "A rendered waybill file that gains the text `acme-corp/widgets@1a2b3c`, or `acme-corp/widgets` followed by a space, or the bare name `Acme Corp`",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The test only collects owners from `owner/repo` followed by `#<digits>` or `:`, so an organisation named in any other form passes it, whereas the session store's test rejects the name wherever it appears in a rendered file."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 26,
+      "rule": "**The order-name rule for orgs with several repos:** a name ends in the reviewed repository's short code and the pull request's number (`review-spec-fidelity-opus-<code><n>`), because each repository numbers its pull requests from 1; the short code is the one the repository's branch names use.",
+      "input": "An org whose branches for `my-org/my-repo` carry the code `mr` (`claude/mr4-fix`) and whose `shortcodes.json` lists `\"my-org/my-repo\": \"repo\"`",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The rendered README and AGENTS.md never say that an order's short code is the one the repository's branch names use; the README points to a separate, waybill-owned `shortcodes.json` that nothing ties to the branch pattern's codes, so the order `review-spec-fidelity-opus-repo4` follows the stamped rule."
+    },
+    {
+      "file": "waybill/{{ _copier_conf.answers_file }}.jinja",
+      "line": 2,
+      "rule": "The answers file records only `agentic_subtemplate: waybill`: the waybill needs nothing from the org, so no org name is stamped in.",
+      "input": "`copier copy --defaults --data agentic_subtemplate=waybill`",
+      "finding_basis": "decided",
+      "confidence": 65,
+      "finding": "`agentic_actions_runner` has no `when` in copier.yml and the order check renders it, so the answers file also records `agentic_actions_runner: ubuntu-latest`, and the test that carries the sentence's name asserts only that two other keys are absent."
+    },
+    {
+      "file": "waybill/.github/workflows/order-check.yml.jinja",
+      "line": 3,
+      "rule": "**`.github/workflows/order-check.yml`:** pandoscope/waybill's check, rendered with the template's runner; it matches the original apart from two Pandoscope ticket references dropped from a comment.",
+      "input": "`diff` of pandoscope/waybill's `.github/workflows/order-check.yml` against the default render, lines 3 to 6",
+      "finding_basis": "decided",
+      "confidence": 80,
+      "finding": "The header comment is reworded beyond the two dropped references (`must validate` became `validates`, the semicolon a colon, the lines rewrapped), so the render differs from the original in more than the body states, though in no executed line."
+    }
+  ]
+}

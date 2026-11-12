@@ -56,6 +56,20 @@ this file, tersely.
   run `prek run --all-files`, commit with `--no-verify`, and fold before pushing.
 - Aim a `fixup!` at the last commit that touched its lines;
   an older target conflicts on folding when later commits changed the same lines.
+- commitlint rejects a subject that starts with a capital letter,
+  a product name included: write `a Claude Code session …`.
+- Cloud sessions: `docker build` fails TLS verification behind the session proxy;
+  build from a scratch copy of the Dockerfile
+  that adds `/root/.ccr/ca-bundle.crt` to the build stage only.
+- Cloud sessions: a container restart stops `dockerd` and its containers
+  and can drop `prek` from `PATH`;
+  start them again and run `scripts/ensure-prek.sh`.
+- Auto mode: the classifier denies `git reset --hard` on a diverged clone,
+  and attaching a repository with write access when another session asked for it;
+  say what is blocked and let the principal approve.
+- A GitHub App's permissions change only in its settings,
+  and an organisation owner then accepts them on the installation;
+  no API or CLI does either.
 
 ## Pull Requests
 

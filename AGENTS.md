@@ -275,7 +275,7 @@ Use `ghx` for all repository interaction. `gh` and `tea` are disabled — callin
 
 Use `run list` / `run view` for workflow-run detail; use `pr checks` / `pr status` for a PR's check rollup.
 
-The modes below are the kinds of work the user will ask for. **Each runs in its own session — possibly a different [model](docs/glossary/model.md) or agent** (Review especially). Follow the named skills at each step.
+The modes below are the kinds of work the user will ask for. **Each runs in its own session — possibly a different [model](docs/glossary/large-language-model.md) or agent** (Review especially). Follow the named skills at each step.
 
 #### Plan
 

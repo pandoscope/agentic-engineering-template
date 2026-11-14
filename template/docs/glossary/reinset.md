@@ -6,10 +6,15 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The [org](org.md)'s set of reins on its agents: the tests, checks, and
-rules that govern the energy harnessed from the LLM. Where a violation
-is machine-fixable, the reinset repairs and reports rather than merely
-rejecting — it supplies the auto-formatters. A rein enters the reinset
-only on evidence — an incident that showed the need, cited beside it.
+The set of reins [Pandoscope](pandoscope.md) delivers to an
+[org](org.md)'s agents: the tests, checks, and rules that govern the
+energy harnessed from the LLM. Where a violation is machine-fixable, the
+reinset repairs and reports rather than merely rejecting — it supplies
+the auto-formatters. A rein enters the reinset only on evidence — an
+incident that showed the need, cited beside it.
+<!-- d10e: ignore[term-case] pandoscope -->
+The pandoscope org is itself built with Pandoscope.
+When an incident there shows that a rein is needed,
+the new rein goes into the reinset that every org receives.
 
-_Avoid_: Gauntlet, guardrail set, harness
+_Avoid_: Gauntlet, guardrail set

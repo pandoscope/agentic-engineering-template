@@ -81,11 +81,16 @@ def _prune(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
     )
 
 
-def _unlink_reinset(repo: Path) -> None:
+# The victim is a leaf: no other glossary entry links it, so unlinking it
+# from the README orphans it. Reinset stopped being one when the
+# Pandoscope entry began linking it (skills#201).
+def _unlink_leaf(repo: Path) -> None:
     readme = repo / "README.md"
     lines = readme.read_text(encoding="utf-8").splitlines(keepends=True)
-    kept = [line for line in lines if "docs/glossary/reinset.md" not in line]
-    assert len(kept) == len(lines) - 1, "fixture: README links reinset exactly once"
+    kept = [line for line in lines if "docs/glossary/pando-worker.md" not in line]
+    assert len(kept) == len(lines) - 1, (
+        "fixture: README links pando worker exactly once"
+    )
     readme.write_text("".join(kept), encoding="utf-8")
 
 
@@ -109,14 +114,14 @@ def test_store_copies_match_the_template_script(store: str) -> None:
 
 def test_a_consumer_prunes_unlinked_terms_and_reports_them(tmp_path: Path) -> None:
     repo = _repo(tmp_path, answers=True)
-    _unlink_reinset(repo)
+    _unlink_leaf(repo)
 
     result = _prune(repo)
 
     assert result.returncode == 0, result.stderr
     assert "removed unlinked term(s)" in result.stdout
-    assert "docs/glossary/reinset.md" in result.stdout
-    assert "reinset.md" not in _terms(repo)
+    assert "docs/glossary/pando-worker.md" in result.stdout
+    assert "pando-worker.md" not in _terms(repo)
 
 
 def test_the_root_as_committed_survives_its_own_prune(tmp_path: Path) -> None:
@@ -131,15 +136,17 @@ def test_the_root_as_committed_survives_its_own_prune(tmp_path: Path) -> None:
 
 def test_fail_on_removal_names_and_restores_the_term(tmp_path: Path) -> None:
     repo = _repo(tmp_path, answers=False)
-    _unlink_reinset(repo)
+    _unlink_leaf(repo)
 
     result = _prune(repo, "--fail-on-removal")
 
     assert result.returncode == 1
     assert "REMOVED TERMS" in result.stderr
-    assert "docs/glossary/reinset.md" in result.stderr
+    assert "docs/glossary/pando-worker.md" in result.stderr
     assert "(restored)" in result.stderr
-    assert "reinset.md" in _terms(repo), "a tracked term the prune removed is put back"
+    assert "pando-worker.md" in _terms(repo), (
+        "a tracked term the prune removed is put back"
+    )
 
 
 def test_the_rendered_pin_file_wins_over_a_copier_yml(tmp_path: Path) -> None:

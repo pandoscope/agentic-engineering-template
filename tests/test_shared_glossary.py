@@ -43,7 +43,7 @@ SHARED_TERMS = frozenset(
         "agent-session",
         "agent",
         "harness",
-        "model",
+        "large-language-model",
         "template-stamp",
         "pandoscope-template",
     }
@@ -198,7 +198,7 @@ def test_a_stamped_repo_keeps_only_the_shared_terms_it_links(
     # AGENTS.md and CLAUDE.md link these three in every stamped repo, so
     # they never go (skills#201); every other shared term the README
     # does not link is pruned.
-    always_linked = {"agent", "harness", "model"}
+    always_linked = {"agent", "harness", "large-language-model"}
     assert survivors & SHARED_TERMS == always_linked, (
         "unlinked shared terms must be pruned"
     )

@@ -45,17 +45,21 @@ API budget per-account, shared by all sessions.
 
 ## Learnings
 
-New non-obvious findings — tools, environment, failure modes — go in
+New non-obvious findings about Claude Code on the web — its cloud containers, proxy and tools — go in
 this file, tersely.
+Findings about the Pandoscope setup that hold in any harness go in the Learnings section of `AGENTS.md`.
 
 - Cloud sessions: the git proxy drops `git push --delete`;
   delete a branch in the web UI.
 - After a repository rename, the session reaches the renamed repository under the old name
   until a new repository takes that name.
-- The local commitlint hook rejects `fixup!` headers:
-  run `prek run --all-files`, commit with `--no-verify`, and fold before pushing.
-- Aim a `fixup!` at the last commit that touched its lines;
-  an older target conflicts on folding when later commits changed the same lines.
+- A container restart drops `~/.claude/skills` and every local branch; pushed branches survive.
+  Recreate a branch from `origin/` before building on it, and reinstall a copied skill:
+  without handing-off, its PreCompact guard blocks compaction.
+- The preinstalled Chromium sits in a revision directory under `/opt/pw-browsers`;
+  point `CHROME_BIN` at the binary for a test that looks for a fixed path.
+- Cloud sessions clone repositories shallow,
+  so a tool that reads tags or history (`git describe`, `dunamai`) fails until `git fetch --unshallow`.
 
 ## Pull Requests
 

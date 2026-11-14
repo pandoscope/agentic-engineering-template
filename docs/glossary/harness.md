@@ -6,7 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-An environment that harnesses the _energy_ of a [model](model.md). A
+An environment that harnesses the _energy_ of a [model](large-language-model.md). A
 **harness** such as Claude Code, Hermes or Codex gives the model tools,
 files and a session.
 

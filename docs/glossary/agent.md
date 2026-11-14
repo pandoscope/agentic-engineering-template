@@ -6,7 +6,7 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-An **agent** is the combination of a [model](model.md) and a
+An **agent** is the combination of a [model](large-language-model.md) and a
 [harness](harness.md).
 
 _Avoid_: assistant

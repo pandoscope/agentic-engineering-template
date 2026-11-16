@@ -102,6 +102,11 @@ This template only writes files it is configured to own. It does not silently ta
 | `.file-length-allowlist` | seeded once by agentic-template when `agentic_precommit` is `prek`, then owned by the repo |
 | Source code, package manifests, language lint hooks | base / layered template |
 
+**Codespell exceptions** in the template's `.codespellrc` reach every stamped repository.
+List only generic words and paths there,
+never names of private repositories, customers or unreleased things.
+A repository that needs an exception proposes it as a change to this template, where it is reviewed.
+
 **Conflict detection** is not enforced inside `copier.yml`. Copier's default update behaviour may produce `.rej` files and still exit zero. CI on this repository runs `copier update` against fixture projects and fails if any `.rej` files exist or the tree is unexpectedly dirty — surfacing collisions (for example both templates touching `.pre-commit-config.yaml`) instead of letting silent rejects rot.
 
 ## Automated template updates

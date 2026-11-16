@@ -122,6 +122,9 @@ GITHUB_ONLY_FILES = frozenset(
         # release bot once ci-ok is green; on a public repo it prints
         # one line.
         ".github/workflows/bot-merge.yml",
+        # The copier pin the drift check installs from (#324); only
+        # the GitHub workflows run copier.
+        "scripts/ci/copier-requirements.txt",
     }
 )
 

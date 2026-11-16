@@ -63,7 +63,10 @@ jobs:
           # runner with no terminal past copier's "Overwrite?" prompt
           # so the diff below judges the drift instead of the job
           # dying before it — fail loudly, never exempt silently.
-          uvx --with copier-template-extensions copier recopy \
+          # Copier comes pinned from the stamp (#324): an unpinned uvx
+          # takes the newest release, which could change this verdict
+          # while neither the repo nor the template changed.
+          uvx --with-requirements scripts/ci/copier-requirements.txt copier recopy \
             --answers-file "$answers_file" \
             --defaults --trust --skip-tasks --overwrite --vcs-ref "$stamped"
 

@@ -136,7 +136,7 @@ def test_lint_workflow_guards_vendored_template_drift(
             [
                 "copier recopy",
                 '--defaults --trust --skip-tasks --overwrite --vcs-ref "$stamped"',
-                "copier-template-extensions",
+                "scripts/ci/copier-requirements.txt",
                 # Recopy resurrects the terms the stamp pruned; the drift
                 # job prunes again so a converged glossary is not drift
                 # (#203).

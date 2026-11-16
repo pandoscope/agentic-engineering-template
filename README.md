@@ -97,6 +97,7 @@ This template only writes files it is configured to own. It does not silently ta
 | `docs/glossary/`, `docs/architecture.md` | agentic-template |
 | `.editorconfig`, `.codespellrc`, `commitlint.config.mjs` | agentic-template |
 | `scripts/doctor.sh` | agentic-template |
+| `scripts/ci/copier-requirements.txt` | agentic-template — the copier pin the drift check installs from; mirrors `uv.lock` (GitHub forge only) |
 | `.github/workflows/template-update.yml`, `.github/workflows/lint.yml` | agentic-template (GitHub forge only) |
 | `.pre-commit-config.yaml` | agentic-template **only** when `agentic_precommit` is `prek`; otherwise not written |
 | `.file-length-allowlist` | seeded once by agentic-template when `agentic_precommit` is `prek`, then owned by the repo |

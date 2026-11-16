@@ -66,6 +66,29 @@ agentic_disambiguate_version:
   default: "0.4.0"
   when: false
 
+# Template-managed like the disambiguate pin (#324): the drift check
+# installs copier from scripts/ci/copier-requirements.txt. An unpinned
+# `uvx copier` takes the newest release on every run, so a copier release
+# could flip the drift verdict with no change on either side. The pin
+# fixes copier and its extension only; their own dependencies still
+# resolve at run time. Mirrors uv.lock, the authoritative side: the
+# template's tests run under that copier, and tests/test_copier_pin.py
+# holds the two equal.
+# DECISION:SCOPE — the update job stays unpinned: it would run the pin of
+# the version being left, and a release needing a newer copier could then
+# never be reached.
+agentic_copier_version:
+  type: str
+  help: "Pinned copier version for the drift check (mirrors uv.lock)."
+  default: "9.15.2"
+  when: false
+
+agentic_copier_template_extensions_version:
+  type: str
+  help: "Pinned copier-template-extensions version, installed alongside copier (mirrors uv.lock)."
+  default: "0.3.3"
+  when: false
+
 agentic_disambiguate_roots:
   type: str
   help: >-

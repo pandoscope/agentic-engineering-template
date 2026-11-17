@@ -22,7 +22,6 @@ The review driver commits the findings file as `reviews/<pass>-<model_tier>/find
 on a new branch `claude/review-<pass>-<model_tier>-pr<n>` of the reviewed repository, and pushes that branch.
 `<n>` is the number of the reviewed pull request.
 The review is finished when that branch exists on the forge.
-The review driver then closes the order's pull request.
 
 The findings file is a JSON object.
 Its field `head` is the commit that the review read, and its field `findings` is the list of findings.

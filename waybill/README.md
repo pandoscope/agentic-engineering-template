@@ -132,14 +132,15 @@ The session's own order is the file `orders/<name>.yml` for the branch `order/<n
 
 An order's pull request is a message to the Routine, and it is never merged.
 The branch `main` therefore holds no order files; the record of a review is its disposition file.
+Pando or the principal places an order; a worker never opens or closes one itself.
 
 - **Open:** the order's pull request is open.
-  The review session is still running, or it ended without a result.
-- **Done:** the review driver has pushed the findings,
-  and has then closed the order's pull request and deleted the order's branch.
-  The review session itself posts nothing on the forge; the review driver acts for it when the session ends.
-- **Abandoned:** the placing session has closed the order's pull request and deleted the order's branch,
-  because the order was wrong or its review session ended without a result.
+  The session is still running, or it ended without a result.
+- **Done:** the order's pull request is closed without merging and its branch is deleted.
+  Until a check closes complete orders (agentic-engineering-template#330),
+  the placing session closes its order once the disposition file is written.
+- **Abandoned:** the placing session has closed the order's pull request and deleted its branch,
+  because the order was wrong or its session ended without a result.
 
 ## Dispositions
 

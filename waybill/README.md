@@ -1,6 +1,6 @@
 # Waybill
 
-This repository holds orders, and the answers to the findings of the reviews that the orders start.
+Sessions use this repository to order reviews and to answer the findings of those reviews.
 An order describes one task that a session carries out on one pull request.
 Today every order asks for a review.
 
@@ -130,11 +130,15 @@ The session's own order is the file `orders/<name>.yml` for the branch `order/<n
 
 ## The lifecycle of an order
 
+An order's pull request is a message to the Routine, and it is never merged.
+The branch `main` therefore holds no order files; the record of a review is its disposition file.
+
 - **Open:** the order's pull request is open.
   A review session is running for it or has ended.
-- **Done:** the placing session has written the order's disposition file and has then merged the order's pull request.
-  The order file on `main` records that the review took place.
-- **Abandoned:** the placing session has closed the order's pull request without merging it, for example because the order was wrong.
+- **Done:** the placing session has written the order's disposition file,
+  and has then closed the order's pull request and deleted the order's branch.
+- **Abandoned:** the placing session has closed the order's pull request and deleted the order's branch without writing a disposition file,
+  for example because the order was wrong.
 
 ## Dispositions
 

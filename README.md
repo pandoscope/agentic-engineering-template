@@ -178,6 +178,7 @@ and the [reinset](docs/glossary/reinset.md) is the set of reins that let the [dr
 - [agentic-engineering-template](docs/glossary/agentic-engineering-template.md)
 - [decision-memory](docs/glossary/decision-memory.md)
 - [decision record](docs/glossary/decision-record.md)
+- [disposition file](docs/glossary/disposition-file.md)
 - [evidence-memory](docs/glossary/evidence-memory.md)
 - [org genome](docs/glossary/org-genome.md)
 - [grilling](docs/glossary/grilling.md)

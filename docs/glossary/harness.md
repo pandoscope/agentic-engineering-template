@@ -8,6 +8,8 @@
 
 An environment that harnesses the _energy_ of a [model](large-language-model.md). A
 **harness** such as Claude Code, Hermes or Codex gives the model tools,
-files and a session.
+files and a session. Some harnesses can also start a session through a
+webhook when an event occurs, such as a pull request opened on the
+forge.
 
 _Avoid_: wrapper

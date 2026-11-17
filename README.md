@@ -179,6 +179,7 @@ what makes them lintable here.
 - [session-memory](docs/glossary/session-memory.md)
 - [template stamp](docs/glossary/template-stamp.md)
 - [pandoscope template](docs/glossary/pandoscope-template.md)
+- [disposition file](docs/glossary/disposition-file.md)
 
 These links live in this repo's own README, which is NOT part of the render —
 so in a generated repo the same terms arrive unlinked and are pruned

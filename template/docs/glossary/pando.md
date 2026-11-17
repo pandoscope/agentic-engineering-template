@@ -6,6 +6,10 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The orchestrator agent — the [principal](principal.md)'s single interface
-(like a ship's First Mate) to an [org](org.md). The principal may run
-concurrent Pando [sessions](agent-session.md).
+**Pando** is the orchestrator [agent](agent.md): the
+[principal](principal.md)'s single interface to an [org](org.md), like a
+ship's First Mate. Every orchestrator session counts as Pando, and the
+principal may run several at once. Only the principal sets the
+orchestrator role; a waybill order or an environment cannot. Pando
+starts other [agent sessions](agent-session.md) only by creating waybill
+orders.

@@ -33,13 +33,20 @@ SHARED_TERMS = frozenset(
         "pando",
         "preference-set",
         "principal",
-        "pando-cell",
+        "pando-worker",
+        "pando-driver",
+        "disposition-file",
+        "pandoscope-tool",
+        "pandoscope",
         "evidence-memory",
         "org-genome",
         "memory-repo",
         "session-memory",
         "record-contract",
         "agent-session",
+        "agent",
+        "harness",
+        "large-language-model",
         "template-stamp",
         "pandoscope-template",
     }
@@ -143,12 +150,15 @@ def test_shared_terms_are_repo_neutral() -> None:
     """Entries must read correctly in every consumer.
 
     `factory` is meta-owned vocabulary that is deliberately NOT promoted,
-    so a shared entry must not reference it.
+    so a shared entry must not reference it. The one exception is the
+    phrase "software factory", which the principal ruled verbatim into
+    the Pandoscope entry (AET!308 design review, decision 69).
     """
     for term in SHARED_TERMS:
         body = (SOURCE_DIR / f"{term}.md").read_text()
         assert body.startswith("## "), f"{term}: entry must open with its H2 name"
-        assert "factory" not in body.lower(), f"{term}: references un-promoted term"
+        prose = body.lower().replace("software factory", "")
+        assert "factory" not in prose, f"{term}: references un-promoted term"
         assert "this repo" not in body.lower(), f"{term}: repo-specific framing"
 
 
@@ -191,7 +201,13 @@ def test_a_stamped_repo_keeps_only_the_shared_terms_it_links(
     glossary = dst_path / "docs" / "glossary"
     survivors = {path.stem for path in glossary.glob("*.md")}
 
-    assert not (survivors & SHARED_TERMS), "unlinked shared terms must be pruned"
+    # AGENTS.md and CLAUDE.md link these three in every stamped repo, so
+    # they never go (skills#201); every other shared term the README
+    # does not link is pruned.
+    always_linked = {"agent", "harness", "large-language-model"}
+    assert survivors & SHARED_TERMS == always_linked, (
+        "unlinked shared terms must be pruned"
+    )
     assert base_answers["agentic_project_slug"] in survivors, (
         "the repo's own seed term never consented and must survive"
     )

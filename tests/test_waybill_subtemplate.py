@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -214,7 +215,23 @@ def test_a_worker_changes_only_the_result_file_in_this_repository(
 
     assert "change only the result file" not in rules
     assert "pushes change no other file" not in readme
-    assert "in this repository it changes only the result file" in readme
+    assert "changes only the result file" in readme
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_worker_commits_and_the_driver_pushes(tmp_path: Path) -> None:
+    """The principal's wording (2026-11-17): the worker commits, the driver pushes to origin."""
+    root = _render_waybill(tmp_path)
+    readme = (root / "README.md").read_text()
+    rules = (root / "AGENTS.md").read_text()
+
+    assert (
+        "A worker commits only to the order's branch, and the driver pushes to origin."
+        in readme
+    )
+    assert "only the result file on the order's branch" in readme
+    assert "pushes only to the order's branch" not in readme
+    assert "push only to the order's branch" not in rules
 
 
 def test_the_disposition_file_term_links_the_shared_glossary(tmp_path: Path) -> None:

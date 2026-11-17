@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -246,6 +247,20 @@ def test_the_principal_rulings_on_closing_pushing_and_validating(
     assert "validates the file on every write of the worker" in readme
     assert "may push its findings to the reviewed repository" in dispositions
     assert "is open" not in dispositions
+
+
+@pytest.mark.xfail(strict=True)
+def test_until_the_check_exists_the_placer_or_the_principal_closes(
+    tmp_path: Path,
+) -> None:
+    """The principal's answer of 2026-11-17 to the interim closer."""
+    root = _render_waybill(tmp_path)
+    readme = (root / "README.md").read_text()
+    rules = (root / "AGENTS.md").read_text()
+
+    assert "the session that placed the order or the principal closes it" in readme
+    assert "open, ask the principal" not in rules
+    assert "until the result check exists is open" not in readme
 
 
 def test_the_disposition_file_term_links_the_shared_glossary(tmp_path: Path) -> None:

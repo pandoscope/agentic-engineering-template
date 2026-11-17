@@ -6,14 +6,14 @@
      auto-prune marker above lets `disambiguate prune` remove this term
      from a repo that never links it. -->
 
-The **Pandoscope tool** is the `pandoscope` command that
-[Pandoscope](pandoscope.md) builds with its own process.
-`pandoscope stamp` [stamps](template-stamp.md) a project's repository
-from the [template](pandoscope-template.md). `pandoscope compose`, the
-composer, runs when an [agent session](agent-session.md) starts: it
-composes the session's instructions from its role and, where a waybill
-order exists, its task from the order. `pandoscope order check`
-validates waybill order files, and the waybill's pull request checks
-run it.
+[Pandoscope](pandoscope.md) uses its own process to build and publish a
+tool as the `pandoscope` package, providing the `pandoscope` command.
+This tool can create a GitHub [organization](org.md) and
+[stamp](template-stamp.md) its repository from Pandoscope's
+[templates](pandoscope-template.md). It provides a composer that tailors
+the context to a [session](agent-session.md)'s role (such as
+orchestrator, implementer, or reviewer) and constructs an autonomous
+software engineering pipeline where [worker](pando-worker.md) agents can
+turn a ticket into a refined implementation that is ready to merge.
 
 _Avoid_: Pandoscope, for the tool

@@ -8,8 +8,9 @@
 
 The **Pandoscope tool** is the `pandoscope` command that
 [Pandoscope](pandoscope.md) builds with its own process.
-`pandoscope stamp` renders the template into a project's repository.
-`pandoscope compose`, the composer, runs when a session starts: it
+`pandoscope stamp` [stamps](template-stamp.md) a project's repository
+from the [template](pandoscope-template.md). `pandoscope compose`, the
+composer, runs when an [agent session](agent-session.md) starts: it
 composes the session's instructions from its role and, where a waybill
 order exists, its task from the order. `pandoscope order check`
 validates waybill order files, and the waybill's pull request checks

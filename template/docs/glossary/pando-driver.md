@@ -9,7 +9,6 @@
 The **Pando driver** is the set of hooks installed into the agent's
 [harness](harness.md) that steers one [agent session](agent-session.md):
 the hooks keep the session's conversation going. A session that a
-Routine starts installs them, and its worker works
-until the driver's checks pass.
+Routine starts installs them and works until the driver's checks pass.
 
 _Avoid_: session model, steering model

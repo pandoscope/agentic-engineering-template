@@ -48,6 +48,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/org.md",
         "docs/glossary/pando.md",
         "docs/glossary/principal.md",
+        "docs/glossary/disposition-file.md",
         "docs/glossary/session-memory.md",
         "docs/glossary/preference-set.md",
         "docs/glossary/record-contract.md",

@@ -38,9 +38,10 @@ Two kinds of pull request are involved:
   The pass `spec-fidelity` checks that the reviewed pull request does what its tickets ask;
   the pass `prose` checks its text against the writing rules.
 - **Model tier:** the family of models that runs a session, such as `opus`.
-- **Result:** the JSON file that a worker's session leaves on the order's branch.
+- **Result:** the JSON file on the order's branch that the driver creates and the worker fills.
 - **Finding:** one fault that a review reports in its result, with its file and line.
-- **Disposition file:** the answers to the findings of one review that ran outside a chain, one entry per finding.
+- **[Disposition file](https://github.com/pandoscope/agentic-engineering-template/blob/main/template/docs/glossary/disposition-file.md):** the answers to the findings of one review that ran outside a chain,
+  one entry per finding, with its owner and its status.
 
 ## An order
 
@@ -83,8 +84,11 @@ tickets:
   It must equal the file's name without `.yml`, or `pandoscope order check` fails.
 - `role`: the worker role, such as `reviewer` or `implementer`.
   An order sets a worker role only; only the principal sets the role orchestrator.
-- `pass` and `model_tier`: the same two values as in the name.
-  A `reviewer` order must set both, and an order of any other role must set neither.
+- `model_tier`: the model tier that runs the session.
+  Every order sets `model_tier`, because each Routine serves one tier; an order without one fails the order check.
+  In a review order it is the same value as in the name.
+- `pass`: the kind of review, the same value as in the name.
+  A `reviewer` order sets it, and an order of any other role sets none.
 - `pull_request`: the reviewed pull request, written `org/repo#n`.
   A review order sets it.
   An implementer order sets none, because the implementer has no pull request when it starts.
@@ -111,14 +115,20 @@ The branch `main` holds it.
 ## The result
 
 The result is a JSON file that a schema defines.
-The driver writes it in two steps, and a session's pushes change no other file:
+The driver and the worker share it:
 
-1. At session start, before the worker gets control, a script records the session's setup:
-   the session id, the role, and the ref of each checkout, with no value that must not leave the session.
-   The driver writes that as the result, marks it incomplete and pushes it at once.
-2. At the end of every session, whatever the outcome, the driver rewrites the result with the session's end state and pushes it as its last act.
+1. At session start, before the worker gets control, the driver creates the file.
+   A script records the session id and the session's setup: the role, and the ref of each checkout,
+   with no value that must not leave the session.
+   The driver marks the file incomplete and pushes it at once.
+2. The worker writes the result's content into the file while it works.
+3. The driver validates the file before every push, and the worker fixes a file that fails.
+   At the end of every session, whatever the outcome, the driver pushes the result as its last act.
+   The driver writes into the file itself only when the worker failed to write it properly: an error message or a state.
 
-What a result holds besides that depends on the role:
+A worker pushes only to the order's branch, and in this repository it changes only the result file.
+
+What the worker writes depends on its role:
 
 - A review's findings live in its result; a reviewer pushes nothing to the reviewed repository.
 - An implementer reads the results on its order's branch and marks each finding as addressed, with its fixup or new commit,
@@ -138,7 +148,7 @@ A check on the order's pull request reads every result the driver pushes.
   The worker fixes it; if that fails, the principal or the orchestrator that placed the chain is told.
 - A complete result: the check validates it against the schema and checks that
   the result's order is the branch's order,
-  the commit the worker read is still the head of the branch it worked on,
+  the commit the worker read is still the head of the pull request it worked on,
   the push changed only the result file,
   every ticket of the order is listed as read,
   every file and commit the result points to exists,
@@ -168,7 +178,8 @@ Two duties are the principal's:
 - Before a Routine starts its first session, the principal checks that the Routine runs a model of its tier.
 - The principal attaches to each Routine every repository that an order may need,
   because a session cannot clone a private repository it was not started with.
-  A session in a cloud environment removes the clones its task does not need.
+  A session in a cloud environment removes the clones its task does not need,
+  and keeps the stores and the checkouts that the hooks read.
 
 ## What the harness hands the session
 
@@ -189,11 +200,14 @@ The branch `main` therefore holds no order files.
   The principal then closes the last order's pull request and deletes its branch.
   What the principal approves is the reviewed and finished work, in its pull request in the repository it belongs to, never an order.
 - **Stuck:** a finding is not signed off after three rounds,
-  or the worker has written nothing to the thread ledger for an hour and no final result is on the order's branch.
-  The principal is told at once, one order at a time.
+  or the worker failed to fix a result that the check failed;
+  the principal or the orchestrator that placed the chain is told at once.
+  An order is also stuck when its worker has written nothing to the thread ledger for an hour and no final result is on the order's branch;
+  the principal is told at once.
+  Stuck orders are reported one at a time.
   A session that dies without pushing its final result is a defect of the chain.
-- **Abandoned:** Pando or the principal closes an order placed by mistake.
-  No order is closed or deleted silently.
+
+No order is closed or deleted silently.
 
 ## Not built yet
 
@@ -205,8 +219,8 @@ These parts do not exist yet:
 - the driver's two writes of the result: pandoscope/skills#278.
 
 Until they exist, a review driver pushes its findings to a branch of the reviewed repository,
-the findings are answered in a disposition file,
-and the session that placed an order closes it once the disposition file is written.
+and the findings are answered in a disposition file.
+Who closes an order until the result check exists is open.
 
 ## Dispositions
 

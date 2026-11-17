@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -163,6 +162,8 @@ def test_the_readmes_keep_the_two_pull_requests_apart(tmp_path: Path) -> None:
         text = (root / relpath).read_text().replace("\n", " ")
         # The owner comment says which one in the same breath.
         text = text.replace("the pull request whose commits wrote the line", "")
+        # Decision 49's own words, qualified in the same breath.
+        text = text.replace("the pull request it worked on", "")
         assert "the pull request" not in text, relpath
 
 
@@ -195,7 +196,6 @@ def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:
     assert all(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", use) for use in uses), uses
 
 
-@pytest.mark.xfail(strict=True)
 def test_every_order_names_a_model_tier(tmp_path: Path) -> None:
     """Each Routine serves one tier, so an order without a tier would start no session."""
     readme = (_render_waybill(tmp_path) / "README.md").read_text()
@@ -204,7 +204,6 @@ def test_every_order_names_a_model_tier(tmp_path: Path) -> None:
     assert "must set neither" not in readme
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_worker_changes_only_the_result_file_in_this_repository(
     tmp_path: Path,
 ) -> None:
@@ -218,7 +217,6 @@ def test_a_worker_changes_only_the_result_file_in_this_repository(
     assert "in this repository it changes only the result file" in readme
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_disposition_file_term_links_the_shared_glossary(tmp_path: Path) -> None:
     readme = (_render_waybill(tmp_path) / "README.md").read_text()
 

@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -233,7 +232,6 @@ def test_a_worker_commits_and_the_driver_pushes(tmp_path: Path) -> None:
     assert "push only to the order's branch" not in rules
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_principal_rulings_on_closing_pushing_and_validating(
     tmp_path: Path,
 ) -> None:

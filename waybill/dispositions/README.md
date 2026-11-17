@@ -23,7 +23,8 @@ entries:
   Today a review driver commits them as `reviews/<pass>-<model_tier>/findings.json`
   on a branch `claude/review-<pass>-<model_tier>-pr<n>` of the reviewed repository;
   that branch name is the driver's own, not the order's `<code><n>`.
-  Whether a review outside a chain may still push to the reviewed repository is open.
+  A review outside a chain may push its findings to the reviewed repository until the driver writes results
+  (pandoscope/skills#278); after that, it writes a result like any other review.
 - `reviewed_head`: the reviewed repository and the commit that the review read.
 - `finding`: the position of the finding in the list of findings, counted from 0.
 

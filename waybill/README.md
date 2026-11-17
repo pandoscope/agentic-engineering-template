@@ -122,7 +122,7 @@ The driver and the worker share it:
    with no value that must not leave the session.
    The driver marks the file incomplete and pushes it at once.
 2. The worker writes the result's content into the file while it works.
-3. The driver validates the file before every push, and the worker fixes a file that fails.
+3. The driver validates the file on every write of the worker and before every push, and the worker fixes a file that fails.
    At the end of every session, whatever the outcome, the driver pushes the result as its last act.
    The driver writes into the file itself only when the worker failed to write it properly: an error message or a state.
 
@@ -208,6 +208,8 @@ The branch `main` therefore holds no order files.
   the principal is told at once.
   Stuck orders are reported one at a time.
   A session that dies without pushing its final result is a defect of the chain.
+- **Abandoned:** Pando or the principal has closed an order placed by mistake,
+  with the reason written in the order's pull request.
 
 No order is closed or deleted silently.
 

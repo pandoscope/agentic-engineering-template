@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -218,7 +217,6 @@ def test_a_worker_changes_only_the_result_file_in_this_repository(
     assert "changes only the result file" in readme
 
 
-@pytest.mark.xfail(strict=True)
 def test_a_worker_commits_and_the_driver_pushes(tmp_path: Path) -> None:
     """The principal's wording (2026-11-17): the worker commits, the driver pushes to origin."""
     root = _render_waybill(tmp_path)

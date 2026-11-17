@@ -126,7 +126,9 @@ The driver and the worker share it:
    At the end of every session, whatever the outcome, the driver pushes the result as its last act.
    The driver writes into the file itself only when the worker failed to write it properly: an error message or a state.
 
-A worker pushes only to the order's branch, and in this repository it changes only the result file.
+A worker commits only to the order's branch, and the driver pushes to origin.
+So in this repository a worker changes only the result file on the order's branch.
+An implementer's code commits are not covered by that limit.
 
 What the worker writes depends on its role:
 

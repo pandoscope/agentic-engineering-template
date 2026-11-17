@@ -1,38 +1,33 @@
-# Dispositions
+# Disposition files
 
-This folder holds one file per order.
-The file is named `<name>.yml`, where `<name>` is the order's name,
-and it has one entry for each finding of that order's review:
+A review that runs outside a chain of orders answers its findings in a disposition file here.
+Inside a chain, the results on the order's branch carry the findings and their answers, and no disposition file is written.
+
+This folder holds one disposition file per such review.
+The file is named `<name>.yml`: the name of the review's order, or a name for the review when no order started it.
+It has one entry for each finding:
 
 ```yaml
 order: review-spec-fidelity-opus-mr4
-findings: <org/repo>@<sha>:<path of findings.json>
+findings: <org/repo>@<sha>:<path of the findings>
 reviewed_head: <org/repo>@<sha>
 entries:
-  - finding: 0             # index into findings.json
+  - finding: 0             # index into the findings
     at: <file>:<line>
     owner: [<org/repo#n>]    # the pull request whose commits wrote the line
     status: open           # or "fixed <org/repo@sha>", or "no-commit: <why>"
     note: "<optional>"
 ```
 
-## Where the findings are
-
-The review driver commits the findings file as `reviews/<pass>-<model_tier>/findings.json`
-on a new branch `claude/review-<pass>-<model_tier>-pr<n>` of the reviewed repository, and pushes that branch.
-`<n>` is the number of the reviewed pull request.
-The review is finished when that branch exists on the forge.
-
-The findings file is a JSON object.
-Its field `head` is the commit that the review read, and its field `findings` is the list of findings.
-
-- `findings`: the reviewed repository, the commit that added the findings file, and the file's path.
-- `reviewed_head`: the reviewed repository and the commit from the findings file's `head`.
-- `finding`: the position of the finding in the list, counted from 0.
+- `findings`: the repository, the commit and the path of the file that holds the review's findings.
+  A review driver that runs outside a chain commits them as `reviews/<pass>-<model_tier>/findings.json`
+  on a branch `claude/review-<pass>-<model_tier>-pr<n>` of the reviewed repository.
+- `reviewed_head`: the reviewed repository and the commit that the review read.
+- `finding`: the position of the finding in the list of findings, counted from 0.
 
 ## Who writes what
 
-- The placing session, which is the session that placed the order, writes the file once the review is finished.
+- The session that started the review writes the disposition file once the findings exist.
   It sets the `owner` of each entry from `git blame` of the reported line at the reviewed head,
   and pushes the file straight to `main` of this repository.
 - The owner of an entry is a pull request.

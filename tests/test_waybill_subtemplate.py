@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -166,7 +165,6 @@ def test_the_readmes_keep_the_two_pull_requests_apart(tmp_path: Path) -> None:
         assert "the pull request" not in text, relpath
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_dispositions_readme_is_for_reviews_outside_a_chain(tmp_path: Path) -> None:
     """Inside a chain the results carry findings and answers; a disposition file is for the rest."""
     text = (_render_waybill(tmp_path) / "dispositions" / "README.md").read_text()
@@ -175,7 +173,6 @@ def test_the_dispositions_readme_is_for_reviews_outside_a_chain(tmp_path: Path) 
     assert "no disposition file is written" in text
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_readme_describes_the_result_and_its_check(tmp_path: Path) -> None:
     """The ruled design of 2026-11-17: a JSON result written twice by the driver,
     and a check that opens the next order and never merges one."""

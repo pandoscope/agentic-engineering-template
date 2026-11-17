@@ -190,6 +190,7 @@ and the [reinset](docs/glossary/reinset.md) is the set of reins that let the [dr
 - [Pando driver](docs/glossary/pando-driver.md)
 - [pando worker](docs/glossary/pando-worker.md)
 - [Pandoscope](docs/glossary/pandoscope.md)
+- [Pandoscope tool](docs/glossary/pandoscope-tool.md)
 - [preference set](docs/glossary/preference-set.md)
 - [principal](docs/glossary/principal.md)
 - [record contract](docs/glossary/record-contract.md)

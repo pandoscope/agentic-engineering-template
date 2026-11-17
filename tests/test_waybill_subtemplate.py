@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -132,6 +133,56 @@ def test_the_dispositions_readme_states_the_format(tmp_path: Path) -> None:
         'status: open           # or "fixed <org/repo@sha>", or "no-commit: <why>"'
         in text
     )
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_readme_describes_every_field_of_the_order_schema(tmp_path: Path) -> None:
+    """A reader fills an order in from the README alone:
+    the name's pattern stands on its own line, and every field the schema knows has an entry."""
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+
+    assert "\n`review-<pass>-<model_tier>-<code><n>`\n" in readme
+    for field in (
+        "id",
+        "role",
+        "pass",
+        "model_tier",
+        "pull_request",
+        "base",
+        "checkouts",
+        "tickets",
+        "result",
+    ):
+        assert f"\n- `{field}`" in readme, field
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_readmes_keep_the_two_pull_requests_apart(tmp_path: Path) -> None:
+    """An order has its own pull request and names the reviewed one.
+    A bare "the pull request" leaves the reader to guess which."""
+    root = _render_waybill(tmp_path)
+    for relpath in ("README.md", "dispositions/README.md"):
+        text = (root / relpath).read_text()
+        assert "the pull request" not in text.replace("\n", " "), relpath
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_dispositions_readme_says_where_the_findings_are(tmp_path: Path) -> None:
+    text = (_render_waybill(tmp_path) / "dispositions" / "README.md").read_text()
+
+    assert "reviews/<pass>-<model_tier>/findings.json" in text
+    assert "claude/review-<pass>-<model_tier>-pr<n>" in text
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:
+    check = (
+        _render_waybill(tmp_path) / ".github" / "workflows" / "order-check.yml"
+    ).read_text()
+
+    uses = re.findall(r"uses: (\S+)", check)
+    assert uses
+    assert all(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", use) for use in uses), uses
 
 
 def test_the_agent_rules_keep_the_waybill_one_way(tmp_path: Path) -> None:

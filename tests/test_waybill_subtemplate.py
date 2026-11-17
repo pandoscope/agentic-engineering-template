@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -192,6 +193,37 @@ def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:
     uses = re.findall(r"uses: (\S+)", check)
     assert uses
     assert all(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", use) for use in uses), uses
+
+
+@pytest.mark.xfail(strict=True)
+def test_every_order_names_a_model_tier(tmp_path: Path) -> None:
+    """Each Routine serves one tier, so an order without a tier would start no session."""
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+
+    assert "Every order sets `model_tier`" in readme
+    assert "must set neither" not in readme
+
+
+@pytest.mark.xfail(strict=True)
+def test_a_worker_changes_only_the_result_file_in_this_repository(
+    tmp_path: Path,
+) -> None:
+    """An implementer commits code, so the limit holds for the waybill only."""
+    root = _render_waybill(tmp_path)
+    readme = (root / "README.md").read_text()
+    rules = (root / "AGENTS.md").read_text()
+
+    assert "change only the result file" not in rules
+    assert "pushes change no other file" not in readme
+    assert "in this repository it changes only the result file" in readme
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_disposition_file_term_links_the_shared_glossary(tmp_path: Path) -> None:
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+
+    assert "template/docs/glossary/disposition-file.md" in readme
+    assert "with its owner and its status" in readme
 
 
 def test_the_agent_rules_keep_the_waybill_one_way(tmp_path: Path) -> None:

@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -165,11 +166,25 @@ def test_the_readmes_keep_the_two_pull_requests_apart(tmp_path: Path) -> None:
         assert "the pull request" not in text, relpath
 
 
-def test_the_dispositions_readme_says_where_the_findings_are(tmp_path: Path) -> None:
+@pytest.mark.xfail(strict=True)
+def test_the_dispositions_readme_is_for_reviews_outside_a_chain(tmp_path: Path) -> None:
+    """Inside a chain the results carry findings and answers; a disposition file is for the rest."""
     text = (_render_waybill(tmp_path) / "dispositions" / "README.md").read_text()
 
-    assert "reviews/<pass>-<model_tier>/findings.json" in text
-    assert "claude/review-<pass>-<model_tier>-pr<n>" in text
+    assert "outside a chain" in text
+    assert "no disposition file is written" in text
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_readme_describes_the_result_and_its_check(tmp_path: Path) -> None:
+    """The ruled design of 2026-11-17: a JSON result written twice by the driver,
+    and a check that opens the next order and never merges one."""
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+
+    assert "## The result\n" in readme
+    assert "## The result check\n" in readme
+    assert "never merged" in readme
+    assert "## Not built yet\n" in readme
 
 
 def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:

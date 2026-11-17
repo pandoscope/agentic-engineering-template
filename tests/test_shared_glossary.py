@@ -148,12 +148,15 @@ def test_shared_terms_are_repo_neutral() -> None:
     """Entries must read correctly in every consumer.
 
     `factory` is meta-owned vocabulary that is deliberately NOT promoted,
-    so a shared entry must not reference it.
+    so a shared entry must not reference it. The one exception is the
+    phrase "software factory", which the principal ruled verbatim into
+    the Pandoscope entry (AET!308 design review, decision 69).
     """
     for term in SHARED_TERMS:
         body = (SOURCE_DIR / f"{term}.md").read_text()
         assert body.startswith("## "), f"{term}: entry must open with its H2 name"
-        assert "factory" not in body.lower(), f"{term}: references un-promoted term"
+        prose = body.lower().replace("software factory", "")
+        assert "factory" not in prose, f"{term}: references un-promoted term"
         assert "this repo" not in body.lower(), f"{term}: repo-specific framing"
 
 

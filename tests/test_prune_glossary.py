@@ -83,13 +83,14 @@ def _prune(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
 
 # The victim is a leaf: no other glossary entry links it, so unlinking it
 # from the README orphans it. Reinset stopped being one when the
-# Pandoscope entry began linking it (skills#201).
+# Pandoscope entry began linking it (skills#201), and pando worker when
+# the pandoscope tool entry did.
 def _unlink_leaf(repo: Path) -> None:
     readme = repo / "README.md"
     lines = readme.read_text(encoding="utf-8").splitlines(keepends=True)
-    kept = [line for line in lines if "docs/glossary/pando-worker.md" not in line]
+    kept = [line for line in lines if "docs/glossary/disposition-file.md" not in line]
     assert len(kept) == len(lines) - 1, (
-        "fixture: README links pando worker exactly once"
+        "fixture: README links disposition file exactly once"
     )
     readme.write_text("".join(kept), encoding="utf-8")
 
@@ -120,8 +121,8 @@ def test_a_consumer_prunes_unlinked_terms_and_reports_them(tmp_path: Path) -> No
 
     assert result.returncode == 0, result.stderr
     assert "removed unlinked term(s)" in result.stdout
-    assert "docs/glossary/pando-worker.md" in result.stdout
-    assert "pando-worker.md" not in _terms(repo)
+    assert "docs/glossary/disposition-file.md" in result.stdout
+    assert "disposition-file.md" not in _terms(repo)
 
 
 def test_the_root_as_committed_survives_its_own_prune(tmp_path: Path) -> None:
@@ -142,9 +143,9 @@ def test_fail_on_removal_names_and_restores_the_term(tmp_path: Path) -> None:
 
     assert result.returncode == 1
     assert "REMOVED TERMS" in result.stderr
-    assert "docs/glossary/pando-worker.md" in result.stderr
+    assert "docs/glossary/disposition-file.md" in result.stderr
     assert "(restored)" in result.stderr
-    assert "pando-worker.md" in _terms(repo), (
+    assert "disposition-file.md" in _terms(repo), (
         "a tracked term the prune removed is put back"
     )
 

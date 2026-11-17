@@ -172,7 +172,7 @@ but it cannot pull a coach on its own, because it has no arms.
 A [harness](docs/glossary/harness.md) lets the horse pull,
 just as an agent harness lets a model act on a computer: read and write files, run commands, call tools.
 The horse in its harness is the [agent](docs/glossary/agent.md),
-and the [reinset](docs/glossary/reinset.md) is the set of reins that let the driver steer it.
+and the [reinset](docs/glossary/reinset.md) is the set of reins that let the [driver](docs/glossary/pando-driver.md) steer it.
 
 - [agent](docs/glossary/agent.md)
 - [agentic-engineering-template](docs/glossary/agentic-engineering-template.md)
@@ -186,6 +186,7 @@ and the [reinset](docs/glossary/reinset.md) is the set of reins that let the dri
 - [memory repo](docs/glossary/memory-repo.md)
 - [org](docs/glossary/org.md)
 - [pando](docs/glossary/pando.md)
+- [Pando driver](docs/glossary/pando-driver.md)
 - [pando worker](docs/glossary/pando-worker.md)
 - [Pandoscope](docs/glossary/pandoscope.md)
 - [preference set](docs/glossary/preference-set.md)

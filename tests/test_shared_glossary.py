@@ -36,6 +36,7 @@ SHARED_TERMS = frozenset(
         "pando-worker",
         "pando-driver",
         "disposition-file",
+        "pandoscope-tool",
         "pandoscope",
         "evidence-memory",
         "org-genome",

@@ -57,6 +57,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/harness.md",
         "docs/glossary/pando-driver.md",
         "docs/glossary/disposition-file.md",
+        "docs/glossary/pandoscope-tool.md",
         "docs/glossary/large-language-model.md",
         "docs/glossary/template-stamp.md",
         "docs/glossary/pandoscope-template.md",

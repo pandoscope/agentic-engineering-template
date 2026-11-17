@@ -224,7 +224,7 @@ These parts do not exist yet:
 
 Until they exist, a review driver pushes its findings to a branch of the reviewed repository,
 and the findings are answered in a disposition file.
-Who closes an order until the result check exists is open.
+Until the result check exists, the session that placed the order or the principal closes it once its findings are answered.
 
 ## Dispositions
 

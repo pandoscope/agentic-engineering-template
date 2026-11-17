@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -249,7 +248,6 @@ def test_the_principal_rulings_on_closing_pushing_and_validating(
     assert "is open" not in dispositions
 
 
-@pytest.mark.xfail(strict=True)
 def test_until_the_check_exists_the_placer_or_the_principal_closes(
     tmp_path: Path,
 ) -> None:

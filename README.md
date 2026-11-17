@@ -166,6 +166,14 @@ Terms this template defines. The shared set under
 generated repo; the copies below are this repo's own stamped output, which is
 what makes them lintable here.
 
+The session terms follow one picture, a horse-drawn coach.
+A [large language model](docs/glossary/large-language-model.md) is the horse: it has all the power,
+but it cannot pull a coach on its own, because it has no arms.
+A [harness](docs/glossary/harness.md) lets the horse pull,
+just as an agent harness lets a model act on a computer: read and write files, run commands, call tools.
+The horse in its harness is the [agent](docs/glossary/agent.md),
+and the [reinset](docs/glossary/reinset.md) is the set of reins that let the driver steer it.
+
 - [agent](docs/glossary/agent.md)
 - [agentic-engineering-template](docs/glossary/agentic-engineering-template.md)
 - [decision-memory](docs/glossary/decision-memory.md)

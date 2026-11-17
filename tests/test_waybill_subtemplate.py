@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -118,7 +117,7 @@ def test_the_readme_states_the_order_contract(tmp_path: Path) -> None:
 
     assert "order/<name>" in readme
     assert "orders/<name>.yml" in readme
-    assert "review-spec-fidelity-opus-<code><n>" in readme
+    assert "review-<pass>-<model_tier>-<code><n>" in readme
     assert "shortcodes.json" in readme
     assert "dispositions/<name>.yml" in readme
     assert "## One way only" in readme
@@ -135,7 +134,6 @@ def test_the_dispositions_readme_states_the_format(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_readme_describes_every_field_of_the_order_schema(tmp_path: Path) -> None:
     """A reader fills an order in from the README alone:
     the name's pattern stands on its own line, and every field the schema knows has an entry."""
@@ -156,17 +154,17 @@ def test_the_readme_describes_every_field_of_the_order_schema(tmp_path: Path) ->
         assert f"\n- `{field}`" in readme, field
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_readmes_keep_the_two_pull_requests_apart(tmp_path: Path) -> None:
     """An order has its own pull request and names the reviewed one.
     A bare "the pull request" leaves the reader to guess which."""
     root = _render_waybill(tmp_path)
     for relpath in ("README.md", "dispositions/README.md"):
-        text = (root / relpath).read_text()
-        assert "the pull request" not in text.replace("\n", " "), relpath
+        text = (root / relpath).read_text().replace("\n", " ")
+        # The owner comment says which one in the same breath.
+        text = text.replace("the pull request whose commits wrote the line", "")
+        assert "the pull request" not in text, relpath
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_dispositions_readme_says_where_the_findings_are(tmp_path: Path) -> None:
     text = (_render_waybill(tmp_path) / "dispositions" / "README.md").read_text()
 
@@ -174,7 +172,6 @@ def test_the_dispositions_readme_says_where_the_findings_are(tmp_path: Path) -> 
     assert "claude/review-<pass>-<model_tier>-pr<n>" in text
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:
     check = (
         _render_waybill(tmp_path) / ".github" / "workflows" / "order-check.yml"

@@ -355,6 +355,25 @@ Add packages using the package manager only, never edit requirements/dependencie
 
 When something fails that automation or an instruction could have prevented — a lint run nobody made, a tool nobody installed, a convention discovered only in review — the fix is incomplete until the prevention is encoded: a hook, a doctor check, or a rule in the template repo's AGENTS.md/skills (preferred, so every generated repo inherits it); [docs/conventions.md](docs/conventions.md) only when it is genuinely repo-local. File the ticket on the owning repo in the same session the failure surfaced. Fixing only the instance guarantees a repeat.
 
+## Learnings
+
+Non-obvious findings about the Pandoscope setup — its hooks, tools and failure modes — go here, tersely,
+when they hold in any harness.
+Findings that hold in one harness only go in that harness's file, such as `CLAUDE.md`.
+
+- Aim a `fixup!` at the last commit that touched its lines;
+  an older target conflicts on folding when later commits changed the same lines.
+- `disambiguate --lint` rejects links that form a cycle between glossary entries, and a term no root links:
+  link a new term from `README.md`, and link each entry only to the terms it builds on.
+{%- if agentic_precommit == 'prek' %}
+- The local commitlint hook rejects `fixup!` headers:
+  run `prek run --all-files`, commit with `--no-verify`, and fold before pushing.
+- `uvx prek` runs `prek` without installing it, so hooks and tests that look for `prek` on `PATH` still miss it:
+  install it with `uv tool install prek`, which `scripts/ensure-prek.sh` does.
+{%- endif %}
+- The thread-ledger heartbeat does not count a pull request created or edited in the turn as an update to its ticket
+  ([skills#254](https://github.com/pandoscope/skills/issues/254)): redeclare the turn with a `--no-update` waiver for it.
+
 ## Project Conventions
 
 Repo-specific rules live in [docs/conventions.md](docs/conventions.md). Copier seeds that file once and never overwrites it — put rich local conventions there, not in this template-owned file.

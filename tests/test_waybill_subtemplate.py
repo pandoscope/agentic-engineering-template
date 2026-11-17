@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 import copier
+import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -230,6 +231,23 @@ def test_a_worker_commits_and_the_driver_pushes(tmp_path: Path) -> None:
     assert "only the result file on the order's branch" in readme
     assert "pushes only to the order's branch" not in readme
     assert "push only to the order's branch" not in rules
+
+
+@pytest.mark.xfail(strict=True)
+def test_the_principal_rulings_on_closing_pushing_and_validating(
+    tmp_path: Path,
+) -> None:
+    """The principal's answers of 2026-11-17: a mistaken order may be closed with a reason,
+    a review outside a chain may push to the reviewed repository,
+    and the driver validates the result on every write of the worker."""
+    root = _render_waybill(tmp_path)
+    readme = (root / "README.md").read_text()
+    dispositions = (root / "dispositions" / "README.md").read_text()
+
+    assert "**Abandoned:**" in readme
+    assert "validates the file on every write of the worker" in readme
+    assert "may push its findings to the reviewed repository" in dispositions
+    assert "is open" not in dispositions
 
 
 def test_the_disposition_file_term_links_the_shared_glossary(tmp_path: Path) -> None:

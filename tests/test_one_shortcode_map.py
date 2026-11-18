@@ -45,17 +45,29 @@ def test_only_the_waybill_seeds_a_shortcode_map(
 def test_the_waybill_seeds_the_map_in_the_format_the_ledger_reads(
     tmp_path: Path, base_answers: dict[str, str]
 ) -> None:
-    """Shortcode to repository under `repos`, empty until the org adds its own;
-    the README and the seed say that every shortcode is lowercase."""
+    """Shortcode to repository under `repos`, empty until the org adds its own.
+    The facts about the map live in the seed's comment, which opens with the
+    warning that the seed is empty on purpose (decisions 126 and 128); the
+    README only links the file."""
     answers = {**base_answers, "agentic_subtemplate": "waybill"}
     root = render_answers(tmp_path, answers, "waybill")
     seed = json.loads((root / "shortcodes.json").read_text())
     assert seed["repos"] == {}
     assert set(seed) == {"_comment", "repos"}
+    comment = seed["_comment"]
+    assert comment.startswith(
+        "Template seed, empty on purpose. Do not add entries here"
+    )
+    assert "the one shortcode map" in comment
+    assert "Every shortcode is lowercase" in comment
+    assert "under repos" in comment
+    assert "The thread ledger reads the same file" in comment
+    assert '"mr": "my-org/my-repo"' in comment
     readme = (root / "README.md").read_text()
-    # Every shortcode is lowercase (decision 122): a name and a reference
-    # in a reply use one spelling.
-    assert "Every shortcode is lowercase" in readme
-    assert "Every shortcode is lowercase" in seed["_comment"]
-    assert '"mr": "my-org/my-repo"' in seed["_comment"]
-    assert "the one shortcode map" in readme
+    assert "[shortcodes.json](shortcodes.json)" in readme
+    for fact in (
+        "Every shortcode is lowercase",
+        "the one shortcode map",
+        "The thread ledger reads the same file",
+    ):
+        assert fact not in readme, fact

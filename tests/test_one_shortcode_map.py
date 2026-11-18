@@ -46,12 +46,16 @@ def test_the_waybill_seeds_the_map_in_the_format_the_ledger_reads(
     tmp_path: Path, base_answers: dict[str, str]
 ) -> None:
     """Shortcode to repository under `repos`, empty until the org adds its own;
-    the README says that a name takes the lowercase form."""
+    the README and the seed say that every shortcode is lowercase."""
     answers = {**base_answers, "agentic_subtemplate": "waybill"}
     root = render_answers(tmp_path, answers, "waybill")
     seed = json.loads((root / "shortcodes.json").read_text())
     assert seed["repos"] == {}
     assert set(seed) == {"_comment", "repos"}
     readme = (root / "README.md").read_text()
-    assert "lowercase form" in readme
+    # Every shortcode is lowercase (decision 122): a name and a reference
+    # in a reply use one spelling.
+    assert "Every shortcode is lowercase" in readme
+    assert "Every shortcode is lowercase" in seed["_comment"]
+    assert '"mr": "my-org/my-repo"' in seed["_comment"]
     assert "the one shortcode map" in readme

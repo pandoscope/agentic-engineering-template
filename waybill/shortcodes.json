@@ -1,4 +1,4 @@
 {
-  "_comment": "The org's one shortcode map (pandoscope/pandoscope#61): shortcode to repository under repos, in the format the thread ledger reads, e.g. \"MR\": \"my-org/my-repo\". An order's name uses the lowercase form, as in review-spec-fidelity-opus-mr4-1. Seeded once and owned by this waybill: the template ships no org's names and never overwrites the org's entries.",
+  "_comment": "The org's one shortcode map (pandoscope/pandoscope#61): shortcode to repository under repos, in the format the thread ledger reads, e.g. \"mr\": \"my-org/my-repo\". Every shortcode is lowercase, so an order's name and a reference in a reply use the same spelling: review-spec-fidelity-opus-mr4-1 and mr#4. Seeded once and owned by this waybill: the template ships no org's names and never overwrites the org's entries.",
   "repos": {}
 }

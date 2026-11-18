@@ -10,7 +10,7 @@ Pando or the principal places the first order of a chain.
 Every order after it is a step of the chain: the result check opens it when the order before it has a complete result.
 Nobody places those orders, and a worker never opens or closes an order itself.
 
-Two kinds of pull request are involved:
+The order's pull request and the reviewed pull request are different pull requests:
 
 - the order's pull request, in this repository, which carries the order file and the result;
 - the reviewed pull request, in the repository the work is for, which a review order names.
@@ -27,7 +27,7 @@ Two kinds of pull request are involved:
 - **Routine:** a routine (taking Claude Code on the web as an example here) is a configuration of a certain harness environment.
   It installs a webhook that listens for an event (such as a pull request opened in this repository)
   and starts a session with the configured environment.
-- **Worker:** the agent, a model in the harness, with a worker role assigned, such as reviewer or implementer.
+- **Worker:** a model in the harness that holds a worker role, such as reviewer or implementer.
   The role decides whether the model may write or only reads and reviews.
   A worker has one task and keeps no threads.
 - **Driver:** the hooks that the Routine's session installs.
@@ -51,29 +51,39 @@ The order is stored in `orders/<name>.yml` and committed on a branch named `orde
 The first word of the name says what kind of order it is.
 The name of a review order follows this pattern:
 
-`review-<pass>-<model_tier>-<code><n>`
+`review-<pass>-<model_tier>-<code><n>-<step>`
+
+The name of an implementer order follows this pattern:
+
+`implement-<model_tier>-<code><n>-<step>`
 
 - `pass`: the kind of review, such as `spec-fidelity` or `prose`.
   One pull request can get several passes, and each pass has its own order.
 - `model_tier`: the model tier that runs the session, such as `opus`.
-- `code`: the reviewed repository's shortcode, as listed in [shortcodes.json](shortcodes.json).
-- `n`: the number of the reviewed pull request.
-  The name needs the shortcode too, because each repository numbers its pull requests from 1.
+- `code`: the shortcode of the subject's repository, exactly as [shortcodes.json](shortcodes.json) lists it.
+- `n`: the number of the order's subject, an issue or pull request.
+  The name needs the shortcode too, because each repository numbers its issues and pull requests from 1.
+- `step`: the number of the order's step in its chain, counted from 1.
+  Orders that run side by side in one step share its number and differ in pass or tier.
+  A repeat run of the same pass and tier in the same step takes a letter after the number, starting with `b`.
 
-For example, `review-spec-fidelity-opus-mr4` orders a spec-fidelity review of `my-org/my-repo#4` on the `opus` tier.
+For example, `review-spec-fidelity-opus-mr4-1` orders a spec-fidelity review of `my-org/my-repo#4` on the `opus` tier,
+and `review-spec-fidelity-opus-mr4-2b` repeats the order `review-spec-fidelity-opus-mr4-2`.
+`implement-opus-mr3-1` orders the first build of the issue `my-org/my-repo#3` on the `opus` tier.
 
 Each Routine picks its orders by branch name.
-An order whose name is off the pattern, or names a tier without a Routine, would start no session,
-so the order check fails such an order.
+A name off its pattern would start no session or the wrong one.
+So would a name that disagrees with the order's role, pass, tier or subject.
+The order check fails such an order and names the part of the name that is off.
 
 ## The order file
 
 ```yaml
-id: review-spec-fidelity-opus-mr4
+id: review-spec-fidelity-opus-mr4-1
 role: reviewer
 pass: spec-fidelity
 model_tier: opus
-pull_request: my-org/my-repo#4
+subject: my-org/my-repo#4
 checkouts:
   pandoscope/skills: main
 tickets:
@@ -85,29 +95,33 @@ tickets:
 - `role`: the worker role, such as `reviewer` or `implementer`.
   An order sets a worker role only; only the principal sets the role orchestrator.
 - `model_tier`: the model tier that runs the session.
-  Every order sets `model_tier`, because each Routine serves one tier; an order without one fails the order check.
+  Every order sets `model_tier`, because each Routine serves one tier.
+  An order without one fails the order check.
   In a review order it is the same value as in the name.
 - `pass`: the kind of review, the same value as in the name.
   A `reviewer` order sets it, and an order of any other role sets none.
-- `pull_request`: the reviewed pull request, written `org/repo#n`.
-  A review order sets it.
-  An implementer order sets none, because the implementer has no pull request when it starts.
-  The composer fetches the head of the reviewed pull request, so its repository needs no entry under `checkouts`.
-- `base`, optional: the branch that the reviewed pull request targets.
+- `subject`: the issue or pull request that the order works on, written `org/repo#n`.
+  The forge numbers the issues and pull requests of a repository in one sequence, so `org/repo#n` names exactly one of them.
+  A review order names the reviewed pull request.
+  An implementer order names an issue for the first build, before any pull request exists.
+  For a fix round, it names the implementer's own pull request.
+  The composer reads the subject from its repository's clone, so that repository needs no entry under `checkouts`.
+- `base`, optional: the branch that the reviewed pull request targets, or that a first build starts from.
   Set it when that branch is not the repository's default branch, as in a stack of pull requests.
 - `checkouts`, optional: one line `org/repo: ref` for each repository that the session must read at a ref other than its default branch.
   The lines are not nested.
   A session-start hook switches the clone of each listed repository to its ref before the composer runs.
   The hook never switches the clone of this repository, which stays at the head of the order's pull request.
-- `tickets`: for a review, the tickets that the reviewed pull request implements, which a review reads as its specification;
-  for an implementer, the ticket to implement.
+- `tickets`: for a review, the tickets that the reviewed pull request implements.
+  A review reads them as its specification.
+  For an implementer, the tickets that the work implements besides an issue named as its subject.
   The driver does not let a session end before it has read every listed ticket.
 - `result`: not used.
   The result is a file on the order's branch, described below.
 
 ### A prose review order
 
-A prose review order sets `pass: prose`, and its branch is `order/review-prose-<model_tier>-<code><n>`.
+A prose review order sets `pass: prose`, and its branch is `order/review-prose-<model_tier>-<code><n>-<step>`.
 It also lists `pandoscope/skills` under `checkouts`, at a ref that holds the folder `original/writing-prose/rules/`.
 The reviewer reads the writing rules from that folder.
 The branch `main` holds it.
@@ -167,15 +181,15 @@ A finding that is not signed off after three rounds makes the order stuck.
 ## The Routines
 
 The principal saves one Routine for each model tier.
-Everything else comes from the order: the role, the pass, the reviewed pull request and the checkouts.
+Everything else comes from the order: the role, the pass, the subject and the checkouts.
 The environment cannot come from the order, so it stays with the Routine:
 the model and the repositories attached.
 
 Each Routine has a filter on the branch of the order's pull request.
-The Routine for the `opus` tier has the filter `order/review-[0-9a-z-]+-opus-.*`,
-so it starts a session for the example order above.
+The Routine for the `opus` tier has the filter `order/[0-9a-z-]+-opus-.*`,
+so it starts a session for every example order above.
 
-Two duties are the principal's:
+The principal has these duties:
 
 - Before a Routine starts its first session, the principal checks that the Routine runs a model of its tier.
 - The principal attaches to each Routine every repository that an order may need,
@@ -208,28 +222,28 @@ The branch `main` therefore holds no order files.
   the principal is told at once.
   Stuck orders are reported one at a time.
   A session that dies without pushing its final result is a defect of the chain.
-- **Abandoned:** Pando or the principal has closed an order placed by mistake,
+- **Abandoned:** Pando or the principal has closed an order that was placed by mistake,
   with the reason written in the order's pull request.
 
 No order is closed or deleted silently.
 
 ## Not built yet
 
-This README states the design that the principal ruled on 2026-11-17.
+This README states the design that the principal ruled on 2026-11-17 and 2026-11-18.
 These parts do not exist yet:
 
-- the result schema, the result check, and the order schema's changes for implementer orders, worker roles and names:
+- the result schema, the result check, and the order schema's changes for worker roles:
   pandoscope/pandoscope#54 and agentic-engineering-template#330;
-- the driver's two writes of the result: pandoscope/skills#278.
+- the driver's writes of the result: pandoscope/skills#278.
 
 Until they exist, a review driver pushes its findings to a branch of the reviewed repository,
-and the findings are answered in a disposition file.
+and the findings are answered in a **disposition file**.
 Until the result check exists, the session that placed the order or the principal closes it once its findings are answered.
 
 ## Dispositions
 
 A review that runs outside a chain has no result on an order's branch.
-Its findings are answered in this repository, in a disposition file `dispositions/<name>.yml`,
+Its findings are answered in this repository, in a **disposition file** `dispositions/<name>.yml`,
 and not in comments on the forge.
 That keeps the record in git, so it does not depend on which forge hosts the repositories.
 [dispositions/README.md](dispositions/README.md) describes the format.
@@ -240,6 +254,6 @@ An order may list a Pandoscope repository under `checkouts`, such as `pandoscope
 A session only reads such a clone.
 
 Nothing goes the other way.
-No session writes one of this org's orders, results, findings or disposition files, or the name of one of this org's repositories, into a Pandoscope repository.
+No session writes one of this org's orders, results, findings or **disposition files**, or the name of one of this org's repositories, into a Pandoscope repository.
 Pandoscope's repositories serve every org that Pandoscope sets up, so they carry no single org's work.
 This is a rule that every session follows; nothing in this repository can enforce it.

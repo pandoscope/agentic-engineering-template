@@ -4,11 +4,11 @@ A review that runs outside a chain of orders answers its findings in a dispositi
 Inside a chain, the results on the order's branch carry the findings and their answers, and no disposition file is written.
 
 This folder holds one disposition file per such review.
-The file is named `<name>.yml`: the name of the review's order, or a name for the review when no order started it.
+Its writer names the file `<name>.yml`: the name of the review's order, or a name for the review when no order started it.
 It has one entry for each finding:
 
 ```yaml
-order: review-spec-fidelity-opus-mr4
+order: review-spec-fidelity-opus-mr4-1
 findings: <org/repo>@<sha>:<path of the findings>
 reviewed_head: <org/repo>@<sha>
 entries:
@@ -23,8 +23,9 @@ entries:
   Today a review driver commits them as `reviews/<pass>-<model_tier>/findings.json`
   on a branch `claude/review-<pass>-<model_tier>-pr<n>` of the reviewed repository;
   that branch name is the driver's own, not the order's `<code><n>`.
-  A review outside a chain may push its findings to the reviewed repository until the driver writes results
-  (pandoscope/skills#278); after that, it writes a result like any other review.
+  A review outside a chain may push its findings to the reviewed repository
+  until the driver writes results (pandoscope/skills#278).
+  After that, the review writes a result like any other review.
 - `reviewed_head`: the reviewed repository and the commit that the review read.
 - `finding`: the position of the finding in the list of findings, counted from 0.
 

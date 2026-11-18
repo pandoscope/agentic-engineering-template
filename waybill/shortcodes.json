@@ -1,3 +1,4 @@
 {
-  "_comment": "Shortcodes the org's order names end in, e.g. \"my-org/my-repo\": \"mr\" for review-spec-fidelity-opus-mr4. Seeded once and owned by this waybill: the template ships no org's names and never overwrites the org's entries."
+  "_comment": "Template seed, empty on purpose. Do not add entries here: each org fills its own copy in its waybill. This file is the one shortcode map of the org (pandoscope/pandoscope#61): it maps each shortcode to its repository under repos, e.g. \"mr\": \"my-org/my-repo\". The thread ledger reads the same file for the references in a session's replies. Every shortcode is lowercase, so an order's name and a reference in a reply use the same spelling: review-spec-fidelity-opus-mr4-1 and mr#4. Seeded once and owned by the waybill: the template ships no org's names and never overwrites the org's entries.",
+  "repos": {}
 }

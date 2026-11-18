@@ -27,4 +27,4 @@ jobs:
           shopt -s nullglob
           files=(orders/*.yml)
           if [ "{% raw %}${#files[@]}{% endraw %}" -eq 0 ]; then echo "no orders"; exit 0; fi
-          uvx pandoscope==0.3.0 order check "${files[@]}"
+          uvx pandoscope==0.4.0 order check "${files[@]}"

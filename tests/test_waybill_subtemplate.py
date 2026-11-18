@@ -1,7 +1,7 @@
 """Render and contract tests for the waybill subtemplate.
 
 Selected by `agentic_subtemplate=waybill`, it stamps an org's ORDER repo:
-the orders whose pull requests fire review sessions,
+the orders whose pull requests start worker sessions,
 the dispositions that answer their findings,
 and the check that validates every order before a session reads it.
 """
@@ -111,13 +111,13 @@ def test_the_waybill_names_no_organisation(tmp_path: Path) -> None:
 
 def test_the_readme_states_the_order_contract(tmp_path: Path) -> None:
     """An order is a branch, a file and a pull request, and its name decides which Routine fires.
-    The name ends in the repo's shortcode and the pull request's number,
-    because every repo numbers its pull requests from 1."""
+    The name holds the subject's shortcode and number before the step,
+    because every repo numbers its issues and pull requests from 1."""
     readme = (_render_waybill(tmp_path) / "README.md").read_text()
 
     assert "order/<name>" in readme
     assert "orders/<name>.yml" in readme
-    assert "review-<pass>-<model_tier>-<code><n>" in readme
+    assert "review-<pass>-<model_tier>-<code><n>-<step>" in readme
     assert "shortcodes.json" in readme
     assert "dispositions/<name>.yml" in readme
     assert "## One way only" in readme
@@ -139,13 +139,13 @@ def test_the_readme_describes_every_field_of_the_order_schema(tmp_path: Path) ->
     the name's pattern stands on its own line, and every field the schema knows has an entry."""
     readme = (_render_waybill(tmp_path) / "README.md").read_text()
 
-    assert "\n`review-<pass>-<model_tier>-<code><n>`\n" in readme
+    assert "\n`review-<pass>-<model_tier>-<code><n>-<step>`\n" in readme
     for field in (
         "id",
         "role",
         "pass",
         "model_tier",
-        "pull_request",
+        "subject",
         "base",
         "checkouts",
         "tickets",
@@ -194,6 +194,54 @@ def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:
     uses = re.findall(r"uses: (\S+)", check)
     assert uses
     assert all(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", use) for use in uses), uses
+
+
+def test_an_order_names_an_issue_or_a_pull_request_as_its_subject(
+    tmp_path: Path,
+) -> None:
+    """One field names the work, before and after a pull request exists
+    (pandoscope/pandoscope#57); the old field has no second spelling."""
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+
+    assert "\nsubject: my-org/my-repo#4\n" in readme
+    assert "pull_request" not in readme
+
+
+def test_the_readme_states_both_name_patterns_and_the_step(tmp_path: Path) -> None:
+    """A review order and an implementer order each have a pattern of their own,
+    and the name ends in the step number, with a letter from `b` for a repeat run
+    (pandoscope/pandoscope#57)."""
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+
+    assert "\n`implement-<model_tier>-<code><n>-<step>`\n" in readme
+    assert "review-spec-fidelity-opus-mr4-1" in readme
+    assert "review-spec-fidelity-opus-mr4-2b" in readme
+    assert "implement-opus-mr3-1" in readme
+    assert "review-spec-fidelity-opus-mr4`" not in readme
+
+
+def test_the_routine_filter_matches_every_order_of_its_tier(tmp_path: Path) -> None:
+    readme = (_render_waybill(tmp_path) / "README.md").read_text()
+    match = re.search(r"the filter `(order/[^`]+)`", readme)
+    assert match, "the README names no Routine filter"
+    pattern = re.compile(match.group(1))
+    for branch in (
+        "order/review-spec-fidelity-opus-mr4-1",
+        "order/review-prose-opus-mr4-2b",
+        "order/implement-opus-mr3-1",
+    ):
+        assert pattern.fullmatch(branch), branch
+    assert not pattern.fullmatch("order/implement-sonnet-mr3-1")
+
+
+def test_the_order_check_runs_the_pandoscope_that_knows_the_subject(
+    tmp_path: Path,
+) -> None:
+    check = (
+        _render_waybill(tmp_path) / ".github" / "workflows" / "order-check.yml"
+    ).read_text()
+
+    assert "uvx pandoscope==0.4.0 order check" in check
 
 
 def test_every_order_names_a_model_tier(tmp_path: Path) -> None:

@@ -14,7 +14,7 @@ agentic_subtemplate:
     and the workflow that reports its ticket closes to the ledger; its
     recorder ships with the thread-ledger skill, not from here;
     `waybill` stamps an org's ORDER repo:
-    the orders that fire review sessions,
+    the orders that start worker sessions,
     the dispositions that answer their findings,
     and the check that validates every order.
     With any store subtemplate, all project-scaffold questions are skipped,

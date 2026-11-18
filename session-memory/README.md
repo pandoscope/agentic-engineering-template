@@ -41,10 +41,6 @@ rejects an entry that claims neither.
   dispatch only, so it may lag the log; the fresh view is the local
   heartbeat render (`LEDGER_RENDER_PATH`). Edits to it are overwritten
   on the next dispatch.
-- `repo-codes.json` — short codes for ticket prefixes in the rendered
-  view. Seeded once and store-owned, because the template ships no
-  org's names; an unmapped repo renders under its own name, so a
-  missing entry is visible rather than silently wrong.
 
 ## How it is written
 

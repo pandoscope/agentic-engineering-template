@@ -42,6 +42,7 @@ SHARED_TERMS = frozenset(
         "agent-session",
         "template-stamp",
         "pandoscope-template",
+        "disposition-file",
     }
 )
 
@@ -195,3 +196,12 @@ def test_a_stamped_repo_keeps_only_the_shared_terms_it_links(
     assert base_answers["agentic_project_slug"] in survivors, (
         "the repo's own seed term never consented and must survive"
     )
+
+
+def test_the_disposition_file_is_a_shared_term() -> None:
+    """Decision 89 (2026-11-17): the entry lives in the template's glossary."""
+    entry = (SOURCE_DIR / "disposition-file.md").read_text()
+
+    assert "disposition-file" in SHARED_TERMS
+    assert "outside a chain" in entry
+    assert "its owner and its status" in entry

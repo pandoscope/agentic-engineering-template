@@ -60,7 +60,10 @@ The name of an implementer order follows this pattern:
 - `pass`: the kind of review, such as `spec-fidelity` or `prose`.
   One pull request can get several passes, and each pass has its own order.
 - `model_tier`: the model tier that runs the session, such as `opus`.
-- `code`: the shortcode of the subject's repository, as listed in [shortcodes.json](shortcodes.json).
+- `code`: the lowercase form of the shortcode of the subject's repository.
+  [shortcodes.json](shortcodes.json) is the one shortcode map of the org.
+  It maps each shortcode to its repository, under `repos`.
+  The thread ledger reads the same file for the references in a session's replies.
 - `n`: the number of the order's subject, an issue or pull request.
   The name needs the shortcode too, because each repository numbers its issues and pull requests from 1.
 - `step`: the number of the order's step in its chain, counted from 1.

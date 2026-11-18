@@ -6,9 +6,8 @@ every reference in a reply, so a second map drifts from the first.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
+from pathlib import Path
 
 import pytest
 import yaml
@@ -32,12 +31,7 @@ def _maps(root: Path) -> set[str]:
 
 @pytest.mark.parametrize(
     "subtemplate",
-    [
-        pytest.param(name, marks=pytest.mark.xfail(strict=True))
-        if name == "session-memory"
-        else name
-        for name in SUBTEMPLATES
-    ],
+    SUBTEMPLATES,
 )
 def test_only_the_waybill_seeds_a_shortcode_map(
     tmp_path: Path, subtemplate: str, base_answers: dict[str, str]
@@ -48,7 +42,6 @@ def test_only_the_waybill_seeds_a_shortcode_map(
     assert _maps(root) == expected
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_waybill_seeds_the_map_in_the_format_the_ledger_reads(
     tmp_path: Path, base_answers: dict[str, str]
 ) -> None:

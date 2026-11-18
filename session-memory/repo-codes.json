@@ -1,3 +1,0 @@
-{
-  "_comment": "Short codes for ticket prefixes in the rendered ledger, e.g. \"my-org/my-repo\": \"MR\". Seeded once and store-owned: the template ships no org's names. An unmapped repo renders under its own name, so a missing entry is visible rather than silently wrong."
-}

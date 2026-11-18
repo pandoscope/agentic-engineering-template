@@ -1,0 +1,233 @@
+{
+  "pr": "pandoscope/agentic-engineering-template#333",
+  "head": "c4d1630ad50039917618777a500af90fbbb2f912",
+  "pass": "prose",
+  "model_tier": "opus",
+  "findings": [
+    {
+      "file": "waybill/dispositions/README.md",
+      "line": 10,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "order: review-spec-fidelity-opus-mr4",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The example disposition file in the dispositions README, which the waybill README links, still names an order without the step, a name form this change removes from every other example."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 113,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "The name ends in the repo's shortcode and the pull request's number,\n    because every repo numbers its pull requests from 1.",
+      "finding_basis": "decided",
+      "confidence": 85,
+      "finding": "The docstring of the updated test_the_readme_states_the_order_contract still says that the name ends in the shortcode and a pull request's number, but the name now ends in the step and its number can be an issue's."
+    },
+    {
+      "file": "waybill/shortcodes.json",
+      "line": 2,
+      "rule": "Erase every mention of a removed feature, and put migration notes in the commit's BREAKING CHANGE footer.",
+      "input": "Shortcodes the org's order names end in, e.g. \"my-org/my-repo\": \"mr\" for review-spec-fidelity-opus-mr4-1.",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "The `_comment` still says that order names end in the shortcode, while its own new example `review-spec-fidelity-opus-mr4-1` ends in the step."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 70,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "and `review-spec-fidelity-opus-mr4-2b` repeats that review in step 2.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The example paragraph says that \"mr4-2b\" repeats the step-1 order mr4-1, but the rule two lines up says a letter marks a repeat within the same step, so \"that review\" points at the wrong order."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 74,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "A name off its pattern, or one that disagrees with the order's role, pass, tier or subject, would start no session or the wrong one.\nSo would a tier without a Routine.\nThe order check fails such an order and names the part of the name that is off.",
+      "finding_basis": "judged",
+      "confidence": 70,
+      "finding": "This paragraph packs two failure conditions and two outcomes into one clause, then hangs \"So would\" and \"such an order\" on that bundle, even though a tier without a Routine starts no session (never the wrong one) and has no off part of the name to report."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 97,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "Every order sets `model_tier`, because each Routine serves one tier; an order without one fails the order check.",
+      "finding_basis": "judged",
+      "confidence": 65,
+      "finding": "The `model_tier` entry joins three facts in one sentence: the field is required, the reason, and the check's verdict."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 114,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "for a review, the tickets that the reviewed pull request implements, which a review reads as its specification;\n  for an implementer, the tickets that the work implements besides an issue named as its subject.",
+      "finding_basis": "judged",
+      "confidence": 60,
+      "finding": "The `tickets` entry is one sentence that holds two role cases, a nested relative clause and the \"besides an issue named as its subject\" exception."
+    },
+    {
+      "file": "copier.yml",
+      "line": 16,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "the orders that fire review sessions,",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The subtemplate help text restates what orders do as \"fire review sessions\", which became wrong once the README let an order start an implementer."
+    },
+    {
+      "file": "tests/test_waybill_subtemplate.py",
+      "line": 1,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "the orders whose pull requests fire review sessions,",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The module docstring restates the order's purpose as starting review sessions only, which this change makes false."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 230,
+      "rule": "Keep each fact in one place and reference it from everywhere else, and let a declared copy name its source and update path.",
+      "input": "This README states the design that the principal ruled on 2026-11-17.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The \"Not built yet\" paragraph dates the whole README to the rulings of 2026-11-17, but the README now also states the rulings of 2026-11-18 from pandoscope/pandoscope#57 (subject, tier on every order, the step), so the restated date has drifted."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 102,
+      "rule": "Make every \"the X\" and \"its\" point to something named in the current or previous sentence.",
+      "input": "An implementer order names an issue for the first build, before any pull request exists,\n  and its pull request for a fix round.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "In the `subject` entry, \"its pull request\" resolves to either the issue or the implementer order, and neither owns the pull request that a fix round names."
+    },
+    {
+      "file": "docs/glossary/disposition-file.md",
+      "line": 9,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "The answers to the findings of one review that ran outside a chain of\norders: one entry per finding, with its owner and its status. Inside\na chain, the results on the order's branch carry the findings and\ntheir answers, and no disposition file is written.",
+      "finding_basis": "decided",
+      "confidence": 65,
+      "finding": "The new definition paragraph wraps at a fixed width, so its lines break mid-phrase and mid-sentence instead of at sentence or clause boundaries."
+    },
+    {
+      "file": "template/docs/glossary/disposition-file.md",
+      "line": 9,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "The answers to the findings of one review that ran outside a chain of\norders: one entry per finding, with its owner and its status. Inside\na chain, the results on the order's branch carry the findings and\ntheir answers, and no disposition file is written.",
+      "finding_basis": "decided",
+      "confidence": 65,
+      "finding": "The new definition paragraph wraps at a fixed width, so its lines break mid-phrase and mid-sentence instead of at sentence or clause boundaries."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 13,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "Two kinds of pull request are involved:",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The lead-in counts the list that follows it."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 190,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "Two duties are the principal's:",
+      "finding_basis": "decided",
+      "confidence": 75,
+      "finding": "The lead-in counts the list that follows it."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 235,
+      "rule": "Link a fact maintained elsewhere instead of restating it as a count, a far position or a section name, and drop a count that the list after it states, while adjacency words stay fine.",
+      "input": "the driver's two writes of the result: pandoscope/skills#278.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The list item restates as a count the driver's writes, which \"The result\" section and pandoscope/skills#278 maintain."
+    },
+    {
+      "file": "waybill/dispositions/README.md",
+      "line": 22,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "A review outside a chain may push its findings to the reviewed repository until the driver writes results\n  (pandoscope/skills#278); after that, it writes a result like any other review.",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The `findings` entry joins the interim permission, its end condition and the later behaviour in one sentence. The later behaviour \"writes a result like any other review\" also clashes with the README's \"A review that runs outside a chain has no result on an order's branch.\""
+    },
+    {
+      "file": "waybill/dispositions/README.md",
+      "line": 23,
+      "rule": "Break new or rewritten prose at sentence or clause boundaries, one per line.",
+      "input": "Today a review driver commits them as `reviews/<pass>-<model_tier>/findings.json`\n  on a branch `claude/review-<pass>-<model_tier>-pr<n>` of the reviewed repository;",
+      "finding_basis": "judged",
+      "confidence": 55,
+      "finding": "The sentence breaks between the verb's object and its place adverbial, inside one clause."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 237,
+      "rule": "Link the first mention of a glossary term, bold every later mention that means the term, and leave the everyday word unmarked.",
+      "input": "and the findings are answered in a disposition file.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "After the linked first mention in Terms, later mentions of the glossary term \"disposition file\" (here, and in \"Dispositions\" and \"One way only\") are left unbolded."
+    },
+    {
+      "file": "waybill/dispositions/README.md",
+      "line": 7,
+      "rule": "Make the actor the subject, and keep config, fields and files as objects.",
+      "input": "The file is named `<name>.yml`: the name of the review's order, or a name for the review when no order started it.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The file is the subject of a passive verb, and the session that names it stays unnamed."
+    },
+    {
+      "file": "waybill/AGENTS.md",
+      "line": 4,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "A worker never opens or closes an order: the result check does, but the principal closes a chain's last order.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The entry chains a prohibition, its owner and an exception through a colon and a \"but\" in one sentence."
+    },
+    {
+      "file": "waybill/AGENTS.md",
+      "line": 5,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "Driver creates the result at start (incomplete) and validates and pushes it; worker writes its content and fixes a file that fails validation.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The entry packs five actions of two actors into one sentence with a parenthetical."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 27,
+      "rule": "Cut hedging, signposting and meta-commentary.",
+      "input": "a routine (taking Claude Code on the web as an example here) is a configuration of a certain harness environment.",
+      "finding_basis": "judged",
+      "confidence": 50,
+      "finding": "The Routine term carries a meta-commentary parenthetical and the vague \"a certain harness environment\" instead of naming the example harness directly."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 223,
+      "rule": "Open a relative clause with \"that\" or \"which\", or give it a sentence of its own.",
+      "input": "Pando or the principal has closed an order placed by mistake,\n  with the reason written in the order's pull request.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The Abandoned entry uses two reduced relative clauses (\"placed by mistake\", \"written in\") without \"that\" or \"which\"."
+    },
+    {
+      "file": "waybill/README.md",
+      "line": 30,
+      "rule": "Put one fact in each clause, since more sentences are fine and denser ones are not.",
+      "input": "the agent, a model in the harness, with a worker role assigned, such as reviewer or implementer.",
+      "finding_basis": "judged",
+      "confidence": 45,
+      "finding": "The Worker definition stacks an appositive, a participle phrase and an example list in one clause."
+    }
+  ]
+}

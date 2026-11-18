@@ -1,7 +1,7 @@
 """Render and contract tests for the waybill subtemplate.
 
 Selected by `agentic_subtemplate=waybill`, it stamps an org's ORDER repo:
-the orders whose pull requests fire review sessions,
+the orders whose pull requests start worker sessions,
 the dispositions that answer their findings,
 and the check that validates every order before a session reads it.
 """
@@ -111,8 +111,8 @@ def test_the_waybill_names_no_organisation(tmp_path: Path) -> None:
 
 def test_the_readme_states_the_order_contract(tmp_path: Path) -> None:
     """An order is a branch, a file and a pull request, and its name decides which Routine fires.
-    The name ends in the repo's shortcode and the pull request's number,
-    because every repo numbers its pull requests from 1."""
+    The name holds the subject's shortcode and number before the step,
+    because every repo numbers its issues and pull requests from 1."""
     readme = (_render_waybill(tmp_path) / "README.md").read_text()
 
     assert "order/<name>" in readme

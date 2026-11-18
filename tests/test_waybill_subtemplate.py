@@ -12,7 +12,6 @@ import re
 from pathlib import Path
 
 import copier
-import pytest
 import yaml
 
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -110,7 +109,6 @@ def test_the_waybill_names_no_organisation(tmp_path: Path) -> None:
         assert owners <= ALLOWED_OWNERS, f"{relpath} names {owners - ALLOWED_OWNERS}"
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_readme_states_the_order_contract(tmp_path: Path) -> None:
     """An order is a branch, a file and a pull request, and its name decides which Routine fires.
     The name ends in the repo's shortcode and the pull request's number,
@@ -136,7 +134,6 @@ def test_the_dispositions_readme_states_the_format(tmp_path: Path) -> None:
     )
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_readme_describes_every_field_of_the_order_schema(tmp_path: Path) -> None:
     """A reader fills an order in from the README alone:
     the name's pattern stands on its own line, and every field the schema knows has an entry."""
@@ -199,7 +196,6 @@ def test_the_order_check_pins_its_actions_to_commits(tmp_path: Path) -> None:
     assert all(re.fullmatch(r"[\w./-]+@[0-9a-f]{40}", use) for use in uses), uses
 
 
-@pytest.mark.xfail(strict=True)
 def test_an_order_names_an_issue_or_a_pull_request_as_its_subject(
     tmp_path: Path,
 ) -> None:
@@ -211,7 +207,6 @@ def test_an_order_names_an_issue_or_a_pull_request_as_its_subject(
     assert "pull_request" not in readme
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_readme_states_both_name_patterns_and_the_step(tmp_path: Path) -> None:
     """A review order and an implementer order each have a pattern of their own,
     and the name ends in the step number, with a letter from `b` for a repeat run
@@ -225,7 +220,6 @@ def test_the_readme_states_both_name_patterns_and_the_step(tmp_path: Path) -> No
     assert "review-spec-fidelity-opus-mr4`" not in readme
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_routine_filter_matches_every_order_of_its_tier(tmp_path: Path) -> None:
     readme = (_render_waybill(tmp_path) / "README.md").read_text()
     match = re.search(r"the filter `(order/[^`]+)`", readme)
@@ -240,7 +234,6 @@ def test_the_routine_filter_matches_every_order_of_its_tier(tmp_path: Path) -> N
     assert not pattern.fullmatch("order/implement-sonnet-mr3-1")
 
 
-@pytest.mark.xfail(strict=True)
 def test_the_order_check_runs_the_pandoscope_that_knows_the_subject(
     tmp_path: Path,
 ) -> None:

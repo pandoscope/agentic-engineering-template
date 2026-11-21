@@ -2,9 +2,6 @@
 value on any surface a PR publishes (#189).
 """
 
-import os
-import subprocess
-
 from tests.gate_support import (
     ROOT,
     gate_leaks,
@@ -168,16 +165,14 @@ def test_leaks_job_rides_the_gate_everywhere():
         ), path
 
 
-BLOCKLIST_HOOK_ENTRY = (
-    'bash -c \'p=$(printf %s "${PUSH_BLOCKLIST:-}" | tr -d "\\r\\n" | '
-    'sed "s/=[^|]*//g;s/||*/|/g;s/^|//;s/|$//"); '
-    '[ -z "$p" ] || ! grep -IilE -- "$p" "$@"\' --'
-)
+BLOCKLIST_HOOK = "scripts/check-push-blocklist.sh"
 
 
 def test_prek_carries_gitleaks_and_the_blocklist_hook():
     """Layer 1 of #189: the local gate in every rendered repo, and in
-    this repo's own (deliberately divergent) config too."""
+    this repo's own (deliberately divergent) config too — gitleaks for
+    credentials, and the identity script at all three stages (#313;
+    its behavior lives in tests/test_push_blocklist_hook.py)."""
     template = (
         ROOT
         / "template"
@@ -187,75 +182,10 @@ def test_prek_carries_gitleaks_and_the_blocklist_hook():
     for config in (template, own):
         assert "https://github.com/gitleaks/gitleaks" in config
         assert "rev: v8.30.1" in config
-        assert BLOCKLIST_HOOK_ENTRY in config
-
-
-def run_blocklist_hook(tmp_path, content, blocklist):
-    """The push-blocklist hook's script, invoked as prek invokes it."""
-    script = BLOCKLIST_HOOK_ENTRY[len("bash -c '") : -len("' --")]
-    target = tmp_path / "staged.md"
-    target.write_text(content)
-    return subprocess.run(
-        ["bash", "-c", script, "--", str(target)],
-        env={"PATH": os.environ["PATH"], "PUSH_BLOCKLIST": blocklist},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-
-
-def test_blocklist_hook_catches_a_planted_value_and_passes_clean(tmp_path):
-    """#104 acceptance: a planted fixture value is caught; the hook
-    prints only the offending FILENAME (grep -l), never the matched
-    line — the terminal transcript may itself be shared."""
-    hit = run_blocklist_hook(tmp_path, "contact ALICE@example.org", "alice|bob")
-    assert hit.returncode == 1
-    assert hit.stdout.strip() == str(tmp_path / "staged.md")
-    clean = run_blocklist_hook(tmp_path, "nothing to see", "alice|bob")
-    assert clean.returncode == 0
-    unset = run_blocklist_hook(tmp_path, "alice everywhere", "")
-    assert unset.returncode == 0
-
-
-def test_blocklist_hook_tolerates_editor_added_newlines_and_stray_pipes(tmp_path):
-    """The secret material comes from an editor-saved file, and editors
-    add a final newline for good reason. A raw newline (or a doubled or
-    dangling pipe) would put an EMPTY alternative into the grep pattern,
-    which matches every file — so the hook normalizes the pattern
-    instead of demanding a newline-free file."""
-    for messy in ("alice|bob\n", "alice||bob", "|alice|bob|", "alice|bob\r\n"):
-        clean = run_blocklist_hook(tmp_path, "nothing to see", messy)
-        assert clean.returncode == 0, f"blocklist {messy!r} false-positived"
-        hit = run_blocklist_hook(tmp_path, "contact alice today", messy)
-        assert hit.returncode == 1, f"blocklist {messy!r} missed a real hit"
-    only_noise = run_blocklist_hook(tmp_path, "anything", "|\n")
-    assert only_noise.returncode == 0
-
-
-def test_blocklist_hook_also_gates_the_commit_message(tmp_path):
-    """Commit messages auto-publish on push with no approval step, so
-    the local gate covers them too: a second hook with the same entry
-    at the commit-msg stage, where git hands it the message file. The
-    functional path is the same entry already proven above; this pins
-    the wiring in both prek configs."""
-    template = (
-        ROOT
-        / "template"
-        / "{% if agentic_precommit == 'prek' %}.pre-commit-config.yaml{% endif %}.jinja"
-    ).read_text()
-    own = (ROOT / ".pre-commit-config.yaml").read_text()
-    for config in (template, own):
+        for mode in ("--files", "--message", "--push"):
+            assert f"entry: {BLOCKLIST_HOOK} {mode}" in config
         _, tail = config.split("id: push-blocklist-msg", 1)
         assert "stages: [commit-msg]" in tail.split("- id:")[0]
-        assert config.count(BLOCKLIST_HOOK_ENTRY) == 2
-
-
-def test_blocklist_hook_matches_the_value_not_its_placeholder_label(tmp_path):
-    """`value=pb:name` entries: the label is metadata, never a pattern —
-    a file merely MENTIONING the placeholder must pass, and the value
-    still fails."""
-    labeled = "alice=pb:old-account|bob"
-    hit = run_blocklist_hook(tmp_path, "alice was here", labeled)
-    assert hit.returncode == 1
-    mention = run_blocklist_hook(tmp_path, "scrubbed to pb:old-account", labeled)
-    assert mention.returncode == 0
+        _, tail = config.split("id: push-blocklist-push", 1)
+        assert "stages: [pre-push]" in tail.split("- id:")[0]
+        assert "PUSH_BLOCKLIST:-" not in config, "no inline hook left"

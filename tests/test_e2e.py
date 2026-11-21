@@ -56,6 +56,7 @@ COMMON_FILES = frozenset(
         "docs/glossary/pandoscope-template.md",
         "scripts/check-branch-name.sh",
         "scripts/check-linear-history.sh",
+        "scripts/check-push-blocklist.sh",
         "scripts/check_file_length.py",
         "scripts/enable-agent-shims.sh",
         "skills-lock.json",

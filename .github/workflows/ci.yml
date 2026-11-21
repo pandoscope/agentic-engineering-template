@@ -58,8 +58,15 @@ jobs:
           uv tool install prek
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
         shell: bash
+      # PUSH_BLOCKLIST_OFF (#313): the identity hook would fail here
+      # without the blocklist, and a fork PR gets no secret. Every
+      # surface this checkout publishes is already scanned server-side
+      # — the leaks gate on the PR, payload-scan on tracker items, the
+      # audit over history — so this job runs without the identity hook.
       - run: prek run --all-files --show-diff-on-failure
         shell: bash
+        env:
+          PUSH_BLOCKLIST_OFF: "1"
 
   template-route:
     # The route guard where it actually bites. prek hooks run only in

@@ -167,6 +167,9 @@ def test_audit_workflow_is_stamped_daily_self_scoped_and_pinned():
         assert PINNED_SHA in text, path
         assert "--issue-comments" in text, path
         assert "--pr-comments" in text, path
+        # #314: the Actions token cannot answer trufflehog's user lookup.
+        assert "--token" not in text, path
+        assert "--log-level=0" in text, path
         assert "secrets.PUSH_BLOCKLIST" in text, path
         assert "runs-on: {{ agentic_actions_runner }}" in text, path
         assert "trufflehog-detectors.sh" in text, path

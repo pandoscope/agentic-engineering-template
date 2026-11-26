@@ -30,6 +30,28 @@ def reference_keywords() -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+_GLOSSARY_DIR = (
+    Path(__file__).resolve().parent.parent / "template" / "docs" / "glossary"
+)
+
+
+def shared_glossary_terms() -> list[tuple[str, str]]:
+    """The vendored glossary terms as ``(slug, display name)``, sorted by slug.
+
+    One source of truth (#256): the seeded README indexes every shared
+    term so the post-stamp prune reaches them, and the index is read from
+    the glossary directory at render time rather than kept as a second
+    list that would drift the moment a term is added or renamed. The
+    display name is the term file's first heading; the project's own
+    term is a jinja file and is linked by the template directly.
+    """
+    terms: list[tuple[str, str]] = []
+    for path in sorted(_GLOSSARY_DIR.glob("*.md")):
+        heading = path.read_text(encoding="utf-8").splitlines()[0]
+        terms.append((path.stem, heading.lstrip("#").strip()))
+    return terms
+
+
 def _git_remote_url() -> str | None:
     try:
         result = subprocess.run(
@@ -90,3 +112,4 @@ class AgenticExtension(Extension):
         environment.globals["detect_forge"] = detect_forge
         environment.globals["resolve_repo_owner"] = resolve_repo_owner
         environment.globals["reference_keywords"] = reference_keywords
+        environment.globals["shared_glossary_terms"] = shared_glossary_terms

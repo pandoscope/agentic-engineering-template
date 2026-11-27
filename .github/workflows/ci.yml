@@ -126,10 +126,14 @@ jobs:
             --data agentic_merge_approvers=actions-user
           )
 
+          # Stamp into a git work tree, as a real first stamp does: the
+          # copy's tasks (glossary prune, drift baseline) run from the
+          # repo's top level and do nothing outside one, which left the
+          # update to seed .drift-baseline.json as an untracked file.
+          git init -q "$fixture_dir"
           uv run copier copy --trust --defaults --vcs-ref ci-conflict-check \
             "${data[@]}" "$template_dir" "$fixture_dir"
 
-          git -C "$fixture_dir" init -q
           git -C "$fixture_dir" add -A
           git -C "$fixture_dir" commit -qm "chore: generated fixture"
 
